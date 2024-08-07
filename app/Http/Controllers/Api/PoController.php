@@ -707,6 +707,7 @@ class PoController extends Controller
         $no_rr = $request->no_rr;
         $user = Auth()->user()->id;
         $po_cancel = POTransaction::where("id", $id)
+            ->with("order")
             ->get()
             ->first();
 

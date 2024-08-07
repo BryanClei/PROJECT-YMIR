@@ -24,11 +24,7 @@ class ImportRequest extends FormRequest
     public function rules()
     {
         return [
-            "*.name" => [
-                "required",
-                "unique:account_title_units,name",
-                "distinct",
-            ],
+            "*.name" => ["required", "unique:account_titles,name", "distinct"],
             "*.code" => [
                 "required",
                 "string",
@@ -37,29 +33,29 @@ class ImportRequest extends FormRequest
                         $this->route()->account_title
                     : "unique:account_titles,code",
             ],
-            "*.account_type_id" => [
+            "*.account_type" => [
                 "required",
-                "exists:account_types,id,deleted_at,NULL",
+                "exists:account_types,name,deleted_at,NULL",
             ],
-            "*.account_group_id" => [
+            "*.account_group" => [
                 "required",
-                "exists:account_groups,id,deleted_at,NULL",
+                "exists:account_groups,name,deleted_at,NULL",
             ],
-            "*.account_sub_group_id" => [
+            "*.account_sub_group" => [
                 "required",
-                "exists:account_sub_groups,id,deleted_at,NULL",
+                "exists:account_sub_groups,name,deleted_at,NULL",
             ],
-            "*.financial_statement_id" => [
+            "*.financial_statement" => [
                 "required",
-                "exists:account_financial_statement,id,deleted_at,NULL",
+                "exists:account_financial_statement,name,deleted_at,NULL",
             ],
-            "*.normal_balance_id" => [
+            "*.normal_balance" => [
                 "required",
-                "exists:account_normal_balance,id,deleted_at,NULL",
+                "exists:account_normal_balance,name,deleted_at,NULL",
             ],
-            "*.account_title_unit_id" => [
+            "*.account_title_unit" => [
                 "required",
-                "exists:account_title_units,id,deleted_at,NULL",
+                "exists:account_title_units,name,deleted_at,NULL",
             ],
         ];
     }

@@ -25,8 +25,10 @@ class ImportRequest extends FormRequest
     {
         return [
             "*.code" => ["unique:items,code", "distinct"],
-            "*.uom_id" => ["exists:uoms,name,deleted_at,NULL"],
-            "*.category_id" => ["exists:categories,name,deleted_at,NULL"],
+            "*.type" => ["exists:types,name,deleted_at,NULL"],
+            "*.uom" => ["exists:uoms,name,deleted_at,NULL"],
+            "*.category" => ["exists:categories,name,deleted_at,NULL"],
+            "*.warehouse" => ["exists:warehouse,name,deleted_at,NULL"],
         ];
     }
 
@@ -34,17 +36,19 @@ class ImportRequest extends FormRequest
     {
         return [
             "*.code" => "code",
-            "*.uom_id" => "uom",
-            "*.category_id" => "category",
+            "*.type" => "type",
+            "*.uom" => "uom",
+            "*.category" => "category",
+            "*.warehouse" => "warehouse",
         ];
     }
 
     public function message()
     {
         return [
-            "unique" => ":Attribute is already been taken.",
-            "distinct" => ":Attribute has duplicate value.",
-            "exists" => ":Attribute is not exists.",
+            "unique" => "This :Attribute is already been taken.",
+            "distinct" => "This :Attribute has duplicate value.",
+            "exists" => "This :Attribute is not exists.",
         ];
     }
 }

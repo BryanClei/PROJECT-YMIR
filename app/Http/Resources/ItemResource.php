@@ -23,7 +23,7 @@ class ItemResource extends JsonResource
                 "id" => $this->uom->id,
                 "name" => $this->uom->name,
                 "code" => $this->uom->code,
-                "is_integer" => $this->uom->is_integer
+                "is_integer" => $this->uom->is_integer,
             ],
             "category" => [
                 "id" => $this->category->id,
@@ -32,8 +32,9 @@ class ItemResource extends JsonResource
             ],
             "type" => [
                 "id" => $this->types->id,
-                "name" => $this->types->name
+                "name" => $this->types->name,
             ],
+            "warehouse_id" => new WarehouseResource($this->warehouse),
             "updated_at" => $this->updated_at,
             "deleted_at" => $this->deleted_at,
         ];

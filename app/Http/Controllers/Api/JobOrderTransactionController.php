@@ -68,16 +68,16 @@ class JobOrderTransactionController extends Controller
         $latest_pr = JobOrderTransaction::where(
             "jo_year_number_id",
             "like",
-            $current_year . "-%"
+            $current_year . "-P-%"
         )
-            ->orderBy("jo_year_number_id", "desc")
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(jo_year_number_id, '-', -1) AS UNSIGNED) DESC"
+            )
             ->first();
 
         if ($latest_pr) {
-            $latest_number = intval(
-                explode("-", $latest_pr->jo_year_number_id)[1]
-            );
-            $new_number = $latest_number + 1;
+            $latest_number = explode("-", $latest_pr->jo_year_number_id)[2];
+            $new_number = (int) $latest_number + 1;
         } else {
             $new_number = 1;
         }

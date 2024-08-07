@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Uom;
+use App\Models\Type;
 use App\Models\Items;
 use App\Response\Message;
 use App\Models\Categories;
@@ -20,9 +21,10 @@ class ItemController extends Controller
     {
         $status = $request->status;
 
-        $item = Items::with('types', 'uom')->when($status === "inactive", function ($query) {
-            $query->onlyTrashed();
-        })
+        $item = Items::with("types", "uom")
+            ->when($status === "inactive", function ($query) {
+                $query->onlyTrashed();
+            })
             ->useFilters()
             ->orderByDesc("updated_at")
             ->dynamicPaginate();
@@ -36,8 +38,8 @@ class ItemController extends Controller
         ItemResource::collection($item);
         return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
 
-//        $item_collect = ItemResource::collection($item);
-//        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item_collect);
+        //        $item_collect = ItemResource::collection($item);
+        //        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item_collect);
     }
 
     public function store(StoreRequest $request)
@@ -48,7 +50,7 @@ class ItemController extends Controller
             "uom_id" => $request->uom_id,
             "category_id" => $request->category_id,
             "type" => $request->type,
-            "warehouse_id" => $request->warehouse_id
+            "warehouse_id" => $request->warehouse_id,
         ]);
 
         $item_collect = new ItemResource($item);
@@ -71,6 +73,7 @@ class ItemController extends Controller
             "uom_id" => $request->uom_id,
             "category_id" => $request->category_id,
             "type" => $request->type,
+            "warehouse_id" => $request->warehouse_id,
         ]);
 
         $item_collect = new ItemResource($item);
@@ -105,6 +108,7 @@ class ItemController extends Controller
         }
         return GlobalFunction::responseFunction($message, $item);
     }
+
     public function import(ImportRequest $request)
     {
         $import = $request->all();
@@ -112,15 +116,21 @@ class ItemController extends Controller
         foreach ($import as $index) {
             $uom = $index["uom"];
             $category = $index["category"];
+            $warehouse = $index["warehouse"];
+            $type = $index["type"];
 
             $uom_id = Uom::where("name", $uom)->first();
+            $type_id = Type::where("name", $type)->first();
+            $warehouse_id = Warehouse::where("name", $warehouse)->first();
             $category_id = Categories::where("name", $category)->first();
 
             $department = Items::create([
                 "name" => $index["name"],
                 "code" => $index["code"],
+                "type" => $type->id,
                 "uom_id" => $uom_id->id,
                 "category_id" => $category_id->id,
+                "warehouse_id" => $warehouse->id,
             ]);
         }
 

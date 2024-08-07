@@ -21,7 +21,7 @@ class Items extends Model
         "uom_id",
         "category_id",
         "type",
-        "warehouse",
+        "warehouse_id",
     ];
     protected $hidden = ["created_at"];
 
@@ -36,5 +36,10 @@ class Items extends Model
     public function types()
     {
         return $this->belongsTo(Type::class, "type", "id");
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
     }
 }

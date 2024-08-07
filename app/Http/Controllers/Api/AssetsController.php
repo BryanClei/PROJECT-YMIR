@@ -20,8 +20,8 @@ class AssetsController extends Controller
         $status = $request->status;
 
         $asset = Assets::when($status === "inactive", function ($query) {
-                $query->onlyTrashed();
-            })
+            $query->onlyTrashed();
+        })
 
             ->useFilters()
             ->orderByDesc("updated_at")
@@ -33,17 +33,14 @@ class AssetsController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
         new AssetsResource($asset);
-        return GlobalFunction::responseFunction(
-            Message::ASSET_DISPLAY,
-            $asset
-        );
+        return GlobalFunction::responseFunction(Message::ASSET_DISPLAY, $asset);
     }
 
-    public function store(StoreRequest $request){
-
+    public function store(StoreRequest $request)
+    {
         $asset = Assets::create([
             "name" => $request->name,
-            "tag_number" => $request->tag_number
+            "tag_number" => $request->tag_number,
         ]);
 
         $asset_collect = new AssetsResource($asset);
@@ -65,10 +62,7 @@ class AssetsController extends Controller
             "tag_number" => $request->tag_number,
         ]);
 
-        return GlobalFunction::responseFunction(
-            Message::ASSET_UPDATE,
-            $asset
-        );
+        return GlobalFunction::responseFunction(Message::ASSET_UPDATE, $asset);
     }
 
     public function destroy($id)
