@@ -37,10 +37,11 @@ class Message
     const PURCHASE_ORDER_SAVE = "Purchase order successfully save.";
     const JOB_ORDER_SAVE = "Job order successfully save.";
     const CATEGORIES_SAVE = "Category successfully save.";
-    const UPLOAD_SUCCESSFUL = "Upload successfully save";
-    const NO_FILE_UPLOAD = "PR successfully created. No file uploaded";
+    const UPLOAD_SUCCESSFUL = "Upload successfully save.";
+    const NO_FILE_UPLOAD = "PR successfully created. No file uploaded.";
     const ASSET_SAVE = "Asset save successfully.";
-    const RR_SAVE = "Received Receipt successfully save";
+    const RR_SAVE = "Received Receipt successfully save.";
+    const ALLOWABLE_SAVE = "Allowable percentage successfully save.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -74,6 +75,7 @@ class Message
     const RR_DISPLAY = "Received Receipt display successfully.";
     const DISPLAY_COUNT = "Count display successfully.";
     const DISPLAY_LOG_HISTORY = "Log history display successfully.";
+    const DISPLAY_ALLOWABLE = "Allowable percentage display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -107,6 +109,9 @@ class Message
     const RESUBMITTED_PO = "Purchase order successfully resubmitted.";
     const BUYER_TAGGED = "Buyer tagged successfully.";
     const BUYER_UPDATED = "Buyer updated succesfully.";
+    const RR_CANCELLATION = "RR transaction cancelled successfully";
+    const ALLOWABLE_UPDATE = "Allowable percentage update successfully.";
+    const REMARKS_UPDATE = "Remarks updated successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";

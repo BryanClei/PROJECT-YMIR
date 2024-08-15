@@ -72,7 +72,7 @@ class PRTransactionController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_request = AssetsTransaction::with("order", "approver_history")
-            ->where("module_name", "Assets")
+            ->where("module_name", "Asset")
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -94,15 +94,12 @@ class PRTransactionController extends Controller
     {
         $user_id = Auth()->user()->id;
 
-        if ($request->boolean("for_po_only")) {
-            $for_po_id = $user_id;
-            $date_today = Carbon::now()
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
                 ->timeZone("Asia/Manila")
-                ->format("Y-m-d H:i");
-        } else {
-            $for_po_id = null;
-            $date_today = null;
-        }
+                ->format("Y-m-d H:i")
+            : null;
 
         $orders = $request->order;
 
@@ -124,7 +121,7 @@ class PRTransactionController extends Controller
             $new_number = 1;
         }
 
-        $latest_pr_number = PRTransaction::max("pr_number") ?? 0;
+        $latest_pr_number = PRTransaction::max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;
 
         $pr_year_number_id =
@@ -257,9 +254,6 @@ class PRTransactionController extends Controller
             $new_number = 1;
         }
 
-        $latest_pr_number = PRTransaction::max("pr_number") ?? 0;
-        $pr_number = $latest_pr_number + 1;
-
         foreach ($assets as $sync) {
             $pr_year_number_id =
                 $current_year .
@@ -272,13 +266,13 @@ class PRTransactionController extends Controller
 
             $purchase_request = new PRTransaction([
                 "pr_year_number_id" => $pr_year_number_id,
-                "pr_number" => $pr_number,
+                "pr_number" => $sync["pr_number"],
                 "transaction_no" => $sync["transaction_number"],
                 "pr_description" => $sync["pr_description"],
                 "date_needed" => $sync["date_needed"],
                 "user_id" => $sync["vrid"],
                 "type_id" => $type_id->id,
-                "type_name" => $type_id->name,
+                "type_name" => $sync["module_name"],
                 "business_unit_id" => $sync["business_unit_id"],
                 "business_unit_name" => $sync["business_unit_name"],
                 "company_id" => $sync["company_id"],
@@ -293,7 +287,7 @@ class PRTransactionController extends Controller
                 "sub_unit_name" => $sync["sub_unit_name"],
                 "account_title_id" => $sync["account_title_id"],
                 "account_title_name" => $sync["account_title_name"],
-                "module_name" => $type_id->name,
+                "module_name" => $sync["module_name"],
                 "transaction_number" => $sync["transaction_number"],
                 "status" => "Approved",
                 // "asset" => $sync["asset"],
@@ -333,7 +327,6 @@ class PRTransactionController extends Controller
                 ]);
             }
             $new_number++;
-            $pr_number++;
 
             // $approver_settings = ApproverSettings::where(
             //     "company_id",
@@ -627,44 +620,93 @@ class PRTransactionController extends Controller
 
     public function store_multiple(UploadRequest $request, $id)
     {
+        $items = $request->input("items");
         $files = $request->file("files");
+
+        $type = $request->input("type");
+
+        $selector = $type == "pr" ? "pr" : "po";
+
         $uploadedFiles = [];
 
-        if (!$files) {
-            $message = Message::NO_FILE_UPLOAD;
-            return GlobalFunction::uploadfailed($message, $files);
-        }
+        foreach (range(0, $items - 1) as $itemIndex) {
+            if (isset($files[$itemIndex])) {
+                foreach ($files[$itemIndex] as $fileIndex => $file) {
+                    if (!$file->isValid()) {
+                        continue;
+                    }
 
-        $successCount = 0;
-        foreach ($files as $file) {
-            if (!$file->isValid()) {
-                continue;
-            }
+                    $filename =
+                        $selector .
+                        "_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
+                        "." .
+                        $file->getClientOriginalExtension();
+                    $stored = Storage::putFileAs(
+                        "public/attachment",
+                        $file,
+                        $filename
+                    );
 
-            $name_with_extension = $file->getClientOriginalName();
-            $name = pathinfo($name_with_extension, PATHINFO_FILENAME);
-            $extension = $file->getClientOriginalExtension();
-
-            $filename =
-                $name . "_" . $id . "_" . ++$successCount . "." . $extension;
-
-            $stored = Storage::putFileAs("public/attachment", $file, $filename);
-
-            if ($stored) {
-                $uploadedFiles[] = $filename;
-                continue;
-            } else {
-                $message = "Failed to store file: $filename";
-                return GlobalFunction::uploadfailed($message, $files); // This should return the JsonResponse directly
+                    if ($stored) {
+                        $uploadedFiles[] = [
+                            "filename" => $filename,
+                            "filepath" => "public/attachment/{$filename}",
+                            "url" => url(
+                                "storage/public/attachment/{$filename}"
+                            ),
+                        ];
+                    } else {
+                        $message = "Failed to store file: {$filename}";
+                        return GlobalFunction::uploadfailed($message, $files);
+                    }
+                }
             }
         }
 
         $message = Message::UPLOAD_SUCCESSFUL;
-        $response = GlobalFunction::stored($message);
-        $responseData = $response->getData(true);
-        $responseData["uploaded_files"] = $uploadedFiles;
-        return response()->json($responseData, $response->getStatusCode());
+        return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
     }
+
+    // public function store_multiple(UploadRequest $request, $id)
+    // {
+    //     $files = $request->file("files");
+    //     $uploadedFiles = [];
+
+    //     if (!$files) {
+    //         $message = Message::NO_FILE_UPLOAD;
+    //         return GlobalFunction::uploadfailed($message, $files);
+    //     }
+
+    //     $successCount = 0;
+    //     foreach ($files as $file) {
+    //         if (!$file->isValid()) {
+    //             continue;
+    //         }
+
+    //         $name_with_extension = $file->getClientOriginalName();
+    //         $name = pathinfo($name_with_extension, PATHINFO_FILENAME);
+    //         $extension = $file->getClientOriginalExtension();
+
+    //         $filename =
+    //             $name . "_" . $id . "_" . ++$successCount . "." . $extension;
+
+    //         $stored = Storage::putFileAs("public/attachment", $file, $filename);
+
+    //         if ($stored) {
+    //             $uploadedFiles[] = $filename;
+    //             continue;
+    //         } else {
+    //             $message = "Failed to store file: $filename";
+    //             return GlobalFunction::uploadfailed($message, $files);
+    //         }
+    //     }
+
+    //     $message = Message::UPLOAD_SUCCESSFUL;
+    //     $response = GlobalFunction::stored($message);
+    //     $responseData = $response->getData(true);
+    //     $responseData["uploaded_files"] = $uploadedFiles;
+    //     return response()->json($responseData, $response->getStatusCode());
+    // }
 
     public function download($filename)
     {
@@ -761,91 +803,28 @@ class PRTransactionController extends Controller
     {
         $user = Auth()->user()->id;
 
-        $user_id = User::where("id", $user)
-            ->get()
-            ->first();
-
-        $pr_id = PrHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("pr_id");
-        $layer = PrHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
-
         $pr_inventoriables_count = PRTransaction::where(
             "type_name",
             "Inventoriable"
         )
-            ->whereIn("id", $pr_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
+            ->where("status", "Pending")
+            ->orWhere("status", "For Approval")
             ->count();
         $pr_expense_count = PRTransaction::where("type_name", "expense")
-            ->whereIn("id", $pr_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
+            ->where("status", "Pending")
+            ->orWhere("status", "For Approval")
             ->count();
         $pr_assets_count = PRTransaction::where("type_name", "asset")
-            ->whereIn("id", $pr_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
+            ->where("status", "Pending")
+            ->orWhere("status", "For Approval")
             ->count();
-
-        $user_id = User::where("id", $user)
-            ->get()
-            ->first();
-
-        $jo_id = JobHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("jo_id");
-        $layer = JobHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
 
         $pr_job_order_count = JobOrderTransaction::where(
             "type_name",
             "Job Order"
         )
-            ->whereIn("id", $jo_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
+            ->where("status", "Pending")
+            ->orWhere("status", "For Approval")
             ->count();
 
         $result = [

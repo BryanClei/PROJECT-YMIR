@@ -53,6 +53,7 @@ class RRSyncDisplay extends JsonResource
         });
 
         return [
+            "remarks" => $this->po_description,
             "pr_number" => $this->pr_number,
             "transaction_no" => $this->pr_transaction->transaction_no,
             "po_number" => $this->id,

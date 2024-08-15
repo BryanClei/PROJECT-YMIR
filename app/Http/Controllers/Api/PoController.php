@@ -26,6 +26,7 @@ use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
+use App\Http\Resources\PoItemResource;
 use App\Http\Requests\JoPo\StoreRequest;
 
 class PoController extends Controller
@@ -107,7 +108,14 @@ class PoController extends Controller
 
         $orders = $request->order;
 
-        $if_exist = PRTransaction::where("id", $request->pr_number)->get();
+        if ($request->module_name === "Asset") {
+            $if_exist = PRTransaction::where(
+                "pr_number",
+                $request->pr_number
+            )->get();
+        } else {
+            $if_exist = PRTransaction::where("id", $request->pr_number)->get();
+        }
 
         if ($if_exist->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -155,6 +163,18 @@ class PoController extends Controller
         $purchase_order->save();
 
         foreach ($orders as $index => $values) {
+            if ($purchase_order->module_name === "Asset") {
+                $remark = [
+                    "description" =>
+                        $request["order"][$index]["remarks_description"],
+                    "quantity" => $request["order"][$index]["remarks_quantity"],
+                ];
+
+                $remarks = json_encode([$remark]);
+            } else {
+                $remarks = $request["order"][$index]["remarks"];
+            }
+
             POItems::create([
                 "po_id" => $purchase_order->id,
                 "pr_id" => $purchase_order->pr_number,
@@ -173,7 +193,7 @@ class PoController extends Controller
                 "attachment" => $request["order"][$index]["attachment"],
                 "buyer_id" => $request["order"][$index]["buyer_id"],
                 "buyer_name" => $request["order"][$index]["buyer_name"],
-                "remarks" => $request["order"][$index]["remarks"],
+                "remarks" => $remarks,
                 "warehouse_id" => $request["order"][$index]["warehouse_id"],
             ]);
         }
@@ -843,5 +863,55 @@ class PoController extends Controller
             Message::DISPLAY_COUNT,
             $result
         );
+    }
+
+    public function update_remarks(Request $request, $id)
+    {
+        $po_item = POItems::find($id);
+
+        if (!$po_item) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $remarks = json_decode($po_item->remarks, true);
+
+        if ($request->has("indices")) {
+            $indices = $request["indices"];
+            $remarks_descriptions = $request["remarks_descriptions"];
+            $remarks_quantities = $request["remarks_quantities"];
+
+            foreach ($indices as $key => $index) {
+                $remarks[0]["description"][$index] =
+                    $remarks_descriptions[$key];
+                $remarks[0]["quantity"][$index] = $remarks_quantities[$key];
+            }
+        }
+
+        if ($request->has(["new_description", "new_quantity"])) {
+            foreach ($request["new_description"] as $key => $value) {
+                $remarks[0]["description"][] = $value;
+                $remarks[0]["quantity"][] = $request["new_quantity"][$key];
+            }
+        }
+
+        if ($request->has("delete_indices")) {
+            $delete_indices = $request["delete_indices"];
+            foreach ($delete_indices as $index) {
+                unset($remarks[0]["description"][$index]);
+                unset($remarks[0]["quantity"][$index]);
+            }
+            $remarks[0]["description"] = array_values(
+                $remarks[0]["description"]
+            );
+            $remarks[0]["quantity"] = array_values($remarks[0]["quantity"]);
+        }
+
+        $po_item->remarks = json_encode($remarks);
+
+        $po_item->save();
+
+        $po_collect = new PoItemResource($po_item);
+
+        return GlobalFunction::save(Message::REMARKS_UPDATE, $po_collect);
     }
 }

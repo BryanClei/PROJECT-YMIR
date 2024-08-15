@@ -24,9 +24,11 @@ class UploadRequest extends FormRequest
     public function rules()
     {
         return [
-            "files" => "nullable|array|min:1",
-            "files.*" => [
-                "nullable",
+            "items" => "required|min:1",
+            "files.*" => "array",
+            "files.*.*" => [
+                "required",
+                "file",
                 "max:25000",
                 function ($attribute, $value, $fail) {
                     $extension = strtolower(

@@ -21,16 +21,16 @@ class RRResource extends JsonResource
             "po_number" => $this->po_id,
             "tagging_id" => $this->tagging_id,
             "user" => [
-                "id" => $this->pr_transaction->users->id,
+                "id" => $this->po_transaction->users->id,
                 "name" =>
-                    $this->pr_transaction->users->first_name .
+                    $this->po_transaction->users->first_name .
                     " " .
-                    $this->pr_transaction->users->middle_name .
+                    $this->po_transaction->users->middle_name .
                     " " .
-                    $this->pr_transaction->users->last_name,
+                    $this->po_transaction->users->last_name,
             ],
-            "request_type" => $this->pr_transaction->module_name,
-            "description" => $this->pr_transaction->pr_description,
+            "request_type" => $this->po_transaction->module_name,
+            "description" => $this->po_transaction->pr_description,
             "order" => RROrdersResource::collection($this->rr_orders),
         ];
     }

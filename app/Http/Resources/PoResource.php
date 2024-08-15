@@ -18,6 +18,7 @@ class PoResource extends JsonResource
     {
         return [
             "id" => $this->id,
+            "pr_year_number_id" => $this->pr_transaction->pr_year_number_id,
             "po_number" => $this->po_number,
             "pr_number" => $this->pr_number,
             "po_description" => $this->po_description,

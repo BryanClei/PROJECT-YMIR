@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\AllowablePercentage;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PoItemResource extends JsonResource
@@ -23,6 +24,10 @@ class PoItemResource extends JsonResource
                 "id" => $this->item_id,
                 "name" => $this->item_name,
                 "code" => $this->item_code,
+                "allowable" => $this->items->allowable ?? null,
+                "allowable_percentage" => new AllowablePercentageResource(
+                    AllowablePercentage::first()
+                ),
             ],
             "uom" => $this->uom_id,
             "price" => $this->price,
@@ -37,7 +42,7 @@ class PoItemResource extends JsonResource
             "attachments" => $this->attachment,
             "buyer_id" => $this->buyer_id,
             "buyer_name" => $this->buyer_name,
-            "remarks" => $this->remarks,
+            "remarks" => json_decode($this->remarks, true),
             "updated_at" => $this->updated_at,
         ];
     }

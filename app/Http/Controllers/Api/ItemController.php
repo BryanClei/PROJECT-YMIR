@@ -51,6 +51,7 @@ class ItemController extends Controller
             "category_id" => $request->category_id,
             "type" => $request->type,
             "warehouse_id" => $request->warehouse_id,
+            "allowable" => $request->allowable,
         ]);
 
         $item_collect = new ItemResource($item);
@@ -74,6 +75,7 @@ class ItemController extends Controller
             "category_id" => $request->category_id,
             "type" => $request->type,
             "warehouse_id" => $request->warehouse_id,
+            "allowable" => $request->allowable,
         ]);
 
         $item_collect = new ItemResource($item);
@@ -123,6 +125,7 @@ class ItemController extends Controller
             $type_id = Type::where("name", $type)->first();
             $warehouse_id = Warehouse::where("name", $warehouse)->first();
             $category_id = Categories::where("name", $category)->first();
+            $allowable = Allowable::first();
 
             $department = Items::create([
                 "name" => $index["name"],
@@ -131,6 +134,7 @@ class ItemController extends Controller
                 "uom_id" => $uom_id->id,
                 "category_id" => $category_id->id,
                 "warehouse_id" => $warehouse->id,
+                "allowable" => $allowable,
             ]);
         }
 

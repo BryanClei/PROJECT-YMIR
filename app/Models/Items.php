@@ -22,6 +22,7 @@ class Items extends Model
         "category_id",
         "type",
         "warehouse_id",
+        "allowable",
     ];
     protected $hidden = ["created_at"];
 

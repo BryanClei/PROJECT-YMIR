@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\SupplierController;
+use App\Http\Controllers\Api\AllowableController;
 use App\Http\Controllers\Api\FinancialController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Controllers\Api\CategoriesController;
@@ -241,6 +242,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "buyer",
     ]);
     Route::apiResource("pr_transaction", PRTransactionController::class);
+    Route::patch("update_remarks/{id}", [
+        PoController::class,
+        "update_remarks",
+    ]);
     Route::get("po_badges", [PoController::class, "po_badge"]);
     Route::patch("po_transaction/resubmit/{id}", [
         PoController::class,
@@ -421,12 +426,14 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::apiResource("buyer", BuyerController::class);
 
+    Route::patch("cancel_rr/{id}", [
+        RRTransactionController::class,
+        "cancel_rr",
+    ]);
     Route::get("log_history", [RRTransactionController::class, "logs"]);
     Route::get("reports_pr", [RRTransactionController::class, "report_pr"]);
-    Route::get("reports_po", [
-        RRTransactionController::class,
-        "index_po_approved",
-    ]);
+    Route::get("reports_po", [RRTransactionController::class, "report_po"]);
+    Route::get("reports_rr", [RRTransactionController::class, "report_rr"]);
     Route::get("approved_po/po_to_rr_display", [
         RRTransactionController::class,
         "index_po_approved",
@@ -459,5 +466,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "job_order_report_transaction",
         JORRTransactionController::class
     );
+
+    Route::apiResource("allowable_percentage", AllowableController::class);
 });
 Route::post("login", [UserController::class, "login"]);

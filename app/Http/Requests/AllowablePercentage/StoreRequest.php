@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Requests\ReceivedReceipt;
+namespace App\Http\Requests\AllowablePercentage;
 
-use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreRequest extends FormRequest
@@ -25,15 +24,7 @@ class StoreRequest extends FormRequest
     public function rules()
     {
         return [
-            "po_no" => [
-                "required",
-                "exists:po_transactions,id,deleted_at,NULL",
-            ],
-            "order" => [
-                "tagging_id" => "required",
-                "delivery_date" => "required",
-                "rr_date" => "required",
-            ],
+            "value" => "required",
         ];
     }
 }

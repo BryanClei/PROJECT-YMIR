@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\POItems;
+use App\Models\PRItems;
 use App\Models\RROrders;
 use App\Response\Message;
 use App\Models\LogHistory;
@@ -77,6 +78,24 @@ class RRTransactionController extends Controller
         $po_id = $request->po_no;
         $po_transaction = POTransaction::where("id", $po_id)->first();
         $new_add = $request->new_or_add_to_receipt;
+
+        $po_transaction->module_name;
+
+        if ($po_transaction->module_name == "Asset") {
+            $pr_id_exists = PRTransaction::where(
+                "pr_number",
+                $request->pr_no
+            )->exists();
+        } else {
+            $pr_id_exists = PRTransaction::where(
+                "id",
+                $request->pr_no
+            )->exists();
+        }
+
+        if (!$pr_id_exists) {
+            return GlobalFunction::invalid(Message::NOT_FOUND);
+        }
 
         $po_transaction->pr_number;
         $orders = $request->order;
@@ -291,7 +310,7 @@ class RRTransactionController extends Controller
             "rr_transaction.rr_orders",
             "order",
         ])
-            ->where("module_name", "Assets")
+            ->where("module_name", "Asset")
             ->whereHas("rr_transaction")
             ->orderByDesc("updated_at")
             ->useFilters()
@@ -365,6 +384,105 @@ class RRTransactionController extends Controller
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
             $purchase_order
+        );
+    }
+
+    public function report_po(Request $request)
+    {
+        $po_items = POItems::with(
+            "uom",
+            "po_transaction.users",
+            "po_transaction.pr_transaction",
+            "po_transaction",
+            "po_transaction.rr_transaction",
+            "po_transaction.rr_transaction.rr_orders"
+        )
+            ->useFilters()
+            ->dynamicPaginate();
+
+        $is_empty = $po_items->isEmpty();
+
+        if ($is_empty) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_DISPLAY,
+            $po_items
+        );
+
+        // $purchase_order = POTransaction::with("order", "approver_history")
+        //     ->useFilters()
+        //     ->dynamicPaginate();
+
+        // $is_empty = $purchase_order->isEmpty();
+
+        // if ($is_empty) {
+        //     return GlobalFunction::notFound(Message::NOT_FOUND);
+        // }
+        // PoResource::collection($purchase_order);
+
+        // return GlobalFunction::responseFunction(
+        //     Message::PURCHASE_REQUEST_DISPLAY,
+        //     $purchase_order
+        // );
+    }
+
+    public function report_rr()
+    {
+        $rr_orders = RROrders::with(
+            "rr_transaction",
+            "rr_transaction.pr_transaction",
+            "rr_transaction.po_transaction"
+        )
+            ->useFilters()
+            ->dynamicPaginate();
+
+        $is_empty = $rr_orders->isEmpty();
+
+        if ($is_empty) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $rr_orders
+        );
+    }
+
+    public function cancel_rr($id)
+    {
+        $rr_transaction = RRTransaction::where("id", $id)
+            ->with("rr_orders", "po_order")
+            ->get()
+            ->first();
+
+        if (!$rr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $po_orders = $rr_transaction->rr_orders->pluck("item_id")->toArray();
+
+        $po_items = POItems::whereIn("id", $po_orders)->get();
+
+        foreach ($rr_transaction->rr_orders as $rr_order) {
+            $po_item = $po_items->where("id", $rr_order->item_id)->first();
+
+            if ($po_item) {
+                $po_item->quantity_serve -= $rr_order->quantity_receive;
+                $po_item->save();
+            }
+
+            $rr_order->delete();
+        }
+
+        $cancelled_rr_transaction = $rr_transaction;
+
+        $rr_transaction->delete();
+
+        return GlobalFunction::responseFunction(
+            Message::RR_CANCELLATION,
+            $cancelled_rr_transaction
         );
     }
 }

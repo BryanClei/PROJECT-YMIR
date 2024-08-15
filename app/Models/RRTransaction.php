@@ -45,7 +45,7 @@ class RRTransaction extends Model
     public function pr_transaction()
     {
         return $this->belongsTo(
-            PRTransaction::class,
+            PrTransaction::class,
             "pr_id",
             "id"
         )->withTrashed();

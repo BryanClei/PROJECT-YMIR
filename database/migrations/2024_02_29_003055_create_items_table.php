@@ -28,7 +28,8 @@ return new class extends Migration {
                 ->references("id")
                 ->on("categories");
             $table->string("type");
-            $table->string("warehouse")->nullable();
+            $table->integer("warehouse_id")->nullable();
+            $table->integer("allowable");
             $table->timestamps();
             $table->softDeletes();
         });

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use Carbon\Carbon;
 use App\Models\User;
+use App\Models\PoHistory;
 use App\Models\PrHistory;
 use App\Response\Message;
 use App\Models\JobHistory;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use App\Models\PRTransaction;
 use App\Models\ApproverSettings;
 use App\Functions\GlobalFunction;
+use App\Models\ApproverDashboard;
 use App\Models\PrApproverExpense;
 use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
@@ -556,11 +558,42 @@ class PrApproverController extends Controller
             ->whereNull("rejected_at")
             ->count();
 
+        $po_id = PoHistory::where("approver_id", $user)
+            ->get()
+            ->pluck("po_id");
+        $po_layer = PoHistory::where("approver_id", $user)
+            ->get()
+            ->pluck("layer");
+
+        $po_transaction = ApproverDashboard::whereIn("id", $po_id)
+            ->whereIn("layer", $po_layer)
+            ->where(function ($query) {
+                $query
+                    ->where("status", "Pending")
+                    ->orWhere("status", "For Approval");
+            })
+            ->whereNull("voided_at")
+            ->whereNull("cancelled_at")
+            ->whereNull("rejected_at")
+            ->whereHas("approver_history", function ($query) {
+                $query->whereNull("approved_at");
+            })
+            ->count();
+
+        $jo_po_id = JoPoHistory::where("approver_id", $user_id->id)
+            ->get()
+            ->pluck("jo_po_id");
+        $jo_layer = JoPoHistory::where("approver_id", $user_id)
+            ->get()
+            ->pluck("layer");
+
         $result = [
             "expense_count" => $Expense,
             "inventoriables" => $Inventoriables,
             "assets" => $Assets,
             "job_orders" => $jo_approvers,
+            "po_transaction" => $po_transaction,
+            // "jo_po_transaction" => $jo_po_transaction,
         ];
 
         return GlobalFunction::responseFunction(

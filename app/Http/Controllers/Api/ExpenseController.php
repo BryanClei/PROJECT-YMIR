@@ -86,7 +86,7 @@ class ExpenseController extends Controller
             $new_number = 1;
         }
 
-        $latest_pr_number = PRTransaction::max("pr_number") ?? 0;
+        $latest_pr_number = PRTransaction::max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;
 
         $pr_year_number_id =

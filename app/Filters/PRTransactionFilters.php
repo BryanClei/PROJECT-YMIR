@@ -99,8 +99,8 @@ class PRTransactionFilters extends QueryFilters
                         $query->whereNotNull("approved_at");
                     });
             })
-            ->when($status === "return_pr", function ($query) {
-                $query->where("status", "Return")->where("user_id", $user_id);
+            ->when($status === "return_pr", function ($query) use ($user_id) {
+                $query->where("status", "Return");
             });
     }
 }

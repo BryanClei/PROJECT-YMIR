@@ -69,21 +69,23 @@ class GlobalFunction
         );
     }
 
-    public static function uploadfailed($message, $result = [])
+    public static function uploadSuccessful($message, $uploadedFiles)
     {
         return response()->json(
             [
                 "message" => $message,
-                "filename" => $result,
+                "uploaded_files" => $uploadedFiles,
             ],
+            Message::SUCESS_STATUS
         );
     }
 
-    public static function displayfile($message, $result = []){
+    public static function displayfile($message, $result = [])
+    {
         return response()->json(
             [
                 "message" => $message,
-                "result" => $result
+                "result" => $result,
             ],
             Message::SUCESS_STATUS
         );
