@@ -105,11 +105,10 @@ class ExpenseFilters extends QueryFilters
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
                     });
-                    // ->whereHas([
-                    //     "po_transaction" => function ($query) {
-                    //         $query->whereIn("status", "Cancelled");
-                    //     },
-
+                // ->whereHas([
+                //     "po_transaction" => function ($query) {
+                //         $query->whereIn("status", "Cancelled");
+                //     },
             })
             ->when($status === "for_approval", function ($query) use (
                 $user_id
@@ -120,8 +119,15 @@ class ExpenseFilters extends QueryFilters
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
                     });
-            })->when($status === "return_pr", function ($query) {
-                $query->where("status", "Return");
+            })
+            ->when($status === "return_pr", function ($query) {
+                $query
+                    ->with([
+                        "order" => function ($query) {
+                            $query->whereNull("po_at");
+                        },
+                    ])
+                    ->where("status", "Return");
             });
     }
 }

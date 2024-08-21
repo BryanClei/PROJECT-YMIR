@@ -10,6 +10,12 @@ class AccountTitleFilters extends QueryFilters
 
     protected array $columnSearch = ["name", "code"];
 
-
-   
+    public function vladimir($vladimir)
+    {
+        $this->builder->when($vladimir == "sync", function ($query) use (
+            $vladimir
+        ) {
+            $query->withTrashed();
+        });
+    }
 }

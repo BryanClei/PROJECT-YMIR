@@ -84,6 +84,7 @@ class PoResource extends JsonResource
             "reason" => $this->reason,
             "edit_remarks" => $this->edit_remarks,
             "created_at" => $this->created_at,
+            "deleted_at" => $this->deleted_at,
             "order" => PoItemResource::collection($this->order),
             "approver_history" => ApporverHistoryResource::collection(
                 $this->approver_history

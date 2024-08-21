@@ -80,11 +80,11 @@ class BuyerController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new PoResource($purchase_order);
+        $purchase_collect = new PoResource($purchase_order);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
-            $purchase_order
+            $purchase_collect
         );
     }
 

@@ -45,7 +45,9 @@ class PoApproverDashboardController extends Controller
         $purchase_request = ApproverDashboard::with(
             "order",
             "approver_history",
-            "log_history"
+            "log_history",
+            "pr_transaction",
+            "pr_transaction.order"
         )
             ->orderByDesc("updated_at")
             ->useFilters()

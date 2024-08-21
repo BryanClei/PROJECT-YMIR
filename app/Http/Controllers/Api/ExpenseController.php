@@ -129,6 +129,18 @@ class ExpenseController extends Controller
         $purchase_request->save();
 
         foreach ($orders as $index => $values) {
+            $attachments = $request["order"][$index]["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_pr_id_{$purchase_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames[] = $filename;
+                }
+            }
             PRItems::create([
                 "transaction_id" => $purchase_request->id,
                 "item_code" => $request["order"][$index]["item_code"],
@@ -136,7 +148,7 @@ class ExpenseController extends Controller
                 "uom_id" => $request["order"][$index]["uom_id"],
                 "quantity" => $request["order"][$index]["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
-                "attachment" => $request["order"][$index]["attachment"],
+                "attachment" => json_encode($filenames),
             ]);
         }
         $approver_settings = ApproverSettings::where(

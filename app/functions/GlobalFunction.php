@@ -80,6 +80,17 @@ class GlobalFunction
         );
     }
 
+    public static function uploadfailed($message, $filename)
+    {
+        return response()->json(
+            [
+                "error" => $message,
+                "filename" => $filename,
+            ],
+            Message::UNPROCESS_STATUS
+        );
+    }
+
     public static function displayfile($message, $result = [])
     {
         return response()->json(

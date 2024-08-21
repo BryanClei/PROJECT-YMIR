@@ -15,7 +15,7 @@ class PRTransaction extends Model
     use Filterable, HasFactory, SoftDeletes;
     protected $connection = "mysql";
     protected $table = "pr_transactions";
-
+    protected $casts = ["remarks" => "json"];
     protected string $default_filters = PRTransactionFilters::class;
 
     protected $fillable = [

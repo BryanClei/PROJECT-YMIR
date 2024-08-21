@@ -34,6 +34,11 @@ class POItems extends Model
         "warehouse_id",
     ];
 
+    protected $casts = [
+        "attachment" => "array",
+        "remarks" => "json",
+    ];
+
     public function uom()
     {
         return $this->belongsTo(UOM::class, "uom_id", "id");

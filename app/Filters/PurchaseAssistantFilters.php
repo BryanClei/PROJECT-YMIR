@@ -45,7 +45,6 @@ class PurchaseAssistantFilters extends QueryFilters
                             ->where(function ($query) {
                                 $query
                                     ->whereNull("buyer_id")
-                                    ->orWhereNull("buyer_name")
                                     ->whereNull("po_at");
                             })
                             ->whereNull("po_at");
@@ -144,14 +143,24 @@ class PurchaseAssistantFilters extends QueryFilters
                 $query
                     ->with([
                         "order" => function ($query) {
-                            $query->whereNotNull("buyer_id");
+                            $query
+                                ->whereNotNull("buyer_id")
+                                ->whereNull("po_at");
                         },
                     ])
-                    ->whereHas("order", function ($query) {
-                        $query->whereNotNull("buyer_id")->whereNull("po_at");
-                    })
-                    ->whereDoesntHave("po_transaction");
+                    ->where(function ($query) {
+                        $query
+                            ->whereHas("order", function ($query) {
+                                $query
+                                    ->whereNotNull("buyer_id")
+                                    ->whereNull("po_at");
+                            })
+                            ->orWhereHas("po_transaction", function ($query) {
+                                $query->where("status", "Return");
+                            });
+                    });
             })
+
             ->when($status === "return_po", function ($query) {
                 $query
                     ->whereHas("order", function ($query) {
@@ -173,7 +182,12 @@ class PurchaseAssistantFilters extends QueryFilters
                 $query->with("po_transaction", function ($query) {
                     $query
                         ->where("status", "Cancelled")
-                        ->whereNotNull("cancelled_at");
+                        ->whereNotNull("cancelled_at")
+                        ->with([
+                            "order" => function ($query) {
+                                $query->withTrashed();
+                            },
+                        ]);
                 });
             });
     }

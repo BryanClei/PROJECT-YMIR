@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->integer("pr_number");
             $table->string("transaction_no")->nullable();
             $table->string("pr_description");
-            $table->timestamp("date_needed");
+            $table->timestamp("date_needed"); 
 
             $table->unsignedInteger("user_id")->index();
             $table

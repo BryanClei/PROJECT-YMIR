@@ -181,6 +181,8 @@ class PAController extends Controller
                         $query->whereNull("supplier_id")->whereNull("buyer_id");
                     } elseif ($status === "pending") {
                         $query->whereNotNull("supplier_id");
+                    } elseif ($status === "tagged_buyer") {
+                        $query->whereNotNull("buyer_id");
                     }
                 },
             ])
@@ -206,7 +208,11 @@ class PAController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_request = POTransaction::where("id", $id)
-            ->with("order")
+            ->with([
+                "order" => function ($query) {
+                    $query->withTrashed();
+                },
+            ])
             ->orderByDesc("updated_at")
             ->get()
             ->first();
@@ -215,11 +221,18 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new PoResource($purchase_request);
+        // new PoResource($purchase_request);
+
+        // return GlobalFunction::responseFunction(
+        //     Message::PURCHASE_ORDER_DISPLAY,
+        //     $purchase_request
+        // );
+
+        $purchase_collet = new PoResource($purchase_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_DISPLAY,
-            $purchase_request
+            $purchase_collet
         );
     }
 
@@ -503,6 +516,7 @@ class PAController extends Controller
 
     public function tagging_badge(Request $request)
     {
+        $user_id = Auth()->user()->id;
         $status = $request->status;
         $for_tagging = PurchaseAssistant::with([
             "approver_history",
@@ -568,49 +582,11 @@ class PAController extends Controller
             })
             ->whereDoesntHave("po_transaction")
             ->count();
-        $pending_po_count = PurchaseAssistant::where("status", "Approved")
-            ->with([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->where(function ($q) {
-                            $q->where("status", "Pending")->orWhere(
-                                "status",
-                                "For Approval"
-                            );
-                        })
-                        ->whereHas("order", function ($q) {
-                            $q->whereNotNull("buyer_id");
-                        });
-                },
-            ])
-            ->where(function ($query) {
-                $query
-                    ->whereHas("order", function ($query) {
-                        $query->whereNotNull("buyer_id");
-                    })
-                    ->orWhereNotNull("for_po_only");
-            })
-            ->whereHas("po_transaction")
-            ->whereNull("rejected_at")
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->withCount([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->where(function ($q) {
-                            $q->where("status", "Pending")->orWhere(
-                                "status",
-                                "For Approval"
-                            );
-                        })
-                        ->orWhereNotNull("for_po_only")
-                        ->whereHas("order", function ($q) {
-                            $q->whereNotNull("buyer_id");
-                        });
-                },
-            ])
-            ->get()
-            ->sum("po_transaction_count");
+        $pending_po_count = POTransaction::where(function ($query) {
+            $query
+                ->where("status", "Pending")
+                ->orWhere("status", "For Approval");
+        })->count();
 
         $approved = PurchaseAssistant::withCount([
             "po_transaction" => function ($query) {

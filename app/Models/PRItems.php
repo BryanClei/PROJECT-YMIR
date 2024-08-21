@@ -30,6 +30,10 @@ class PRItems extends Model
     ];
     protected $hidden = ["created_at"];
 
+    protected $casts = [
+        "attachment" => "array",
+    ];
+
     public function transaction()
     {
         return $this->belongsTo(PRTransaction::class, "transaction_id", "id");

@@ -18,6 +18,8 @@ class RRTransaction extends Model
 
     protected $fillable = ["po_id", "pr_id", "received_by", "tagging_id"];
 
+    // protected $casts = ["remarks" => "json"];
+
     public function order()
     {
         return $this->hasMany(PRItems::class, "transaction_id", "pr_id");

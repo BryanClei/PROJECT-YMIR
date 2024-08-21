@@ -57,6 +57,11 @@ class ApproverDashboard extends Model
         "approver_id",
     ];
 
+    public function pr_transaction()
+    {
+        return $this->belongsTo(PrTransaction::class, "pr_number", "pr_number");
+    }
+
     public function users()
     {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();

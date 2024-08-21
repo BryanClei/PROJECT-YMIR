@@ -10,6 +10,7 @@ use App\Response\Message;
 use App\Models\JobHistory;
 use App\Models\LogHistory;
 use App\Models\JOApprovers;
+use App\Models\JoPoHistory;
 use App\Models\SetApprover;
 use Illuminate\Http\Request;
 use App\Models\PRTransaction;
@@ -580,10 +581,10 @@ class PrApproverController extends Controller
             })
             ->count();
 
-        $jo_po_id = JoPoHistory::where("approver_id", $user_id->id)
+        $jo_po_id = JoPoHistory::where("approver_id", $user)
             ->get()
             ->pluck("jo_po_id");
-        $jo_layer = JoPoHistory::where("approver_id", $user_id)
+        $jo_layer = JoPoHistory::where("approver_id", $user)
             ->get()
             ->pluck("layer");
 

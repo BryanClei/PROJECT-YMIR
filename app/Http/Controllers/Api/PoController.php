@@ -27,6 +27,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Http\Resources\PoItemResource;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
 
 class PoController extends Controller
@@ -121,10 +122,9 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $po_number = POTransaction::latest()
-            ->get()
-            ->first();
-        $increment = $po_number ? $po_number->id + 1 : 1;
+        $po_number = POTransaction::max("id") ?? 0;
+
+        $increment = $po_number ? $po_number + 1 : 1;
 
         $purchase_order = new POTransaction([
             "po_number" => $increment,
@@ -163,16 +163,19 @@ class PoController extends Controller
         $purchase_order->save();
 
         foreach ($orders as $index => $values) {
-            if ($purchase_order->module_name === "Asset") {
-                $remark = [
-                    "description" =>
-                        $request["order"][$index]["remarks_description"],
-                    "quantity" => $request["order"][$index]["remarks_quantity"],
-                ];
+            $remarks = $request["order"][$index]["remarks"];
 
-                $remarks = json_encode([$remark]);
-            } else {
-                $remarks = $request["order"][$index]["remarks"];
+            $attachments = $request["order"][$index]["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_po_id_{$purchase_order->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames[] = $filename;
+                }
             }
 
             POItems::create([
@@ -190,7 +193,7 @@ class PoController extends Controller
                     $request["order"][$index]["price"] *
                     $request["order"][$index]["quantity"],
                 "quantity_serve" => 0,
-                "attachment" => $request["order"][$index]["attachment"],
+                "attachment" => json_encode($filenames),
                 "buyer_id" => $request["order"][$index]["buyer_id"],
                 "buyer_name" => $request["order"][$index]["buyer_name"],
                 "remarks" => $remarks,
@@ -731,6 +734,23 @@ class PoController extends Controller
             ->get()
             ->first();
 
+        if ($no_rr) {
+            $po_cancel_order = $po_cancel
+                ->order()
+                ->pluck("pr_item_id")
+                ->toArray();
+
+            $pr_items = PRItems::whereIn("id", $po_cancel_order)->update([
+                "buyer_id" => null,
+                "buyer_name" => null,
+                "supplier_id" => null,
+                "po_at" => null,
+                "purchase_order_id" => null,
+            ]);
+
+            $po_cancel->order()->delete();
+        }
+
         $po_cancel->update([
             "reason" => $request->reason,
             "rejected_at" => null,
@@ -873,42 +893,59 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $remarks = json_decode($po_item->remarks, true);
+        $remarks = $request->remarks;
 
-        if ($request->has("indices")) {
-            $indices = $request["indices"];
-            $remarks_descriptions = $request["remarks_descriptions"];
-            $remarks_quantities = $request["remarks_quantities"];
+        // if (
+        //     !isset($remarks[0]["description"]) ||
+        //     !is_array($remarks[0]["description"])
+        // ) {
+        //     $remarks[0]["description"] = [];
+        // }
+        // if (
+        //     !isset($remarks[0]["quantity"]) ||
+        //     !is_array($remarks[0]["quantity"])
+        // ) {
+        //     $remarks[0]["quantity"] = [];
+        // }
 
-            foreach ($indices as $key => $index) {
-                $remarks[0]["description"][$index] =
-                    $remarks_descriptions[$key];
-                $remarks[0]["quantity"][$index] = $remarks_quantities[$key];
-            }
-        }
+        // if ($request->has("indices")) {
+        //     $indices = $request["indices"];
+        //     $remarks_descriptions = $request["remarks_descriptions"];
+        //     $remarks_quantities = $request["remarks_quantities"];
 
-        if ($request->has(["new_description", "new_quantity"])) {
-            foreach ($request["new_description"] as $key => $value) {
-                $remarks[0]["description"][] = $value;
-                $remarks[0]["quantity"][] = $request["new_quantity"][$key];
-            }
-        }
+        //     foreach ($indices as $key => $index) {
+        //         $remarks[0]["description"][$index] =
+        //             $remarks_descriptions[$key];
+        //         $remarks[0]["quantity"][$index] = $remarks_quantities[$key];
+        //     }
+        // }
 
-        if ($request->has("delete_indices")) {
-            $delete_indices = $request["delete_indices"];
-            foreach ($delete_indices as $index) {
-                unset($remarks[0]["description"][$index]);
-                unset($remarks[0]["quantity"][$index]);
-            }
-            $remarks[0]["description"] = array_values(
-                $remarks[0]["description"]
-            );
-            $remarks[0]["quantity"] = array_values($remarks[0]["quantity"]);
-        }
+        // if ($request->has(["new_description", "new_quantity"])) {
+        //     foreach ($request["new_description"] as $key => $value) {
+        //         $remarks[0]["description"][] = $value;
+        //         $remarks[0]["quantity"][] = $request["new_quantity"][$key];
+        //     }
+        // }
 
-        $po_item->remarks = json_encode($remarks);
+        // if ($request->has("delete_indices")) {
+        //     $delete_indices = $request["delete_indices"];
+        //     foreach ($delete_indices as $index) {
+        //         unset($remarks[0]["description"][$index]);
+        //         unset($remarks[0]["quantity"][$index]);
+        //     }
+        //     $remarks[0]["description"] = array_values(
+        //         $remarks[0]["description"]
+        //     );
+        //     $remarks[0]["quantity"] = array_values($remarks[0]["quantity"]);
+        // }
+
+        // $po_item->remarks = json_encode($remarks);
+
+        $po_item->remarks = $remarks;
 
         $po_item->save();
+
+        $po_item->fresh();
 
         $po_collect = new PoItemResource($po_item);
 

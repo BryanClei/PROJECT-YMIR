@@ -49,6 +49,7 @@ class RRSyncDisplay extends JsonResource
                         ];
                     })
                     ->toArray(),
+                "remarks" => $po_item->remarks,
             ];
         });
 

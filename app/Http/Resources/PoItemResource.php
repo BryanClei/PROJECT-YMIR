@@ -29,20 +29,21 @@ class PoItemResource extends JsonResource
                     AllowablePercentage::first()
                 ),
             ],
-            "uom" => $this->uom_id,
+            "uom" => $this->uom,
             "price" => $this->price,
             "quantity" => $this->quantity,
             "quantity_serve" => $this->quantity_serve,
             "total_price" => $this->total_price,
             "supplier_id" => [
-                "id" => $this->supplier->id,
-                "name" => $this->supplier->name,
-                "code" => $this->supplier->code,
+                "id" => $this->supplier->id ?? null,
+                "name" => $this->supplier->name ?? null,
+                "code" => $this->supplier->code ?? null,
             ],
-            "attachments" => $this->attachment,
+            "attachments" => $this->pr_item->attachment,
+            "canvassing" => json_decode($this->attachment, true),
             "buyer_id" => $this->buyer_id,
             "buyer_name" => $this->buyer_name,
-            "remarks" => json_decode($this->remarks, true),
+            "remarks" => $this->remarks,
             "updated_at" => $this->updated_at,
         ];
     }

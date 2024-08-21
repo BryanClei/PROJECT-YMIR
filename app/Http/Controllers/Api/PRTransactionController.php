@@ -163,6 +163,19 @@ class PRTransactionController extends Controller
         $purchase_request->save();
 
         foreach ($orders as $index => $values) {
+            $attachments = $request["order"][$index]["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_pr_id_{$purchase_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames[] = $filename;
+                }
+            }
+
             PRItems::create([
                 "transaction_id" => $purchase_request->id,
                 "item_id" => $request["order"][$index]["item_id"],
@@ -171,7 +184,7 @@ class PRTransactionController extends Controller
                 "uom_id" => $request["order"][$index]["uom_id"],
                 "quantity" => $request["order"][$index]["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
-                "attachment" => $request["order"][$index]["attachment"],
+                "attachment" => json_encode($filenames),
                 "assets" => $request["order"][$index]["assets"],
                 "warehouse_id" => $request["order"][$index]["warehouse_id"],
             ]);
@@ -635,10 +648,12 @@ class PRTransactionController extends Controller
                     if (!$file->isValid()) {
                         continue;
                     }
-
+                    $originalFilename = pathinfo(
+                        $file->getClientOriginalName(),
+                        PATHINFO_FILENAME
+                    );
                     $filename =
-                        $selector .
-                        "_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
+                        "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
                         "." .
                         $file->getClientOriginalExtension();
                     $stored = Storage::putFileAs(
@@ -772,20 +787,6 @@ class PRTransactionController extends Controller
                 count($item_details) .
                 " item(s). Details: " .
                 $item_details_string;
-
-        //        if ($is_update) {
-        //            $activityDescription =
-        //                "Purchase request ID: $id - has been re-tagged to buyer for " .
-        //                count($item_details) .
-        //                " item(s). Details: " .
-        //                $item_details_string;
-        //        } else {
-        //            $activityDescription =
-        //                "Purchase request ID: $id -  has been tagged to buyer for " .
-        //                count($item_details) .
-        //                " item(s). Details: " .
-        //                $item_details_string;
-        //        }
 
         LogHistory::create([
             "activity" => $activityDescription,

@@ -144,6 +144,7 @@ class BuyerFilters extends QueryFilters
                         },
                         "po_transaction" => function ($query) {
                             $query
+                                ->whereNull("deleted_at")
                                 ->where("status", "Pending")
                                 ->orWhere("status", "For Approval");
                         },
@@ -164,6 +165,7 @@ class BuyerFilters extends QueryFilters
                     })
                     ->whereHas("po_transaction", function ($query) {
                         $query
+                            ->whereNull("deleted_at")
                             ->where("status", "Pending")
                             ->orWhere("status", "For Approval");
                     });
