@@ -63,7 +63,7 @@ class JoPoFilters extends QueryFilters
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at");
             })
-            ->when($status === "cancel", function ($query) {
+            ->when($status === "cancelled", function ($query) {
                 $query
                     ->where("status", "Cancelled")
                     ->whereNotNull("cancelled_at")
@@ -73,7 +73,7 @@ class JoPoFilters extends QueryFilters
                 $query->where("status", "Voided");
             })
             ->when($status === "rejected", function ($query) {
-                $query->whereNotNull("rejected_at");
+                $query->where("status", "Reject")->whereNotNull("rejected_at");
             })
             ->when($status === "for_receiving", function ($query) {
                 $query

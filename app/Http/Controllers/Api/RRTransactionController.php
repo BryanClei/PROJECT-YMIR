@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Items;
 use App\Models\POItems;
 use App\Models\PRItems;
 use App\Models\RROrders;
@@ -22,16 +23,20 @@ use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\AssetVladimir\UpdateRequest;
 use App\Http\Requests\ReceivedReceipt\StoreRequest;
 use App\Http\Resources\LogHistory\LogHistoryResource;
+use App\Http\Requests\PO\PORequest;
 
 class RRTransactionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $rr_transaction = RRTransaction::with(
-            "rr_orders",
+        $rr_transaction = RRTransaction::with([
+            "rr_orders" => function ($query) {
+                $query->withTrashed();
+            },
             "pr_transaction.users",
-            "pr_transaction"
-        )
+            "pr_transaction",
+        ])
+
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -192,10 +197,7 @@ class RRTransactionController extends Controller
 
         $rr_collect = new RRResource($rr_transaction);
 
-        return GlobalFunction::responseFunction(
-            Message::RR_DISPLAY,
-            $rr_collect
-        );
+        return GlobalFunction::responseFunction(Message::RR_SAVE, $rr_collect);
     }
 
     public function update(Request $request, $id)
@@ -256,7 +258,7 @@ class RRTransactionController extends Controller
         }
 
         return GlobalFunction::responseFunction(
-            Message::RR_DISPLAY,
+            Message::RR_UPDATE,
             $rr_collect
         );
     }
@@ -323,7 +325,7 @@ class RRTransactionController extends Controller
         }
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_REQUEST_DISPLAY,
+            Message::RR_DISPLAY,
             RRSyncDisplay::collection($purchase_request)
         );
     }
@@ -366,11 +368,13 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function report_pr(Request $request)
+    public function report_pr(PRViewRequest $request)
     {
-        $purchase_order = PRTransaction::with("order", "approver_history")
-            ->where("status", "Approved")
-            ->whereNotNull("approved_at")
+        $purchase_order = PRTransaction::with(
+            "users",
+            "order",
+            "approver_history"
+        )
             ->useFilters()
             ->dynamicPaginate();
 
@@ -379,7 +383,6 @@ class RRTransactionController extends Controller
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        PRTransactionResource::collection($purchase_order);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
@@ -389,8 +392,11 @@ class RRTransactionController extends Controller
 
     public function report_po(Request $request)
     {
+        $from = $request->input("from");
+        $to = $request->input("to");
         $po_items = POItems::with(
             "uom",
+            "pr_item",
             "po_transaction.users",
             "po_transaction.pr_transaction",
             "po_transaction",
@@ -410,29 +416,17 @@ class RRTransactionController extends Controller
             Message::PURCHASE_ORDER_DISPLAY,
             $po_items
         );
-
-        // $purchase_order = POTransaction::with("order", "approver_history")
-        //     ->useFilters()
-        //     ->dynamicPaginate();
-
-        // $is_empty = $purchase_order->isEmpty();
-
-        // if ($is_empty) {
-        //     return GlobalFunction::notFound(Message::NOT_FOUND);
-        // }
-        // PoResource::collection($purchase_order);
-
-        // return GlobalFunction::responseFunction(
-        //     Message::PURCHASE_REQUEST_DISPLAY,
-        //     $purchase_order
-        // );
     }
 
     public function report_rr()
     {
         $rr_orders = RROrders::with(
+            "pr_items",
+            "pr_items.uom",
+            "order",
             "rr_transaction",
             "rr_transaction.pr_transaction",
+            "rr_transaction.pr_transaction.users",
             "rr_transaction.po_transaction"
         )
             ->useFilters()
@@ -483,6 +477,66 @@ class RRTransactionController extends Controller
         return GlobalFunction::responseFunction(
             Message::RR_CANCELLATION,
             $cancelled_rr_transaction
+        );
+    }
+
+    public function rr_badge()
+    {
+        $user_id = Auth()->user()->id;
+        $for_receiving = POTransaction::with(
+            "order",
+            "approver_history",
+            "rr_transaction",
+            "rr_transaction.rr_orders"
+        )
+
+            ->with([
+                "order" => function ($query) {
+                    $query->whereColumn("quantity", "<>", "quantity_serve");
+                },
+            ])
+            ->where("status", "For Receiving")
+            ->whereNull("cancelled_at")
+            ->whereNull("voided_at")
+            ->whereHas("approver_history", function ($query) {
+                $query->whereNotNull("approved_at");
+            })
+            ->whereHas("order", function ($query) {
+                $query->whereColumn("quantity", "<>", "quantity_serve");
+            })
+            ->count();
+
+        $for_receivin_user = POTransaction::with(
+            "order",
+            "approver_history",
+            "rr_transaction",
+            "rr_transaction.rr_orders"
+        )
+            ->with([
+                "order" => function ($query) {
+                    $query->whereColumn("quantity", "<>", "quantity_serve");
+                },
+            ])
+            ->where("user_id", $user_id)
+            ->where("status", "For Receiving")
+            ->whereNull("cancelled_at")
+            ->whereNull("voided_at")
+            ->whereHas("approver_history", function ($query) {
+                $query->whereNotNull("approved_at");
+            })
+            ->whereHas("order", function ($query) {
+                $query->whereColumn("quantity", "<>", "quantity_serve");
+            })
+            ->count();
+
+        $result = [
+            "for_receiving" => $for_receiving,
+            "for_receiving_user" => $for_receivin_user,
+        ];
+
+        return GlobalFunction::responseFunction(
+            Message::DISPLAY_COUNT,
+            $result
         );
     }
 }

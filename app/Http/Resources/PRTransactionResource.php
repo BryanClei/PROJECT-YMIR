@@ -34,6 +34,11 @@ class PRTransactionResource extends JsonResource
                 "middle_name" => $this->users->middle_name,
                 "last_name" => $this->users->last_name,
                 "mobile_no" => $this->users->mobile_no,
+                "warehouse" => [
+                    "warehouse_id" => $this->users->warehouse_id,
+                    "warehouse_name" => $this->users->warehouse->name,
+                    "warehouse_code" => $this->users->warehouse->code,
+                ],
             ],
 
             "type" => [

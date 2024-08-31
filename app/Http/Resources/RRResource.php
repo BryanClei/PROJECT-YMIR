@@ -30,8 +30,8 @@ class RRResource extends JsonResource
                     $this->po_transaction->users->last_name,
             ],
             "request_type" => $this->po_transaction->module_name,
-            "description" => $this->po_transaction->pr_description,
-            "order" => RROrdersResource::collection($this->rr_orders),
+            "description" => $this->po_transaction->po_description,
+            "order" => $this->rr_orders,
         ];
     }
 }

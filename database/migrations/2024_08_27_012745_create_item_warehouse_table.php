@@ -12,25 +12,20 @@ return new class extends Migration {
      */
     public function up()
     {
-        Schema::create("items", function (Blueprint $table) {
+        Schema::create("item_warehouse", function (Blueprint $table) {
             $table->increments("id");
-            $table->string("code");
-            $table->string("name");
-            $table->unsignedInteger("uom_id")->index();
+            $table->unsignedInteger("item_id")->index();
             $table
-                ->foreign("uom_id")
+                ->foreign("item_id")
                 ->references("id")
-                ->on("uoms");
-
-            $table->unsignedInteger("category_id")->index();
+                ->on("items");
+            $table->unsignedInteger("warehouse_id")->index();
             $table
-                ->foreign("category_id")
+                ->foreign("warehouse_id")
                 ->references("id")
-                ->on("categories");
-            $table->string("type");
-            $table->integer("allowable");
-            $table->timestamps();
+                ->on("warehouses");
             $table->softDeletes();
+            $table->timestamps();
         });
     }
 
@@ -41,6 +36,6 @@ return new class extends Migration {
      */
     public function down()
     {
-        Schema::dropIfExists("items");
+        Schema::dropIfExists("item_warehouse");
     }
 };

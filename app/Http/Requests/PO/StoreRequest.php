@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\PO;
 
+use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreRequest extends FormRequest
@@ -17,7 +18,7 @@ class StoreRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Get the validation rules that apply to the request.t
      *
      * @return array<string, mixed>
      */
@@ -25,15 +26,39 @@ class StoreRequest extends FormRequest
     {
         return [
             // "supplier_id" => "required|exists:suppliers,id",
+            // "company_id" => [
+            //     "required",
+            //     $this->route()->po_approver
+            //         ? "unique:po_settings,company_id," .
+            //             $this->route()->po_approver
+            //         : "unique:po_settings,company_id",
+            // ],
             "company_id" => [
                 "required",
-                $this->route()->po_approver
-                    ? "unique:po_settings,company_id," .
-                        $this->route()->po_approver
-                    : "unique:po_settings,company_id",
+                Rule::unique("po_settings")
+                    ->where(function ($query) {
+                        return $query
+                            ->where(
+                                "business_unit_id",
+                                $this->input("business_unit_id")
+                            )
+                            ->where(
+                                "department_id",
+                                $this->input("department_id")
+                            );
+                    })
+                    ->ignore($this->route()->po_approver ?? null),
             ],
             "*approver_id" => ["required", "distinct"],
             "*layer" => ["distinct"],
+            "business_unit_id" => [
+                "required",
+                "exists:business_units,id,deleted_at,NULL",
+            ],
+            "department_id" => [
+                "required",
+                "exists:departments,id,deleted_at,NULL",
+            ],
         ];
     }
 

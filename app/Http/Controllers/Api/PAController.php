@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\PurchasingAssistant\StoreRequest;
+use App\Models\PrHistory;
 use App\Response\Message;
 use App\Models\JoPoOrders;
 use App\Models\LogHistory;
@@ -18,6 +18,7 @@ use App\Http\Requests\PADisplay;
 use App\Functions\GlobalFunction;
 use App\Models\PurchaseAssistant;
 use App\Http\Resources\PoResource;
+use App\Http\Requests\PO\PORequest;
 use App\Http\Resources\PAResources;
 use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
@@ -27,6 +28,7 @@ use App\Http\Resources\PRPOResource;
 use App\Models\JobOrderTransactionPA;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\PRTransactionResource;
+use App\Http\Requests\PurchasingAssistant\StoreRequest;
 
 class PAController extends Controller
 {
@@ -126,6 +128,7 @@ class PAController extends Controller
             "log_history",
             "jo_po_transaction",
             "jo_po_transaction.jo_approver_history",
+            "jo_transaction",
         ])
             ->where("id", $id)
             ->orderByDesc("updated_at")
@@ -135,11 +138,11 @@ class PAController extends Controller
         if (!$job_order_request) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        new JobOrderResource($job_order_request);
+        $job_collect = new JobOrderResource($job_order_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
-            $job_order_request
+            $job_collect
         );
     }
 
@@ -150,8 +153,12 @@ class PAController extends Controller
         $job_order_request = JOPOTransaction::with(
             "jo_po_orders",
             "jo_approver_history",
-            "log_history"
+            "log_history",
+            "jo_transaction",
+            "jo_transaction.users",
+            "jo_transaction.log_history"
         )
+            ->withTrashed()
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -177,13 +184,20 @@ class PAController extends Controller
         $purchase_request = PurchaseAssistant::where("id", $id)
             ->with([
                 "order" => function ($query) use ($status, $user_id) {
-                    if ($status === "to_po") {
-                        $query->whereNull("supplier_id")->whereNull("buyer_id");
-                    } elseif ($status === "pending") {
-                        $query->whereNotNull("supplier_id");
-                    } elseif ($status === "tagged_buyer") {
-                        $query->whereNotNull("buyer_id");
-                    }
+                    $query
+                        ->when($status === "to_po", function ($query) {
+                            $query
+                                ->whereNull("supplier_id")
+                                ->whereNull("buyer_id");
+                        })
+                        ->when($status === "pending", function ($query) {
+                            $query->whereNotNull("supplier_id");
+                        })
+                        ->when($status === "tagged_buyer", function ($query) {
+                            $query
+                                ->whereNotNull("buyer_id")
+                                ->whereNull("supplier_id");
+                        });
                 },
             ])
             ->orderByDesc("updated_at")
@@ -214,6 +228,7 @@ class PAController extends Controller
                 },
             ])
             ->orderByDesc("updated_at")
+            ->withTrashed()
             ->get()
             ->first();
 
@@ -435,7 +450,12 @@ class PAController extends Controller
             }
         }
 
-        $activityDescription = "Updated prices for JO PO items: ";
+        $activityDescription =
+            "Job order purchase order ID: " .
+            $job_order->id .
+            " has been updated by UID: " .
+            $user_id .
+            ". Updated prices for JO PO items: ";
         foreach ($updatedItems as $item) {
             $activityDescription .= "Item ID {$item["id"]}: {$item["old_price"]} -> {$item["new_price"]}, ";
         }
@@ -551,6 +571,7 @@ class PAController extends Controller
                 $query->whereNotNull("approved_at");
             })
             ->count();
+
         $for_po = PurchaseAssistant::with([
             "approver_history",
             "log_history" => function ($query) {
@@ -572,6 +593,7 @@ class PAController extends Controller
             ->whereNull("cancelled_at")
             ->whereDoesntHave("po_transaction")
             ->count();
+
         $tagged_buyer = PurchaseAssistant::with([
             "order" => function ($query) {
                 $query->whereNotNull("buyer_id");
@@ -582,10 +604,12 @@ class PAController extends Controller
             })
             ->whereDoesntHave("po_transaction")
             ->count();
+
         $pending_po_count = POTransaction::where(function ($query) {
             $query
                 ->where("status", "Pending")
-                ->orWhere("status", "For Approval");
+                ->orWhere("status", "For Approval")
+                ->whereNotNull("approved_at");
         })->count();
 
         $approved = PurchaseAssistant::withCount([
@@ -601,18 +625,42 @@ class PAController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $rejected = PurchaseAssistant::with([
-            "po_transaction" => function ($query) {
-                $query->whereNotNull("rejected_at");
-            },
-        ])
-            ->whereHas("order", function ($query) {
-                $query->whereNotNull("buyer_id");
-            })
-            ->whereHas("po_transaction", function ($query) {
-                $query->where("status", "Reject");
-            })
-            ->count();
+        $rejected = PurchaseAssistant::where(function ($query) {
+            $query
+                ->where(function ($subQuery) {
+                    $subQuery
+                        ->whereHas("po_transaction", function ($poQuery) {
+                            $poQuery
+                                ->where("module_name", "!=", "Asset")
+                                ->where("status", "Reject")
+                                ->whereNotNull("rejected_at");
+                        })
+                        ->whereHas("order", function ($orderQuery) {
+                            $orderQuery->whereNotNull("buyer_id");
+                        });
+                })
+                ->orWhere(function ($subQuery) {
+                    $subQuery
+                        ->whereHas("po_transaction", function ($poQuery) {
+                            $poQuery
+                                ->where("module_name", "Asset")
+                                ->where("status", "Reject")
+                                ->whereNotNull("rejected_at");
+                        })
+                        ->whereDoesntHave("order", function ($orderQuery) {
+                            $orderQuery->whereNotNull("buyer_id");
+                        });
+                });
+        })
+            ->withCount([
+                "po_transaction" => function ($query) {
+                    $query
+                        ->where("status", "Reject")
+                        ->whereNotNull("rejected_at");
+                },
+            ])
+            ->get()
+            ->sum("po_transaction_count");
 
         $return_po = PurchaseAssistant::whereHas("order", function ($query) {
             $query->whereNull("buyer_id");
@@ -634,11 +682,35 @@ class PAController extends Controller
             "po_transaction" => function ($query) {
                 $query
                     ->where("status", "Cancelled")
-                    ->whereNotNull("cancelled_at");
+                    ->whereNotNull("cancelled_at")
+                    ->withTrashed();
             },
         ])
             ->get()
             ->sum("po_transaction_count");
+
+        $for_job = PurchaseAssistant::where("status", "Approved")
+            ->with("order", function ($query) {
+                $query->whereNull("po_at");
+            })
+            ->whereHas("order", function ($query) {
+                $query->whereNull("po_at");
+            })
+            ->whereNull("cancelled_at")
+            ->whereNull("voided_at")
+            ->whereNotNull("approved_at")
+            ->count();
+
+        $for_po_approval = JOPOTransaction::where("status", "Pending")
+            ->orWhere("status", "For Approval")
+            ->whereNull("cancelled_at")
+            ->whereNull("rejected_at")
+            ->whereNull("voided_at")
+            ->count();
+
+        $po_rejected = JOPOTransaction::where("status", "Reject")
+            ->whereNotNull("rejected_at")
+            ->count();
 
         $result = [
             "for_tagging" => $for_tagging,
@@ -649,6 +721,11 @@ class PAController extends Controller
             "rejected" => $rejected,
             "return_po" => $return_po,
             "cancel_po" => $cancel,
+            "job_order" => [
+                "jo_for_po" => $for_job,
+                "for_po_approval" => $for_po_approval,
+                "po_rejected" => $po_rejected,
+            ],
         ];
 
         return GlobalFunction::responseFunction(
@@ -657,10 +734,34 @@ class PAController extends Controller
         );
     }
 
-    public function return_pr(Request $request, $id)
+    public function return_pr(PORequest $request, $id)
     {
+        $user_id = Auth()->user()->id;
         $reason = $request->reason;
         $pr_transaction = PRTransaction::where("id", $id)->first();
+
+        $approvers = $pr_transaction->approver_history->pluck("id")->toArray();
+
+        if (!$pr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $activityDescription =
+            "Purchase request '.$pr_transaction->pr_year_number_id.' has been return by UID: " .
+            $user_id .
+            " Reason: " .
+            $reason;
+
+        PrHistory::whereIn("id", $approvers)->update([
+            "approved_at" => null,
+            "rejected_at" => null,
+        ]);
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "pr_id" => $id,
+            "action_by" => $user_id,
+        ]);
 
         $pr_transaction->update(["status" => "Return", "reason" => $reason]);
 
@@ -670,5 +771,10 @@ class PAController extends Controller
             Message::PURCHASE_ORDER_UPDATE,
             $pr_transaction
         );
+    }
+
+    public function jo_badge()
+    {
+        $jo_badge = JoBadge::all();
     }
 }

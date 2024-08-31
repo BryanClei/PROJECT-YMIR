@@ -37,7 +37,7 @@ class StoreRequest extends FormRequest
 
             "first_name" => ["required"],
 
-            "middle_name" => ["string"],
+            "middle_name" => ["string", "nullable"],
 
             "last_name" => "required",
 

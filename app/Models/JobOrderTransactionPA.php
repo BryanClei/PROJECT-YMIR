@@ -58,6 +58,15 @@ class JobOrderTransactionPA extends Model
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
 
+    public function jo_transaction()
+    {
+        return $this->hasMany(
+            JobOrderTransaction::class,
+            "jo_number",
+            "jo_number"
+        );
+    }
+
     public function order()
     {
         return $this->hasMany(JobItems::class, "jo_transaction_id", "id");

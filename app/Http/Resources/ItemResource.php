@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Http\Resources\UomResource;
 use App\Models\AllowablePercentage;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\ItemWarehouseResource\ItemWarehouseResource;
 
 class ItemResource extends JsonResource
 {
@@ -31,11 +32,15 @@ class ItemResource extends JsonResource
                 "name" => $this->category->name,
                 "code" => $this->category->code,
             ],
-            "type" => [
-                "id" => $this->types->id,
-                "name" => $this->types->name,
-            ],
-            "warehouse_id" => new WarehouseResource($this->warehouse),
+            "type" => $this->types
+                ? [
+                    "id" => $this->types->id,
+                    "name" => $this->types->name,
+                ]
+                : null,
+            "warehouses" => ItemWarehouseResource::collection(
+                $this->warehouse
+            ),
             "allowable_percentage" => AllowablePercentage::get(),
             "allowable" => $this->allowable,
             "updated_at" => $this->updated_at,

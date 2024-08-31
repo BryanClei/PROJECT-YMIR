@@ -122,7 +122,7 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $po_number = POTransaction::max("id") ?? 0;
+        $po_number = POTransaction::withTrashed()->max("po_number") ?? 0;
 
         $increment = $po_number ? $po_number + 1 : 1;
 
@@ -226,6 +226,8 @@ class PoController extends Controller
             "company_id",
             $purchase_order->company_id
         )
+            ->where("business_unit_id", $purchase_order->business_unit_id)
+            ->where("department_id", $purchase_order->department_id)
             ->get()
             ->first();
 
@@ -273,7 +275,7 @@ class PoController extends Controller
             "jo_number" => $request->jo_number,
             "po_description" => $request->po_description,
             "date_needed" => $request->date_needed,
-            "user_id" => $request->user_id,
+            "user_id" => $user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
             "business_unit_id" => $request->business_unit_id,
@@ -306,6 +308,7 @@ class PoController extends Controller
             JoPoOrders::create([
                 "jo_po_id" => $job_order->id,
                 "jo_transaction_id" => $job_order->jo_number,
+                "jo_item_id" => $request["order"][$index]["id"],
                 "description" => $request["order"][$index]["description"],
                 "uom_id" => $request["order"][$index]["uom_id"],
                 "unit_price" => $request["order"][$index]["price"],
@@ -747,8 +750,6 @@ class PoController extends Controller
                 "po_at" => null,
                 "purchase_order_id" => null,
             ]);
-
-            $po_cancel->order()->delete();
         }
 
         $po_cancel->update([
@@ -758,10 +759,10 @@ class PoController extends Controller
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i"),
             "status" => "Cancelled",
-            "deleted_at" => Carbon::now()
-                ->timeZone("Asia/Manila")
-                ->format("Y-m-d H:i"),
         ]);
+
+        $po_cancel->order()->delete();
+        $po_cancel->delete();
 
         $activityDescription = $no_rr
             ? "Purchase order ID:" .
@@ -780,6 +781,59 @@ class PoController extends Controller
         LogHistory::create([
             "activity" => $activityDescription,
             "po_id" => $id,
+            "action_by" => $user,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            Message::PO_CANCELLED,
+            $po_cancel
+        );
+    }
+
+    public function cancel_jo_po(PORequest $request, $id)
+    {
+        $no_rr = $request->no_rr;
+        $user = Auth()->user()->id;
+        $po_cancel = JOPOTransaction::where("id", $id)
+            ->with("jo_po_orders")
+            ->get()
+            ->first();
+
+        if ($no_rr) {
+            $po_cancel_order = $po_cancel
+                ->jo_po_orders()
+                ->pluck("pr_item_id")
+                ->toArray();
+
+            $pr_items = JobItems::whereIn("id", $po_cancel_order)->update([
+                "po_at" => null,
+                "purchase_order_id" => null,
+            ]);
+        }
+
+        $po_cancel->update([
+            "reason" => $request->reason,
+            "rejected_at" => null,
+            "cancelled_at" => Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i"),
+            "status" => "Cancelled",
+        ]);
+
+        $po_cancel->jo_po_orders()->delete();
+        $po_cancel->delete();
+
+        $activityDescription =
+            "Job order purchase order ID:" .
+            $id .
+            " has been cancelled by UID: " .
+            $user .
+            " Reason: " .
+            $request->reason;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_po_id" => $id,
             "action_by" => $user,
         ]);
 
@@ -895,52 +949,6 @@ class PoController extends Controller
 
         $remarks = $request->remarks;
 
-        // if (
-        //     !isset($remarks[0]["description"]) ||
-        //     !is_array($remarks[0]["description"])
-        // ) {
-        //     $remarks[0]["description"] = [];
-        // }
-        // if (
-        //     !isset($remarks[0]["quantity"]) ||
-        //     !is_array($remarks[0]["quantity"])
-        // ) {
-        //     $remarks[0]["quantity"] = [];
-        // }
-
-        // if ($request->has("indices")) {
-        //     $indices = $request["indices"];
-        //     $remarks_descriptions = $request["remarks_descriptions"];
-        //     $remarks_quantities = $request["remarks_quantities"];
-
-        //     foreach ($indices as $key => $index) {
-        //         $remarks[0]["description"][$index] =
-        //             $remarks_descriptions[$key];
-        //         $remarks[0]["quantity"][$index] = $remarks_quantities[$key];
-        //     }
-        // }
-
-        // if ($request->has(["new_description", "new_quantity"])) {
-        //     foreach ($request["new_description"] as $key => $value) {
-        //         $remarks[0]["description"][] = $value;
-        //         $remarks[0]["quantity"][] = $request["new_quantity"][$key];
-        //     }
-        // }
-
-        // if ($request->has("delete_indices")) {
-        //     $delete_indices = $request["delete_indices"];
-        //     foreach ($delete_indices as $index) {
-        //         unset($remarks[0]["description"][$index]);
-        //         unset($remarks[0]["quantity"][$index]);
-        //     }
-        //     $remarks[0]["description"] = array_values(
-        //         $remarks[0]["description"]
-        //     );
-        //     $remarks[0]["quantity"] = array_values($remarks[0]["quantity"]);
-        // }
-
-        // $po_item->remarks = json_encode($remarks);
-
         $po_item->remarks = $remarks;
 
         $po_item->save();
@@ -950,5 +958,10 @@ class PoController extends Controller
         $po_collect = new PoItemResource($po_item);
 
         return GlobalFunction::save(Message::REMARKS_UPDATE, $po_collect);
+    }
+
+    public function um_sync()
+    {
+        return $po_transation = POTransaction::get();
     }
 }

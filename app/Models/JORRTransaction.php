@@ -16,15 +16,30 @@ class JORRTransaction extends Model
 
     protected $table = "jo_rr_transactions";
 
-    protected $fillable = ["jo_po_id", "jo_id", "received_by", "tagging_id"];
+    protected $fillable = [
+        "jo_po_id",
+        "jo_id",
+        "received_by",
+        "tagging_id",
+        "reason",
+    ];
 
     public function jo_po_transactions()
     {
         return $this->belongsTo(JOPOTransaction::class, "jo_po_id", "id");
     }
 
+    public function jo_po_order()
+    {
+        return $this->belongsTo(JoPoOrders::class, "jo_po_id", "id");
+    }
+
     public function rr_orders()
     {
-        return $this->hasMany(JORROrders::class, "jo_rr_number", "id");
+        return $this->hasMany(
+            JORROrders::class,
+            "jo_rr_number",
+            "id"
+        )->withTrashed();
     }
 }

@@ -19,6 +19,7 @@ return new class extends Migration {
                 ->foreign("jo_transaction_id")
                 ->references("id")
                 ->on("jo_transactions");
+            $table->string("jo_item_id");
             $table->unsignedInteger("jo_po_id")->index();
             $table
                 ->foreign("jo_po_id")

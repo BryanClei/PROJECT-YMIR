@@ -19,6 +19,7 @@ class JobOrderResource extends JsonResource
     {
         return [
             "id" => $this->id,
+            "jo_year_number_id" => $this->jo_year_number_id,
             "jo_number" => $this->jo_number,
             "jo_description" => $this->jo_description,
             "helpdesk_id" => $this->helpdesk_id,
@@ -84,9 +85,9 @@ class JobOrderResource extends JsonResource
                 $this->approver_history
             ),
             "log_history" => LogHistoryResource::collection($this->log_history),
-            // "jo_po_transaction" => JoPoResource::collection(
-            //     $this->jo_po_transaction
-            // ),
+            "jo_po_transaction" => JoPoResource::collection(
+                $this->jo_po_transaction
+            ),
             // "jo_approver_history" => JobOrderHistoryResource::collection(
             //     $this->jo_approver_history
             // ),

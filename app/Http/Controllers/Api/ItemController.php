@@ -8,6 +8,7 @@ use App\Models\Items;
 use App\Response\Message;
 use App\Models\Categories;
 use Illuminate\Http\Request;
+use App\Models\ItemWarehouse;
 use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
@@ -21,12 +22,12 @@ class ItemController extends Controller
     {
         $status = $request->status;
 
-        $item = Items::with("types", "uom")
+        $item = Items::with("types", "uom", "warehouse")
             ->when($status === "inactive", function ($query) {
                 $query->onlyTrashed();
             })
             ->useFilters()
-            ->orderByDesc("updated_at")
+            ->orderByDesc("code")
             ->dynamicPaginate();
 
         $is_empty = $item->isEmpty();
@@ -44,15 +45,24 @@ class ItemController extends Controller
 
     public function store(StoreRequest $request)
     {
-        $item = Items::create([
+        $item = new Items([
             "code" => $request->code,
             "name" => $request->name,
             "uom_id" => $request->uom_id,
             "category_id" => $request->category_id,
             "type" => $request->type,
-            "warehouse_id" => $request->warehouse_id,
             "allowable" => $request->allowable,
         ]);
+
+        $item->save();
+
+        $warehouse = $request->warehouse;
+        foreach ($warehouse as $index => $values) {
+            ItemWarehouse::create([
+                "item_id" => $item->id,
+                "warehouse_id" => $request["warehouse"][$index]["warehouse"],
+            ]);
+        }
 
         $item_collect = new ItemResource($item);
 
@@ -74,9 +84,27 @@ class ItemController extends Controller
             "uom_id" => $request->uom_id,
             "category_id" => $request->category_id,
             "type" => $request->type,
-            "warehouse_id" => $request->warehouse_id,
             "allowable" => $request->allowable,
         ]);
+
+        $Item_id = $item->id;
+
+        $ids = ItemWarehouse::where("item_id", $Item_id)
+            ->pluck("id")
+            ->toArray();
+
+        $warehouses = collect($request->warehouse)
+            ->pluck("warehouse")
+            ->toArray();
+
+        ItemWarehouse::whereIn("id", $ids)->delete();
+
+        foreach ($warehouses as $warehouse) {
+            ItemWarehouse::create([
+                "item_id" => $Item_id,
+                "warehouse_id" => $warehouse,
+            ]);
+        }
 
         $item_collect = new ItemResource($item);
         return GlobalFunction::responseFunction(
@@ -133,9 +161,17 @@ class ItemController extends Controller
                 "type" => $type->id,
                 "uom_id" => $uom_id->id,
                 "category_id" => $category_id->id,
-                "warehouse_id" => $warehouse->id,
                 "allowable" => $allowable,
             ]);
+
+            $warehouse = $request->warehouse;
+            foreach ($warehouse as $index => $values) {
+                ItemWarehouse::create([
+                    "item_id" => $item->id,
+                    "warehouse_id" =>
+                        $request["warehouse"][$index]["warehouse"],
+                ]);
+            }
         }
 
         return GlobalFunction::save(Message::ITEM_SAVE, $import);

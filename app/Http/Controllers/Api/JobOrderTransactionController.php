@@ -68,7 +68,7 @@ class JobOrderTransactionController extends Controller
         $latest_pr = JobOrderTransaction::where(
             "jo_year_number_id",
             "like",
-            $current_year . "-P-%"
+            $current_year . "-J-%"
         )
             ->orderByRaw(
                 "CAST(SUBSTRING_INDEX(jo_year_number_id, '-', -1) AS UNSIGNED) DESC"
@@ -82,7 +82,8 @@ class JobOrderTransactionController extends Controller
             $new_number = 1;
         }
 
-        $latest_pr_number = JobOrderTransaction::max("jo_number") ?? 0;
+        $latest_pr_number =
+            JobOrderTransaction::withTrashed()->max("jo_number") ?? 0;
         $increment = $latest_pr_number + 1;
 
         $pr_year_number_id =
@@ -133,6 +134,24 @@ class JobOrderTransactionController extends Controller
         $job_order_request->save();
 
         foreach ($orders as $index => $values) {
+            $attachments = $request["order"][$index]["attachment"];
+
+            if (!empty($attachments)) {
+                $filenames = [];
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames[] = $filename;
+                }
+
+                $filenames = json_encode($filenames);
+            } else {
+                $filenames = $attachments;
+            }
+
             JobItems::create([
                 "jo_transaction_id" => $job_order_request->id,
                 "description" => $request["order"][$index]["description"],
@@ -141,7 +160,7 @@ class JobOrderTransactionController extends Controller
                 "unit_price" => $values["unit_price"],
                 "total_price" => $values["unit_price"] * $values["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
-                "attachment" => $request["order"][$index]["attachment"],
+                "attachment" => $filenames,
                 "assets" => $request["order"][$index]["asset"],
             ]);
         }
@@ -298,6 +317,43 @@ class JobOrderTransactionController extends Controller
             Message::PURCHASE_REQUEST_UPDATE,
             $pr_collect
         );
+    }
+
+    public function cancel_jo(Request $request, $id)
+    {
+        $user = Auth()->user()->id;
+        $jo_cancel = JobOrderTransaction::where("id", $id)
+            ->with("order")
+            ->get()
+            ->first();
+
+        $jo_cancel->update([
+            "reason" => $request->reason,
+            "rejected_at" => null,
+            "cancelled_at" => Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i"),
+            "status" => "Cancelled",
+        ]);
+
+        $jo_cancel->order()->delete();
+        $jo_cancel->delete();
+
+        $activityDescription =
+            "Job order purchase request ID:" .
+            $id .
+            " has been cancelled by UID: " .
+            $user .
+            " Reason: " .
+            $request->reason;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_id" => $id,
+            "action_by" => $user,
+        ]);
+
+        return GlobalFunction::responseFunction(Message::CANCELLED, $jo_cancel);
     }
 
     public function resubmit(Request $request, $id)

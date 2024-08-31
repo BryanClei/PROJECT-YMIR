@@ -101,6 +101,16 @@ class PRTransactionFilters extends QueryFilters
             })
             ->when($status === "return_pr", function ($query) use ($user_id) {
                 $query->where("status", "Return");
+            })
+            ->when($status === "report_approved", function ($query) {
+                $query
+                    ->where("status", "Approved")
+                    ->whereNotNull("approved_at");
+            })
+            ->when($status === "report_cancelled", function ($query) {
+                $query
+                    ->where("status", "Cancelled")
+                    ->whereNotNull("cancelled_at");
             });
     }
 }

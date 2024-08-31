@@ -30,6 +30,7 @@ return new class extends Migration {
                 ->references("id")
                 ->on("users");
             $table->string("tagging_id");
+            $table->string("reason")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

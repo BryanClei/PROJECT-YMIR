@@ -64,7 +64,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("users/archived/{id}", [UserController::class, "destroy"]);
     Route::apiResource("users", UserController::class);
 
-    Route::patch("roles/archived/{id}", [RoleController::class, "destroy"]);
+    Route::patch("roles/archived/{id}", [RoleController::class, "archived"]);
     Route::apiResource("roles", RoleController::class);
 
     Route::patch("companies/archived/{id}", [
@@ -213,6 +213,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::apiResource("account_titles", AccountTitleController::class);
 
     Route::get("pr_badges", [PRTransactionController::class, "pr_badge"]);
+    Route::patch("return_pr_resubmit/{id}", [
+        PRTransactionController::class,
+        "return_resubmit",
+    ]);
     Route::patch("pr_transaction/archived/{id}", [
         PRTransactionController::class,
         "destroy",
@@ -327,6 +331,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::apiResource("expense", ExpenseController::class);
 
+    Route::patch("cancel_jo/{id}", [
+        JobOrderTransactionController::class,
+        "cancel_jo",
+    ]);
+
     Route::get("pa_jo_badge", [
         JobOrderTransactionController::class,
         "pa_jo_badge",
@@ -419,6 +428,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::get("buyer/view/{id}", [BuyerController::class, "view"]);
     Route::get("buyer/view_to_po/{id}", [BuyerController::class, "viewto_po"]);
     Route::patch("cancel_po/{id}", [PoController::class, "cancel_po"]);
+    Route::patch("cancel_jo_po/{id}", [PoController::class, "cancel_jo_po"]);
     Route::get("buyer/view_po/{id}", [PoController::class, "view"]);
     Route::patch("return_pr_items", [
         BuyerController::class,
@@ -426,6 +436,8 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::apiResource("buyer", BuyerController::class);
 
+    Route::get("rr_badge", [RRTransactionController::class, "rr_badge"]);
+    // Route::get("rr_asset", [RRTransactionController::class, "index_asset"]);
     Route::patch("cancel_rr/{id}", [
         RRTransactionController::class,
         "cancel_rr",
@@ -451,6 +463,20 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "view_po_approved",
     ]);
     Route::apiResource("rr_transaction", RRTransactionController::class);
+
+    Route::get("reports_jo", [JORRTransactionController::class, "report_jo"]);
+
+    Route::get("reports_jo_po", [
+        JORRTransactionController::class,
+        "report_jo_po",
+    ]);
+
+    Route::patch("reason/{id}", [JORRTransactionController::class, "reason"]);
+
+    Route::patch("cancel_jo_rr/{id}", [
+        JORRTransactionController::class,
+        "cancel_jo_rr",
+    ]);
 
     Route::get("approved_pos_for_job_order_report_display", [
         JORRTransactionController::class,

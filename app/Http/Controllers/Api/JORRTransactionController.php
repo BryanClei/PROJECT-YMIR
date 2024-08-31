@@ -8,19 +8,24 @@ use App\Models\JORROrders;
 use Illuminate\Http\Request;
 use App\Models\JOPOTransaction;
 use App\Models\JORRTransaction;
+use App\Http\Requests\JODisplay;
 use App\Functions\GlobalFunction;
+use App\Http\Requests\PO\PORequest;
+use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Http\Resources\JORRResource;
+use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\JORROrderResource;
 use App\Http\Requests\JoRROrder\StoreRequest;
 
 class JORRTransactionController extends Controller
 {
-    public function index()
+    public function index(JODisplay $request)
     {
         $display = JORRTransaction::with("rr_orders", "jo_po_transactions")
+            ->withTrashed()
             ->useFilters()
             ->dynamicPaginate();
 
@@ -47,11 +52,11 @@ class JORRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new JORRResource($jo_rr_transaction);
+        $jo_po_collect = new JORRResource($jo_rr_transaction);
 
         return GlobalFunction::responseFunction(
             Message::RR_DISPLAY,
-            $jo_rr_transaction
+            $jo_po_collect
         );
     }
 
@@ -61,7 +66,8 @@ class JORRTransactionController extends Controller
         $status = $request->status;
         $job_order_request = JOPOTransaction::with(
             "jo_po_orders",
-            "jo_approver_history"
+            "jo_approver_history",
+            "jo_transaction.users"
         )
             ->orderByDesc("updated_at")
             ->useFilters()
@@ -82,7 +88,7 @@ class JORRTransactionController extends Controller
 
     public function view_single_approve_jo_po(Request $request, $id)
     {
-        return $job_order_request = JOPOTransaction::where("id", $id)
+        $job_order_request = JOPOTransaction::where("id", $id)
             ->with("jo_po_orders", "jo_approver_history", "jo_rr_transaction")
             ->orderByDesc("updated_at")
             ->first();
@@ -92,11 +98,12 @@ class JORRTransactionController extends Controller
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        JoPoResource::collection($job_order_request);
+
+        $collect = new JoPoResource($job_order_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_DISPLAY,
-            $job_order_request
+            $collect
         );
     }
 
@@ -249,6 +256,97 @@ class JORRTransactionController extends Controller
         return GlobalFunction::responseFunction(
             Message::RR_DISPLAY,
             $rr_collect
+        );
+    }
+
+    public function cancel_jo_rr($id)
+    {
+        $rr_transaction = JORRTransaction::where("id", $id)
+            ->with("rr_orders", "jo_po_order")
+            ->first();
+
+        if (!$rr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $po_orders = $rr_transaction->rr_orders->pluck("jo_item_id")->toArray();
+
+        $po_items = JoPoOrders::whereIn("id", $po_orders)->get();
+
+        foreach ($rr_transaction->rr_orders as $rr_order) {
+            $po_item = $po_items->where("id", $rr_order->jo_item_id)->first();
+
+            if ($po_item) {
+                $po_item->quantity_serve -= $rr_order->quantity_receive;
+                $po_item->save();
+            }
+
+            $rr_order->delete();
+        }
+
+        $cancelled_rr_transaction = $rr_transaction;
+
+        $rr_transaction->delete();
+
+        return GlobalFunction::responseFunction(
+            Message::RR_CANCELLATION,
+            $cancelled_rr_transaction
+        );
+    }
+
+    public function reason(PORequest $request, $id)
+    {
+        $request->reason;
+
+        $rr_transaction = JORRTransaction::where("id", $id)->first();
+
+        if (!$rr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $rr_transaction->update([
+            "reason" => $request->reason,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            Message::RR_CANCELLATION,
+            $rr_transaction
+        );
+    }
+
+    public function report_jo()
+    {
+        $jo_transaction = JobOrderTransaction::with(
+            "users",
+            "order",
+            "approver_history"
+        )->get();
+
+        if ($jo_transaction->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $jo_transaction
+        );
+    }
+
+    public function report_jo_po()
+    {
+        $jo_order = JoPoOrders::with(
+            "uom",
+            "transaction.users",
+            "transaction.jo_po_transaction"
+        )->get();
+
+        if ($jo_order->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $jo_order
         );
     }
 }

@@ -14,4 +14,11 @@ class RRTransactionFilters extends QueryFilters
         "received_by",
         "tagging_id",
     ];
+
+    public function status($status)
+    {
+        $this->builder->when($status === "cancelled", function ($query) {
+            $query->onlyTrashed();
+        });
+    }
 }

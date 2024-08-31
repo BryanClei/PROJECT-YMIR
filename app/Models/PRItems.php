@@ -31,7 +31,7 @@ class PRItems extends Model
     protected $hidden = ["created_at"];
 
     protected $casts = [
-        "attachment" => "array",
+        "attachment" => "json",
     ];
 
     public function transaction()

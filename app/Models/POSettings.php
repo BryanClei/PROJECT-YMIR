@@ -16,7 +16,15 @@ class POSettings extends Model
 
     protected $table = "po_settings";
 
-    protected $fillable = ["module", "company_id", "company_name"];
+    protected $fillable = [
+        "module",
+        "company_id",
+        "company_name",
+        "business_unit_id",
+        "business_unit_name",
+        "department_id",
+        "department_name",
+    ];
 
     public function set_approver()
     {

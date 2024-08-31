@@ -121,7 +121,7 @@ class PRTransactionController extends Controller
             $new_number = 1;
         }
 
-        $latest_pr_number = PRTransaction::max("id") ?? 0;
+        $latest_pr_number = PRTransaction::withTrashed()->max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;
 
         $pr_year_number_id =
@@ -224,6 +224,136 @@ class PRTransactionController extends Controller
             "Purchase request ID: " .
             $purchase_request->id .
             " has been created by UID: " .
+            $user_id;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "pr_id" => $purchase_request->id,
+            "action_by" => $user_id,
+        ]);
+
+        $pr_collect = new PRTransactionResource($purchase_request);
+
+        return GlobalFunction::save(
+            Message::PURCHASE_REQUEST_SAVE,
+            $pr_collect
+        );
+    }
+
+    public function return_resubmit(StoreRequest $request, $id)
+    {
+        $user_id = Auth()->user()->id;
+
+        $purchase_request = PRTransaction::where("id", $id)
+            ->where("status", "Return")
+            ->get()
+            ->first();
+
+        if (!$purchase_request) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $orders = $request->order;
+
+        $purchase_request->update([
+            "pr_description" => $request["pr_description"],
+            "date_needed" => $request["date_needed"],
+            "type_id" => $request->type_id,
+            "type_name" => $request->type_name,
+            "business_unit_id" => $request->business_unit_id,
+            "business_unit_name" => $request->business_unit_name,
+            "company_id" => $request->company_id,
+            "company_name" => $request->company_name,
+            "department_id" => $request->department_id,
+            "department_name" => $request->department_name,
+            "department_unit_id" => $request->department_unit_id,
+            "department_unit_name" => $request->department_unit_name,
+            "location_id" => $request->location_id,
+            "location_name" => $request->location_name,
+            "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_name" => $request->sub_unit_name,
+            "account_title_id" => $request->account_title_id,
+            "account_title_name" => $request->account_title_name,
+            "module_name" => "Inventoriables",
+            "status" => "Pending",
+            "asset" => $request->asset,
+            "sgp" => $request->sgp,
+            "f1" => $request->f1,
+            "f2" => $request->f2,
+            "approved_at" => null,
+            "layer" => "1",
+            "description" => $request->description,
+        ]);
+        $purchase_request->save();
+
+        $newOrders = collect($orders)
+            ->pluck("id")
+            ->toArray();
+        $currentOrders = PRItems::where("transaction_id", $id)
+            ->get()
+            ->pluck("id")
+            ->toArray();
+
+        foreach ($currentOrders as $order_id) {
+            if (!in_array($order_id, $newOrders)) {
+                PRItems::where("id", $order_id)->forceDelete();
+            }
+        }
+
+        foreach ($orders as $index => $values) {
+            PRItems::withTrashed()->updateOrCreate(
+                [
+                    "id" => $values["id"] ?? null,
+                ],
+                [
+                    "transaction_id" => $purchase_request->id,
+                    "item_id" => $values["item_id"],
+                    "item_code" => $values["item_code"],
+                    "item_name" => $values["item_name"],
+                    "uom_id" => $values["uom_id"],
+                    "quantity" => $values["quantity"],
+                    "remarks" => $values["remarks"],
+                    "attachment" => $values["attachment"],
+                    "assets" => $values["assets"],
+                ]
+            );
+        }
+
+        $approver_settings = ApproverSettings::where(
+            "company_id",
+            $purchase_request->company_id
+        )
+            ->where("business_unit_id", $purchase_request->business_unit_id)
+            ->where("department_id", $purchase_request->department_id)
+            ->where("department_unit_id", $purchase_request->department_unit_id)
+            ->where("sub_unit_id", $purchase_request->sub_unit_id)
+            ->where("location_id", $purchase_request->location_id)
+            ->whereHas("set_approver")
+            ->get()
+            ->first();
+
+        $approvers = SetApprover::where(
+            "approver_settings_id",
+            $approver_settings->id
+        )->get();
+
+        if ($approvers->isEmpty()) {
+            return GlobalFunction::save(Message::NO_APPROVERS);
+        }
+
+        foreach ($approvers as $index) {
+            PrHistory::create([
+                "pr_id" => $purchase_request->id,
+                "approver_id" => $index["approver_id"],
+                "approver_name" => $index["approver_name"],
+                "layer" => $index["layer"],
+            ]);
+        }
+
+        $activityDescription =
+            "Purchase request ID: " .
+            $purchase_request->id .
+            " has been resubmitted by UID: " .
             $user_id;
 
         LogHistory::create([
@@ -638,7 +768,13 @@ class PRTransactionController extends Controller
 
         $type = $request->input("type");
 
-        $selector = $type == "pr" ? "pr" : "po";
+        if ($type == "pr") {
+            $selector = "pr";
+        } elseif ($type == "po") {
+            $selector = "po";
+        } elseif ($type == "jo") {
+            $selector = "jo";
+        }
 
         $uploadedFiles = [];
 
@@ -681,47 +817,6 @@ class PRTransactionController extends Controller
         $message = Message::UPLOAD_SUCCESSFUL;
         return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
     }
-
-    // public function store_multiple(UploadRequest $request, $id)
-    // {
-    //     $files = $request->file("files");
-    //     $uploadedFiles = [];
-
-    //     if (!$files) {
-    //         $message = Message::NO_FILE_UPLOAD;
-    //         return GlobalFunction::uploadfailed($message, $files);
-    //     }
-
-    //     $successCount = 0;
-    //     foreach ($files as $file) {
-    //         if (!$file->isValid()) {
-    //             continue;
-    //         }
-
-    //         $name_with_extension = $file->getClientOriginalName();
-    //         $name = pathinfo($name_with_extension, PATHINFO_FILENAME);
-    //         $extension = $file->getClientOriginalExtension();
-
-    //         $filename =
-    //             $name . "_" . $id . "_" . ++$successCount . "." . $extension;
-
-    //         $stored = Storage::putFileAs("public/attachment", $file, $filename);
-
-    //         if ($stored) {
-    //             $uploadedFiles[] = $filename;
-    //             continue;
-    //         } else {
-    //             $message = "Failed to store file: $filename";
-    //             return GlobalFunction::uploadfailed($message, $files);
-    //         }
-    //     }
-
-    //     $message = Message::UPLOAD_SUCCESSFUL;
-    //     $response = GlobalFunction::stored($message);
-    //     $responseData = $response->getData(true);
-    //     $responseData["uploaded_files"] = $uploadedFiles;
-    //     return response()->json($responseData, $response->getStatusCode());
-    // }
 
     public function download($filename)
     {
@@ -808,31 +903,77 @@ class PRTransactionController extends Controller
             "type_name",
             "Inventoriable"
         )
+            ->where("user_id", $user)
             ->where("status", "Pending")
             ->orWhere("status", "For Approval")
             ->count();
+        $rejected_pr_inventoriables_count = PRTransaction::where(
+            "type_name",
+            "Inventoriable"
+        )
+            ->where("user_id", $user)
+            ->where("status", "Reject")
+            ->whereNotNull("rejected_at")
+            ->count();
+
         $pr_expense_count = PRTransaction::where("type_name", "expense")
+            ->where("user_id", $user)
             ->where("status", "Pending")
             ->orWhere("status", "For Approval")
             ->count();
-        $pr_assets_count = PRTransaction::where("type_name", "asset")
-            ->where("status", "Pending")
-            ->orWhere("status", "For Approval")
+        $rejected_pr_expense_count = PRTransaction::where(
+            "type_name",
+            "expense"
+        )
+            ->where("user_id", $user)
+            ->where("status", "Reject")
+            ->whereNotNull("rejected_at")
+            ->count();
+
+        $rejected_pr_assets_count = PRTransaction::where("type_name", "asset")
+            ->where("status", "Reject")
+            ->whereNotNull("rejected_at")
             ->count();
 
         $pr_job_order_count = JobOrderTransaction::where(
             "type_name",
             "Job Order"
         )
+            ->where("user_id", $user)
             ->where("status", "Pending")
             ->orWhere("status", "For Approval")
+            ->count();
+        $rejected_pr_job_order_count = JobOrderTransaction::where(
+            "type_name",
+            "Job Order"
+        )
+            ->where("user_id", $user)
+            ->where("status", "Reject")
+            ->whereNotNull("rejected_at")
+            ->count();
+
+        $return_invent_count = PRTransaction::where(
+            "type_name",
+            "Inventoriable"
+        )
+            ->where("user_id", $user)
+            ->where("status", "Return")
+            ->count();
+        $return_expense_count = PRTransaction::where("type_name", "Expense")
+            ->where("user_id", $user)
+            ->where("status", "Return")
             ->count();
 
         $result = [
             "Inventoriables" => $pr_inventoriables_count,
+            "rejected_inventoriable" => $rejected_pr_inventoriables_count,
+            "return_pr_inventoriable" => $return_invent_count,
             "Expense" => $pr_expense_count,
-            "Assets" => $pr_assets_count,
+            "rejected_expense" => $rejected_pr_expense_count,
+            "return_pr_expense" => $return_expense_count,
+            "rejected_asset" => $rejected_pr_assets_count,
             "Job Order" => $pr_job_order_count,
+            "rejected_job_order" => $rejected_pr_job_order_count,
         ];
 
         return GlobalFunction::responseFunction(

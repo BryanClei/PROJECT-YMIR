@@ -24,6 +24,8 @@ class JobItems extends Model
     ];
     protected $hidden = ["created_at"];
 
+    protected $casts = ["attachment" => "array"];
+
     public function transaction()
     {
         return $this->belongsTo(JobOrderTransaction::class, "jo_id", "id");

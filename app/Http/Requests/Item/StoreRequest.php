@@ -37,7 +37,10 @@ class StoreRequest extends FormRequest
                 "required",
                 "exists:categories,id,deleted_at,NULL",
             ],
-            "type" => "required"
+            "type" => "required",
+            "warehouse" => "required|array",
+            "warehouse.*.warehouse" =>
+                "required|exists:warehouses,id,deleted_at,NULL",
         ];
     }
 }

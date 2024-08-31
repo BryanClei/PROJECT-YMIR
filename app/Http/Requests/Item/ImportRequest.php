@@ -28,7 +28,9 @@ class ImportRequest extends FormRequest
             "*.type" => ["exists:types,name,deleted_at,NULL"],
             "*.uom" => ["exists:uoms,name,deleted_at,NULL"],
             "*.category" => ["exists:categories,name,deleted_at,NULL"],
-            "*.warehouse" => ["exists:warehouse,name,deleted_at,NULL"],
+            "warehouse.*.warehouse" => [
+                "exists:warehouse,name,deleted_at,NULL",
+            ],
         ];
     }
 
@@ -39,7 +41,7 @@ class ImportRequest extends FormRequest
             "*.type" => "type",
             "*.uom" => "uom",
             "*.category" => "category",
-            "*.warehouse" => "warehouse",
+            "warehouse.*.warehouse" => "warehouse",
         ];
     }
 

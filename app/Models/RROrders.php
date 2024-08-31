@@ -30,6 +30,11 @@ class RROrders extends Model
         "sync",
     ];
 
+    public function pr_items()
+    {
+        return $this->hasMany(PRItems::class, "id", "item_id");
+    }
+
     public function po_transaction()
     {
         return $this->belongsTo(POTransaction::class, "po_number", "id");

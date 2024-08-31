@@ -42,17 +42,17 @@ class JobOrderTransactionFiltersPA extends QueryFilters
         $this->builder
             ->when($status === "for_po", function ($query) {
                 $query
-                    ->with([
-                        "order" => function ($query) {
-                            $query->whereNull("po_at");
-                        },
-                    ])
+                    ->with("order", function ($query) {
+                        $query->whereNull("po_at");
+                    })
+                    ->whereHas("order", function ($query) {
+                        $query->whereNull("po_at");
+                    })
                     ->whereNull("cancelled_at")
                     ->whereNull("voided_at")
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
-                    })
-                    ->whereDoesntHave("jo_po_transaction");
+                    });
             })
             ->when($status === "pending", function ($query) {
                 $query

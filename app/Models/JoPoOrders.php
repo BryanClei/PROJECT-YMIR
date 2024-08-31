@@ -13,6 +13,7 @@ class JoPoOrders extends Model
     protected $table = "jo_po_orders";
     protected $fillable = [
         "jo_transaction_id",
+        "jo_item_id",
         "jo_po_id",
         "description",
         "uom_id",
@@ -25,6 +26,8 @@ class JoPoOrders extends Model
         "asset",
     ];
     protected $hidden = ["created_at"];
+
+    protected $casts = ["attachment" => "array"];
 
     public function transaction()
     {

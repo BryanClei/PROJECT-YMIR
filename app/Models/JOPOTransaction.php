@@ -62,14 +62,31 @@ class JOPOTransaction extends Model
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
 
+    public function jo_transaction()
+    {
+        return $this->belongsTo(
+            JobOrderTransactionPA::class,
+            "jo_number",
+            "jo_number"
+        )->withTrashed();
+    }
+
     public function order()
     {
-        return $this->hasMany(JobItems::class, "purchase_order_id", "id");
+        return $this->hasMany(
+            JobItems::class,
+            "purchase_order_id",
+            "id"
+        )->withTrashed();
     }
 
     public function jo_po_orders()
     {
-        return $this->hasMany(JoPoOrders::class, "jo_po_id", "id");
+        return $this->hasMany(
+            JoPoOrders::class,
+            "jo_po_id",
+            "id"
+        )->withTrashed();
     }
 
     public function approver_history()

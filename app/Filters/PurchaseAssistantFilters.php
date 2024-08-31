@@ -81,34 +81,12 @@ class PurchaseAssistantFilters extends QueryFilters
                     ->whereNull("cancelled_at");
             })
             ->when($status === "pending", function ($query) {
-                $query
-                    ->with([
-                        "po_transaction" => function ($query) {
-                            $query
-                                ->where(function ($q) {
-                                    $q->where("status", "Pending")->orWhere(
-                                        "status",
-                                        "For Approval"
-                                    );
-                                })
-                                ->whereHas("order", function ($q) {
-                                    $q->whereNotNull("buyer_id")->orWhereNull(
-                                        "buyer_id"
-                                    );
-                                });
-                        },
-                    ])
-                    ->where(function ($query) {
-                        $query
-                            ->whereHas("order", function ($query) {
-                                $query->whereNotNull("buyer_id");
-                            })
-                            ->orWhereNotNull("for_po_only");
-                    })
-                    ->whereHas("po_transaction")
-                    ->whereNull("rejected_at")
-                    ->whereNull("voided_at")
-                    ->whereNull("cancelled_at");
+                $query->with("po_transaction", function ($query) {
+                    $query
+                        ->whereIn("status", ["Pending", "For Approval"])
+                        ->whereNull("deleted_at")
+                        ->whereNull("cancelled_at");
+                });
             })
             ->when($status === "approved", function ($query) {
                 $query
@@ -132,11 +110,42 @@ class PurchaseAssistantFilters extends QueryFilters
                             $query->whereNotNull("rejected_at");
                         },
                     ])
-                    ->whereHas("order", function ($query) {
-                        $query->whereNotNull("buyer_id");
-                    })
-                    ->whereHas("po_transaction", function ($query) {
-                        $query->where("status", "Reject");
+                    ->where(function ($query) {
+                        $query
+                            ->where(function ($subQuery) {
+                                $subQuery
+                                    ->whereHas("po_transaction", function (
+                                        $poQuery
+                                    ) {
+                                        $poQuery
+                                            ->where(
+                                                "module_name",
+                                                "!=",
+                                                "Asset"
+                                            )
+                                            ->where("status", "Reject")
+                                            ->whereNotNull("rejected_at");
+                                    })
+                                    ->whereHas("order", function ($orderQuery) {
+                                        $orderQuery->whereNotNull("buyer_id");
+                                    });
+                            })
+                            ->orWhere(function ($subQuery) {
+                                $subQuery
+                                    ->whereHas("po_transaction", function (
+                                        $poQuery
+                                    ) {
+                                        $poQuery
+                                            ->where("module_name", "Asset")
+                                            ->where("status", "Reject")
+                                            ->whereNotNull("rejected_at");
+                                    })
+                                    ->whereDoesntHave("order", function (
+                                        $orderQuery
+                                    ) {
+                                        $orderQuery->whereNotNull("buyer_id");
+                                    });
+                            });
                     });
             })
             ->when($status === "tagged_buyer", function ($query) {

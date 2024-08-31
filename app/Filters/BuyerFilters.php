@@ -84,6 +84,14 @@ class BuyerFilters extends QueryFilters
                     ->whereHas("order", function ($query) use ($user_id) {
                         $query->where("buyer_id", $user_id);
                     })
+                    ->with([
+                        "po_transaction" => function ($query) {
+                            $query->where("status", "Cancelled");
+                        },
+                        "po_transaction.order" => function ($query) {
+                            $query->withTrashed();
+                        },
+                    ])
                     ->whereHas("po_transaction", function ($query) {
                         $query
                             ->where("status", "Cancelled")
@@ -142,11 +150,19 @@ class BuyerFilters extends QueryFilters
                                 ->whereNotNull("buyer_id")
                                 ->where("buyer_id", $user_id);
                         },
-                        "po_transaction" => function ($query) {
+                        "po_transaction" => function ($query) use ($user_id) {
                             $query
                                 ->whereNull("deleted_at")
-                                ->where("status", "Pending")
-                                ->orWhere("status", "For Approval");
+                                ->where(function ($subQuery) {
+                                    $subQuery
+                                        ->where("status", "Pending")
+                                        ->orWhere("status", "For Approval");
+                                })
+                                ->whereHas("order", function ($orderQuery) use (
+                                    $user_id
+                                ) {
+                                    $orderQuery->where("buyer_id", $user_id);
+                                });
                         },
                     ])
                     ->where(function ($query) use ($user_id) {

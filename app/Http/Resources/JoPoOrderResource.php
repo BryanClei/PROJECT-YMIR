@@ -20,14 +20,12 @@ class JoPoOrderResource extends JsonResource
             "jo_po_id" => $this->jo_po_id,
             "description" => $this->description,
             "uom" => $this->uom_id,
-            "po_at" => $this->po_at,
-            "purchase_order_id" => $this->purchase_order_id,
             "quantity" => $this->quantity,
             "quantity_serve" => $this->quantity_serve,
             "unit_price" => $this->unit_price,
             "total_price" => $this->total_price,
             "remarks" => $this->remarks,
-            "attachment" => $this->attachment,
+            "attachment" => empty($this->attachment) ? null : $this->attachment,
             "asset" => $this->asset,
         ];
     }

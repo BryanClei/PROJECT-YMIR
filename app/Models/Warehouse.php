@@ -13,6 +13,7 @@ class Warehouse extends Model
     use Filterable, HasFactory, SoftDeletes;
 
     protected string $default_filters = WarehouseFilters::class;
+    protected $table = "warehouses";
     protected $connection = "mysql";
     protected $fillable = ["name", "code"];
     protected $hidden = ["created_at"];

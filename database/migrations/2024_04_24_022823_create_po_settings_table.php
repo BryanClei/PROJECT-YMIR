@@ -17,6 +17,10 @@ return new class extends Migration {
             $table->string("module");
             $table->string("company_id");
             $table->string("company_name");
+            $table->integer("business_unit_id");
+            $table->string("business_unit_name");
+            $table->integer("department_id");
+            $table->string("department_name");
             $table->timestamps();
             $table->softDeletes();
         });

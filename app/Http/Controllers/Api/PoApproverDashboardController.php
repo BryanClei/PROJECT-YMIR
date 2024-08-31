@@ -223,6 +223,7 @@ class PoApproverDashboardController extends Controller
         $po_collect = new PoResource($po_transaction);
         return GlobalFunction::responseFunction(Message::VOIDED, $po_collect);
     }
+
     public function rejected(RejectRequest $request, $id)
     {
         $user = Auth()->user()->id;

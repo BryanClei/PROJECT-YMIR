@@ -10,30 +10,32 @@ use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DisplayRequest;
 use App\Http\Requests\PO\StoreRequest;
+use App\Http\Resources\PoSettingsResource;
 
 class PoApproversController extends Controller
 {
     public function index(DisplayRequest $request)
     {
         $status = $request->status;
-        $job_order = POSettings::with("set_approver")
+         $po_setting = POSettings::with("set_approver")
             ->when($status === "inactive", function ($query) {
                 $query->onlyTrashed();
             })
-
-            ->useFilters()
             ->latest("updated_at")
+            ->useFilters()
             ->dynamicPaginate();
 
-        $is_empty = $job_order->isEmpty();
+        $is_empty = $po_setting->isEmpty();
 
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        PoSettingsResource::collection($po_setting);
+
         return GlobalFunction::responseFunction(
             Message::APPROVERS_DISPLAY,
-            $job_order
+            $po_setting
         );
     }
     public function store(StoreRequest $request)
@@ -42,6 +44,10 @@ class PoApproversController extends Controller
             "module" => "PO APPROVERS",
             "company_id" => $request["company_id"],
             "company_name" => $request["company_name"],
+            "business_unit_id" => $request["business_unit_id"],
+            "business_unit_name" => $request["business_unit_name"],
+            "department_id" => $request["department_id"],
+            "department_name" => $request["department_name"],
         ]);
 
         $approver->save();
@@ -99,6 +105,10 @@ class PoApproversController extends Controller
         $setting->update([
             "company_id" => $request["company_id"],
             "company_name" => $request["company_name"],
+            "business_unit_id" => $request["business_unit_id"],
+            "business_unit_name" => $request["business_unit_name"],
+            "department_id" => $request["department_id"],
+            "department_name" => $request["department_name"],
         ]);
 
         return GlobalFunction::responseFunction(

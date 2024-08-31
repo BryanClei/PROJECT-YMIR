@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Items extends Model
 {
     use Filterable, HasFactory, SoftDeletes;
+
     protected $connection = "mysql";
     protected string $default_filters = ItemFilters::class;
 
@@ -41,6 +42,6 @@ class Items extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
+        return $this->hasMany(ItemWarehouse::class, "item_id", "id");
     }
 }

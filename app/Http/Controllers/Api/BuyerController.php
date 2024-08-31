@@ -34,15 +34,17 @@ class BuyerController extends Controller
         $status = $request->status;
         $user_id = Auth()->user()->id;
 
-        $purchase_request = Buyer::with(
+        $purchase_request = Buyer::with([
             "order",
             "approver_history",
             "log_history",
             "po_transaction",
-            "po_transaction.order",
+            "po_transaction.order" => function ($query) {
+                $query->withTrashed();
+            },
             "po_transaction.approver_history",
-            "po_transaction.log_history"
-        )
+            "po_transaction.log_history",
+        ])
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -68,10 +70,11 @@ class BuyerController extends Controller
         $purchase_order = POTransaction::where("id", $id)
             ->with([
                 "order" => function ($query) use ($user_id) {
-                    $query->where("buyer_id", $user_id);
+                    $query->where("buyer_id", $user_id)->withTrashed();
                 },
                 "approver_history",
             ])
+            ->withTrashed()
             ->orderByDesc("updated_at")
             ->get()
             ->first();
@@ -175,7 +178,9 @@ class BuyerController extends Controller
         $activityDescription =
             "Purchase Order ID: " .
             $id .
-            " has been updated prices for PO items: ";
+            " has been updated by UID: " .
+            $user_id .
+            " prices for PO items: ";
         foreach ($updatedItems as $item) {
             $activityDescription .= "Item ID {$item["id"]}: {$item["old_price"]} -> {$item["new_price"]}, ";
         }
@@ -322,8 +327,117 @@ class BuyerController extends Controller
             ->whereNotNull("approved_at")
             ->count();
 
+        $for_po_approval = Buyer::whereHas("order", function ($query) use (
+            $user_id
+        ) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->whereHas("po_transaction", function ($query) {
+                $query
+                    ->whereNull("deleted_at")
+                    ->whereIn("status", ["Pending", "For Approval"]);
+            })
+            ->withCount([
+                "po_transaction" => function ($query) {
+                    $query
+                        ->whereNull("deleted_at")
+                        ->whereIn("status", ["Pending", "For Approval"]);
+                },
+            ])
+            ->get()
+            ->sum("po_transaction_count");
+
+        $po_approved = Buyer::with(
+            "order",
+            "approver_history",
+            "log_history",
+            "po_transaction",
+            "po_transaction.order",
+            "po_transaction.approver_history",
+            "po_transaction.log_history"
+        )
+            ->whereNotNull("approved_at")
+            ->whereHas("po_transaction", function ($query) {
+                $query
+                    ->where("status", "For Receiving")
+                    ->whereNull("deleted_at");
+            })
+            ->with("po_transaction", function ($query) {
+                $query
+                    ->where("status", "For Receiving")
+                    ->whereNull("deleted_at")
+                    ->whereNotNull("approved_at")
+                    ->whereNull("cancelled_at")
+                    ->whereNull("rejected_at");
+            })
+            ->withCount([
+                "po_transaction" => function ($query) {
+                    $query
+                        ->where("status", "For Receiving")
+                        ->whereNull("deleted_at");
+                },
+            ])
+            ->get()
+            ->sum("po_transaction_count");
+
+        $rejected = Buyer::whereHas("po_transaction", function ($query) use (
+            $user_id
+        ) {
+            $query
+                ->where("status", "Reject")
+                ->whereNotNull("rejected_at")
+                ->whereHas("order", function ($subQuery) use ($user_id) {
+                    $subQuery->where("buyer_id", $user_id);
+                })
+                ->whereHas("approver_history", function ($subQuery) {
+                    $subQuery->whereNotNull("rejected_at");
+                });
+        })
+            ->whereNotNull("approved_at")
+            ->withCount([
+                "po_transaction" => function ($query) use ($user_id) {
+                    $query
+                        ->where("status", "Reject")
+                        ->whereNotNull("rejected_at")
+                        ->whereHas("order", function ($subQuery) use (
+                            $user_id
+                        ) {
+                            $subQuery->where("buyer_id", $user_id);
+                        })
+                        ->whereHas("approver_history", function ($subQuery) {
+                            $subQuery->whereNotNull("rejected_at");
+                        });
+                },
+            ])
+            ->get()
+            ->sum("po_transaction_count");
+
+        $cancelled = Buyer::whereHas("order", function ($query) use ($user_id) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->whereHas("po_transaction", function ($query) {
+                $query
+                    ->where("status", "Cancelled")
+                    ->whereNotNull("cancelled_at")
+                    ->whereNotNull("deleted_at");
+            })
+            ->withCount([
+                "po_transaction" => function ($query) {
+                    $query
+                        ->where("status", "Cancelled")
+                        ->whereNotNull("cancelled_at")
+                        ->whereNotNull("deleted_at");
+                },
+            ])
+            ->get()
+            ->sum("po_transaction_count");
+
         $result = [
             "tagged_request" => $tagged_request,
+            "for_po_approval" => $for_po_approval,
+            "po_approved" => $po_approved,
+            "rejected" => $rejected,
+            "cancelled" => $cancelled,
         ];
 
         return GlobalFunction::responseFunction(

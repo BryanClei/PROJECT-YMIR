@@ -19,6 +19,7 @@ class JoPoResource extends JsonResource
     {
         return [
             "id" => $this->id,
+            "jo_year_number_id" => $this->jo_transaction->jo_year_number_id,
             "jo_number" => $this->jo_number,
             "jo_description" => $this->jo_description,
             "date_needed" => $this->date_needed,
@@ -80,10 +81,12 @@ class JoPoResource extends JsonResource
             "jo_po_orders" => JoPoOrderResource::collection(
                 $this->jo_po_orders
             ),
+            "jo_rr_transaction" => $this->jo_rr_transaction,
             "jo_po_approver_history" => JobOrderHistoryResource::collection(
                 $this->jo_approver_history
             ),
             "log_history" => LogHistoryResource::collection($this->log_history),
+            "jo_transaction" => $this->jo_transaction,
         ];
     }
 }

@@ -51,6 +51,7 @@ class PoFilters extends QueryFilters
             })
             ->when($status === "cancelled", function ($query) use ($user_id) {
                 $query
+
                     ->whereNotNull("cancelled_at")
                     ->whereNull("approved_at")
                     ->where("user_id", $user_id);
@@ -58,7 +59,9 @@ class PoFilters extends QueryFilters
             ->when($status === "for_receiving_cancelled", function (
                 $query
             ) use ($user_id) {
-                $query->whereNotNull("cancelled_at");
+                $query
+                    ->whereNotNull("cancelled_at")
+                    ->whereHas("rr_transaction");
             })
             ->when($status === "voided", function ($query) use ($user_id) {
                 $query->whereNotNull("voided_at")->where("user_id", $user_id);
