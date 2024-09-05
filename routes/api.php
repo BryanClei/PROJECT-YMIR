@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BuyerController;
 use App\Http\Controllers\Api\AssetsController;
 use App\Http\Controllers\Api\CanvasController;
+use App\Http\Controllers\Api\ETDApiController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\SubUnitController;
@@ -401,6 +402,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("asset/archived/{id}", [AssetsController::class, "destroy"]);
     Route::apiResource("asset", AssetsController::class);
 
+    Route::patch("edit_unit_price/{id}", [
+        PAController::class,
+        "edit_unit_price",
+    ]);
     Route::patch("return_pr/{id}", [PAController::class, "return_pr"]);
     Route::get("pa_badge", [PAController::class, "tagging_badge"]);
     Route::patch("update_jo_po/{id}", [PAController::class, "update_jo"]);
@@ -494,5 +499,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     );
 
     Route::apiResource("allowable_percentage", AllowableController::class);
+
+    Route::apiResource("etd_api", ETDApiController::class);
 });
 Route::post("login", [UserController::class, "login"]);

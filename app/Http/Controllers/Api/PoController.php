@@ -198,6 +198,7 @@ class PoController extends Controller
                 "buyer_name" => $request["order"][$index]["buyer_name"],
                 "remarks" => $remarks,
                 "warehouse_id" => $request["order"][$index]["warehouse_id"],
+                "category_id" => $request["order"][$index]["category_id"],
             ]);
         }
 
@@ -464,6 +465,8 @@ class PoController extends Controller
                     "buyer_id" => $values["buyer_id"],
                     "buyer_name" => $values["buyer_name"],
                     "remarks" => $values["remarks"],
+                    "warehouse_id" => $values["warehouse_id"],
+                    "category_id" => $values["category_id"],
                 ]
             );
         }
@@ -549,6 +552,8 @@ class PoController extends Controller
                     "buyer_id" => $values["buyer_id"],
                     "buyer_name" => $values["buyer_name"],
                     "remarks" => $values["remarks"],
+                    "warehouse_id" => $values["warehouse_id"],
+                    "category_id" => $values["category_id"],
                 ]
             );
             $totalPriceSum += $newTotalPrice;

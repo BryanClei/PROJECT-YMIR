@@ -2,11 +2,14 @@
 
 namespace App\Filters;
 
+use Essa\APIToolKit\Traits\DateFilter;
 use Essa\APIToolKit\Filters\QueryFilters;
 
 class PoFilters extends QueryFilters
 {
     protected array $allowedFilters = [];
+
+    use DateFilter;
 
     protected array $columnSearch = [
         "pr_number",

@@ -27,6 +27,7 @@ class PRItems extends Model
         "attachment",
         "assets",
         "warehouse_id",
+        "category_id",
     ];
     protected $hidden = ["created_at"];
 
@@ -66,5 +67,10 @@ class PRItems extends Model
     public function po_order()
     {
         return $this->hasMany(POItems::class, "po_id", "id");
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Categories::class, "category_id", "id");
     }
 }

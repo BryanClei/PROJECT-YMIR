@@ -44,7 +44,6 @@ class User extends Authenticatable
         "department_unit_id",
         "sub_unit_id",
         "location_id",
-        "warehouse_id",
     ];
 
     protected string $default_filters = UserFilters::class;

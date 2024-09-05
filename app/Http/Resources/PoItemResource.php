@@ -45,6 +45,8 @@ class PoItemResource extends JsonResource
             "buyer_name" => $this->buyer_name,
             "remarks" => $this->remarks,
             "updated_at" => $this->updated_at,
+            "warehouse_id" => $this->warehouse_id,
+            "category_id" => $this->category,
         ];
     }
 }

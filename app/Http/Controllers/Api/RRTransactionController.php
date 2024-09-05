@@ -57,9 +57,11 @@ class RRTransactionController extends Controller
     {
         $rr_transaction = RRTransaction::with(
             "pr_transaction.users",
+            "pr_transaction.order",
             "rr_orders",
             "po_transaction",
-            "po_order"
+            "po_order",
+            "po_order.category"
         )
             ->where("id", $id)
             ->orderByDesc("updated_at")
@@ -162,6 +164,19 @@ class RRTransactionController extends Controller
         $rr_transaction->save();
 
         foreach ($orders as $index => $values) {
+            $attachments = $request["order"][$index]["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_rr_id_{$rr_transaction->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames[] = $filename;
+                }
+            }
+
             $item_id = $request["order"][$index]["id"];
             $quantity_serve = $request["order"][$index]["quantity_serve"];
             $original_quantity = $quantities[$item_id] ?? 0;
@@ -184,6 +199,7 @@ class RRTransactionController extends Controller
                 "shipment_no" => $request["order"][$index]["shipment_no"],
                 "delivery_date" => $request["order"][$index]["delivery_date"],
                 "rr_date" => $request["order"][$index]["rr_date"],
+                "attachment" => json_encode($filenames),
                 "sync" => 0,
             ]);
 
@@ -245,6 +261,7 @@ class RRTransactionController extends Controller
                 "shipment_no" => $request["order"][$index]["shipment_no"],
                 "delivery_date" => $request["order"][$index]["delivery_date"],
                 "rr_date" => $request["order"][$index]["rr_date"],
+                "attachment" => $request["order"][$index]["attachment"],
                 "sync" => 0,
             ]);
 

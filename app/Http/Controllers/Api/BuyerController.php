@@ -35,7 +35,9 @@ class BuyerController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_request = Buyer::with([
-            "order",
+            "order" => function ($query) {
+                $query->with("category");
+            },
             "approver_history",
             "log_history",
             "po_transaction",
@@ -72,6 +74,7 @@ class BuyerController extends Controller
                 "order" => function ($query) use ($user_id) {
                     $query->where("buyer_id", $user_id)->withTrashed();
                 },
+                "order.category",
                 "approver_history",
             ])
             ->withTrashed()
@@ -97,7 +100,10 @@ class BuyerController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_order = Buyer::with([
-            "order",
+            "users",
+            "order" => function ($query) {
+                $query->with("category");
+            },
             "approver_history",
             "po_transaction",
             "po_transaction.order",
@@ -327,23 +333,20 @@ class BuyerController extends Controller
             ->whereNotNull("approved_at")
             ->count();
 
-        $for_po_approval = Buyer::whereHas("order", function ($query) use (
-            $user_id
-        ) {
-            $query->where("buyer_id", $user_id);
-        })
-            ->whereHas("po_transaction", function ($query) {
+        $for_po_approval = Buyer::withCount([
+            "po_transaction" => function ($query) use ($user_id) {
                 $query
                     ->whereNull("deleted_at")
-                    ->whereIn("status", ["Pending", "For Approval"]);
-            })
-            ->withCount([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->whereNull("deleted_at")
-                        ->whereIn("status", ["Pending", "For Approval"]);
-                },
-            ])
+                    ->where(function ($subQuery) {
+                        $subQuery
+                            ->where("status", "Pending")
+                            ->orWhere("status", "For Approval");
+                    })
+                    ->whereHas("order", function ($orderQuery) use ($user_id) {
+                        $orderQuery->where("buyer_id", $user_id);
+                    });
+            },
+        ])
             ->get()
             ->sum("po_transaction_count");
 
@@ -524,10 +527,24 @@ class BuyerController extends Controller
         );
     }
 
-    public function item_unit_price($id)
+    public function item_unit_price(Request $request, $id)
     {
         $item_code = $id;
-        $previous_unit_price = POItems::where("item_code", $item_code)->get();
+        $item_name = $request->item_name;
+        $previous_unit_price = POItems::when($item_code == 0, function (
+            $query
+        ) use ($item_code, $item_name) {
+            $query->when($item_name, function ($query) use ($item_name) {
+                // $query->where("item_name", "like", "%" . $item_name . "%");
+                $query->whereRaw("LOWER(item_name) = ?", [
+                    strtolower($item_name),
+                ]);
+            });
+        })
+            ->when($item_code, function ($query) use ($item_code) {
+                $query->where("item_code", $item_code);
+            })
+            ->get();
 
         $item_collect = PoItemResource::collection($previous_unit_price);
 

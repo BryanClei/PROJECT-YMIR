@@ -187,6 +187,7 @@ class PRTransactionController extends Controller
                 "attachment" => json_encode($filenames),
                 "assets" => $request["order"][$index]["assets"],
                 "warehouse_id" => $request["order"][$index]["warehouse_id"],
+                "category_id" => $request["order"][$index]["category_id"],
             ]);
         }
         $approver_settings = ApproverSettings::where(
@@ -315,6 +316,8 @@ class PRTransactionController extends Controller
                     "remarks" => $values["remarks"],
                     "attachment" => $values["attachment"],
                     "assets" => $values["assets"],
+                    "warehouse_id" => $values["warehouse_id"],
+                    "category_id" => $values["category_id"],
                 ]
             );
         }
@@ -603,6 +606,8 @@ class PRTransactionController extends Controller
                     "remarks" => $values["remarks"],
                     "attachment" => $values["attachment"],
                     "assets" => $values["assets"],
+                    "warehouse_id" => $values["warehouse_id"],
+                    "category_id" => $values["category_id"],
                 ]
             );
         }
@@ -711,6 +716,8 @@ class PRTransactionController extends Controller
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
                     "assets" => $values["assets"],
+                    "warehouse_id" => $values["warehouse_id"],
+                    "category_id" => $values["category_id"],
                 ]
             );
         }
@@ -768,13 +775,18 @@ class PRTransactionController extends Controller
 
         $type = $request->input("type");
 
-        if ($type == "pr") {
-            $selector = "pr";
-        } elseif ($type == "po") {
-            $selector = "po";
-        } elseif ($type == "jo") {
-            $selector = "jo";
+        $typeSelectors = [
+            "pr" => "pr",
+            "po" => "po",
+            "jo" => "jo",
+            "rr" => "rr",
+        ];
+
+        if (!isset($typeSelectors[$type])) {
+            throw new \Exception("Invalid type");
         }
+
+        $selector = $typeSelectors[$type];
 
         $uploadedFiles = [];
 

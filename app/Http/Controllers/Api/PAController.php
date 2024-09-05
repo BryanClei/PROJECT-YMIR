@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\JobItems;
 use App\Models\PrHistory;
 use App\Response\Message;
 use App\Models\JoPoOrders;
@@ -197,7 +198,8 @@ class PAController extends Controller
                             $query
                                 ->whereNotNull("buyer_id")
                                 ->whereNull("supplier_id");
-                        });
+                        })
+                        ->with("category");
                 },
             ])
             ->orderByDesc("updated_at")
@@ -594,23 +596,35 @@ class PAController extends Controller
             ->whereDoesntHave("po_transaction")
             ->count();
 
-        $tagged_buyer = PurchaseAssistant::with([
+        $tagged_buyer = PurchaseAssistant::withCount([
             "order" => function ($query) {
-                $query->whereNotNull("buyer_id");
+                $query->whereNotNull("buyer_id")->whereNull("po_at");
+            },
+            "po_transaction" => function ($query) {
+                $query->where("status", "Return");
             },
         ])
-            ->whereHas("order", function ($query) {
-                $query->whereNotNull("buyer_id")->whereNull("po_at");
+            ->where(function ($query) {
+                $query
+                    ->whereHas("order", function ($query) {
+                        $query->whereNotNull("buyer_id")->whereNull("po_at");
+                    })
+                    ->orWhereHas("po_transaction", function ($query) {
+                        $query->where("status", "Return");
+                    });
             })
-            ->whereDoesntHave("po_transaction")
             ->count();
 
-        $pending_po_count = POTransaction::where(function ($query) {
-            $query
-                ->where("status", "Pending")
-                ->orWhere("status", "For Approval")
-                ->whereNotNull("approved_at");
-        })->count();
+        $pending_po_count = PurchaseAssistant::withCount([
+            "po_transaction" => function ($query) {
+                $query
+                    ->whereIn("status", ["Pending", "For Approval"])
+                    ->whereNull("deleted_at")
+                    ->whereNull("cancelled_at");
+            },
+        ])
+            ->get()
+            ->sum("po_transaction_count");
 
         $approved = PurchaseAssistant::withCount([
             "po_transaction" => function ($query) {
@@ -618,10 +632,12 @@ class PAController extends Controller
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
-                    ->where("status", "For Receiving")
-                    ->whereNotNull("approved_at");
+                    ->where("status", "For Receiving");
             },
         ])
+            ->whereNull("rejected_at")
+            ->whereNull("voided_at")
+            ->whereNull("cancelled_at")
             ->get()
             ->sum("po_transaction_count");
 
@@ -773,8 +789,27 @@ class PAController extends Controller
         );
     }
 
-    public function jo_badge()
+    public function edit_unit_price(Request $request, $id)
     {
-        $jo_badge = JoBadge::all();
+        $unit_price = $request->unit_price;
+        $jr_item = JobItems::where("id", $id)
+            ->get()
+            ->first();
+
+        if (!$jr_item) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+         $latest_total = $jr_item->quantity * $unit_price;
+
+        $jr_item->update([
+            "unit_price" => $unit_price,
+            "total_price" => $latest_total,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_UPDATE,
+            $jr_item
+        );
     }
 }

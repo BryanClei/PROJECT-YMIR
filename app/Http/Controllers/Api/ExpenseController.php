@@ -149,6 +149,8 @@ class ExpenseController extends Controller
                 "quantity" => $request["order"][$index]["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => json_encode($filenames),
+                "warehouse_id" => $request["order"][$index]["warehouse_id"],
+                "category_id" => $request["order"][$index]["category_id"],
             ]);
         }
         $approver_settings = ApproverSettings::where(
@@ -285,6 +287,7 @@ class ExpenseController extends Controller
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
                     "attachment" => $values["attachment"],
+                    "category_id" => $values["category_id"],
                 ]
             );
         }

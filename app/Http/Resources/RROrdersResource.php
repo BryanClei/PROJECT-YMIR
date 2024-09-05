@@ -32,6 +32,8 @@ class RROrdersResource extends JsonResource
             "shipment_no" => $this->shipment_no,
             "delivery_date" => $this->delivery_date,
             "rr_date" => $this->rr_date,
+            "ref_number_file" => $this->attachment,
+            "canvassing_attachment" => $this->order->attachment,
         ];
     }
 }

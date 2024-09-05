@@ -19,8 +19,6 @@ class ItemFilters extends QueryFilters
 
     public function type($type)
     {
-        // $items = Items::whereHas("types", );
-
         $this->builder
             ->whereHas("types", function ($query) use ($type) {
                 $query->where("id", $type);

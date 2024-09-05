@@ -21,6 +21,7 @@ class ItemController extends Controller
     public function index(DisplayRequest $request)
     {
         $status = $request->status;
+        $item_name = $request->item_name;
 
         $item = Items::with("types", "uom", "warehouse")
             ->when($status === "inactive", function ($query) {

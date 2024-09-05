@@ -50,6 +50,7 @@ return new class extends Migration {
             $table->dobule("total_price");
             $table->string("remarks")->nullable();
             $table->integer("warehouse_id")->nullable();
+            $table->integer("category_id")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

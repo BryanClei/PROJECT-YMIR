@@ -43,6 +43,8 @@ class StoreRequest extends FormRequest
 
             "order.*.uom_id" => "exists:uoms,id,deleted_at,NULL",
             "order.*.item_name" => "required",
+            "order.*.category_id" =>
+                "nullable|exists:categories,id,deleted_at,NULL",
         ];
     }
     public function withValidator($validator)

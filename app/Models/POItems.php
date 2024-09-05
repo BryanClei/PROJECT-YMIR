@@ -32,6 +32,7 @@ class POItems extends Model
         "buyer_name",
         "remarks",
         "warehouse_id",
+        "category_id",
     ];
 
     protected $casts = [
@@ -62,5 +63,10 @@ class POItems extends Model
     public function po_transaction()
     {
         return $this->belongsTo(POTransaction::class, "po_id", "po_number");
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Categories::class, "category_id", "id");
     }
 }

@@ -44,6 +44,7 @@ class PoApproverDashboardController extends Controller
 
         $purchase_request = ApproverDashboard::with(
             "order",
+            "order.category",
             "approver_history",
             "log_history",
             "pr_transaction",

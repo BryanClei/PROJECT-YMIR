@@ -27,8 +27,11 @@ class RROrders extends Model
         "shipment_no",
         "delivery_date",
         "rr_date",
+        "attachment",
         "sync",
     ];
+
+    protected $casts = ["attachment" => "array"];
 
     public function pr_items()
     {

@@ -20,14 +20,15 @@ return new class extends Migration {
                 ->foreign("rr_id")
                 ->references("id")
                 ->on("rr_transactions");
-            $table->string("item_id");
-            $table->string("item_code");
-            $table->string("item_name");
+            $table->string("item_id")->nullable();
+            $table->string("item_code")->nullable();
+            $table->string("item_name")->nullable();
             $table->string("quantity_receive");
             $table->string("remaining");
             $table->string("shipment_no");
             $table->timestamp("delivery_date");
             $table->timestamp("rr_date");
+            $table->string("attachment")->nullable();
             $table->integer("sync");
             $table->timestamps();
             $table->softDeletes();
