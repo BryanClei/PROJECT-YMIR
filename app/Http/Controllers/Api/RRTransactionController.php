@@ -105,7 +105,7 @@ class RRTransactionController extends Controller
         }
 
         $po_transaction->pr_number;
-        return $orders = $request->order;
+        $orders = $request->order;
 
         foreach ($orders as $order) {
             $itemIds[] = $order["id"];
@@ -183,13 +183,14 @@ class RRTransactionController extends Controller
         $rr_transaction->save();
 
         $itemDetails = [];
+        $itemDetails = [];
         foreach ($orders as $index => $values) {
             $item_id = $request["order"][$index]["id"];
             $quantity_serve = $request["order"][$index]["quantity_serve"];
             $original_quantity = $quantities[$item_id] ?? 0;
             $remaining =
                 $original_quantity -
-                ($original_quantity_serve->quantity_serve + $quantity_serve);
+                ($quantities_serve[$item_id] + $quantity_serve);
 
             $itemDetails[] = [
                 "item_name" => $request["order"][$index]["item_name"],
@@ -214,7 +215,7 @@ class RRTransactionController extends Controller
 
         LogHistory::create([
             "activity" => $activityDescription,
-            "rr_id" => $purchase_order->id,
+            "rr_id" => $rr_transaction->id,
             "action_by" => $user_id,
         ]);
 
