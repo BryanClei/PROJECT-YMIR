@@ -109,25 +109,44 @@ class PoController extends Controller
 
         $orders = $request->order;
 
-        if ($request->module_name === "Asset") {
-            $if_exist = PRTransaction::where(
-                "pr_number",
-                $request->pr_number
-            )->get();
-        } else {
-            $if_exist = PRTransaction::where("id", $request->pr_number)->get();
-        }
+        $if_exist = PRTransaction::when(
+            $request->module_name === "Asset",
+            function ($query) use ($request) {
+                return $query->where("pr_number", $request->pr_number);
+            },
+            function ($query) use ($request) {
+                return $query->where("id", $request->pr_number);
+            }
+        )->get();
 
         if ($if_exist->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $po_number = POTransaction::withTrashed()->max("po_number") ?? 0;
+        $current_year = date("Y");
+        $latest_po = POTransaction::where(
+            "po_year_number_id",
+            "like",
+            $current_year . "-PO-%"
+        )
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(po_year_number_id, '-', -1) AS UNSIGNED) DESC"
+            )
+            ->first();
 
-        $increment = $po_number ? $po_number + 1 : 1;
+        $new_number = $latest_po
+            ? (int) explode("-", $latest_po->po_year_number_id)[2] + 1
+            : 1;
+
+        $latest_po_number = POTransaction::withTrashed()->max("id") ?? 0;
+        $po_number = $latest_po_number + 1;
+
+        $po_year_number_id =
+            $current_year . "-PO-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $purchase_order = new POTransaction([
-            "po_number" => $increment,
+            "po_year_number_id" => $po_year_number_id,
+            "po_number" => $po_number,
             "pr_number" => $request->pr_number,
             "po_description" => $request->po_description,
             "date_needed" => $request->date_needed,
@@ -494,6 +513,8 @@ class PoController extends Controller
         }
 
         $purchase_order->update([
+            "po_description" => $request->description,
+            "description" => $request->description,
             "status" => "Pending",
             "rejected_at" => null,
             "reason" => null,

@@ -28,9 +28,10 @@ class UpdatePriceRequest extends FormRequest
             "po_id" => "required|exists:po_transactions,id,deleted_at,NULL",
             // "edit_remarks" => "required",
             "orders" => "required|array",
-            "orders.*.id" =>
-                "required|exists:po_orders,id,deleted_at,NULL,buyer_id," .
-                $user_id,
+            "orders.*.id" => "required|exists:po_orders,id,deleted_at,NULL",
+            // "orders.*.id" =>
+            //     "required|exists:po_orders,id,deleted_at,NULL,buyer_id," .
+            //     $user_id,
         ];
     }
 }

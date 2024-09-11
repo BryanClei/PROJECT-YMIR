@@ -16,7 +16,13 @@ class RRTransaction extends Model
 
     protected $table = "rr_transactions";
 
-    protected $fillable = ["po_id", "pr_id", "received_by", "tagging_id"];
+    protected $fillable = [
+        "rr_year_number_id",
+        "po_id",
+        "pr_id",
+        "received_by",
+        "tagging_id",
+    ];
 
     // protected $casts = ["remarks" => "json"];
 

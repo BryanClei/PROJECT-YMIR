@@ -37,11 +37,14 @@ class ItemController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        ItemResource::collection($item);
-        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
+        // ItemResource::collection($item);
+        // return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
 
-        //        $item_collect = ItemResource::collection($item);
-        //        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item_collect);
+        $item_collect = ItemResource::collection($item);
+        return GlobalFunction::responseFunction(
+            Message::ITEM_DISPLAY,
+            $item_collect
+        );
     }
 
     public function store(StoreRequest $request)

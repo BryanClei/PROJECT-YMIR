@@ -17,8 +17,10 @@ use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\SubUnitController;
 use App\Http\Controllers\Api\BusinessController;
+use App\Http\Controllers\Api\FistoApiController;
 use App\Http\Controllers\Api\JobOrderController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\SearchPoController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\AllowableController;
 use App\Http\Controllers\Api\FinancialController;
@@ -40,6 +42,7 @@ use App\Http\Controllers\Api\AccountTitleUnitController;
 use App\Http\Controllers\Api\ApproverSettingsController;
 use App\Http\Controllers\Api\JobOrderTransactionController;
 use App\Http\Controllers\Api\PoApproverDashboardController;
+use App\Http\Controllers\Api\PushingErrorHandlerController;
 
 /*
 |--------------------------------------------------------------------------
@@ -455,7 +458,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         RRTransactionController::class,
         "index_po_approved",
     ]);
-    Route::get("asset_vladimir", [
+    Route::get("asset_vladimir/{id}", [
         RRTransactionController::class,
         "asset_vladimir",
     ]);
@@ -501,5 +504,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::apiResource("allowable_percentage", AllowableController::class);
 
     Route::apiResource("etd_api", ETDApiController::class);
+
+    Route::apiResource("fisto_api", FistoApiController::class);
+
+    Route::apiResource("error_handler", PushingErrorHandlerController::class);
+
+    Route::apiResource("search_po", SearchPoController::class);
 });
 Route::post("login", [UserController::class, "login"]);

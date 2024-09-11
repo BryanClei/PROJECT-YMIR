@@ -20,6 +20,8 @@ class ItemWarehouseResource extends JsonResource
             "item_id" => $this->item_id,
             "warehouse_name" => $this->warehouse->name,
             "warehouse_code" => $this->warehouse->code,
+            "url" => $this->warehouse->url,
+            "token" => $this->warehouse->token,
         ];
     }
 }

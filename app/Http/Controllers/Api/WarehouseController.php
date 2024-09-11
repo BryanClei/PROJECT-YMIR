@@ -42,6 +42,8 @@ class WarehouseController extends Controller
         $warehouse = Warehouse::create([
             "name" => $request->name,
             "code" => $request->code,
+            "url" => $request->url,
+            "token" => $request->token,
         ]);
 
         $company_collect = new WarehouseResource($warehouse);
@@ -61,6 +63,8 @@ class WarehouseController extends Controller
         $warehouse->update([
             "name" => $request->name,
             "code" => $request->code,
+            "url" => $request->url,
+            "token" => $request->token,
         ]);
         return GlobalFunction::responseFunction(
             Message::WAREHOUSE_UPDATE,

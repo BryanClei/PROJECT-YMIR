@@ -15,6 +15,8 @@ class RROrdersResource extends JsonResource
     public function toArray($request)
     {
         return [
+            "rr_year_number_id" => $this->rr_transaction->rr_year_number_id,
+            "rr_number" => $this->rr_transaction->id,
             "rr_number" => $this->rr_transaction->id,
             "pr_number" => $this->rr_transaction->pr_id,
             "po_number" => $this->rr_transaction->po_id,

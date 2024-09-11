@@ -17,6 +17,7 @@ class POTransaction extends Model
     protected $table = "po_transactions";
 
     protected $fillable = [
+        "po_year_number_id",
         "pr_number",
         "po_number",
         "po_description",

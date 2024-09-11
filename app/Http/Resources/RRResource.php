@@ -16,6 +16,8 @@ class RRResource extends JsonResource
     public function toArray($request)
     {
         return [
+            "po_year_number_id" => $this->po_transaction->po_year_number_id,
+            "rr_year_number_id" => $this->rr_year_number_id,
             "rr_number" => $this->id,
             "pr_number" => $this->pr_id,
             "po_number" => $this->po_id,

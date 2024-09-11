@@ -114,12 +114,9 @@ class PRTransactionController extends Controller
             )
             ->first();
 
-        if ($latest_pr) {
-            $latest_number = explode("-", $latest_pr->pr_year_number_id)[2];
-            $new_number = (int) $latest_number + 1;
-        } else {
-            $new_number = 1;
-        }
+        $new_number = $latest_pr
+            ? (int) explode("-", $latest_pr->pr_year_number_id)[2] + 1
+            : 1;
 
         $latest_pr_number = PRTransaction::withTrashed()->max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;

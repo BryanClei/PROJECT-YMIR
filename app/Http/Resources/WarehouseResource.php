@@ -18,6 +18,8 @@ class WarehouseResource extends JsonResource
             "id" => $this->id,
             "name" => $this->name,
             "code" => $this->code,
+            "url" => $this->url,
+            "token" => $this->token,
             "updated_at" => $this->updated_at,
             "deleted_at" => $this->deleted_at,
         ];

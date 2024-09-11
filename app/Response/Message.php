@@ -113,6 +113,7 @@ class Message
     const RR_CANCELLATION = "RR transaction cancelled successfully";
     const ALLOWABLE_UPDATE = "Allowable percentage update successfully.";
     const REMARKS_UPDATE = "Remarks updated successfully.";
+    const LOG_SUCCESSFULLY = "Log successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";

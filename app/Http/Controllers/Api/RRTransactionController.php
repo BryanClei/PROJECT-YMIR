@@ -105,7 +105,7 @@ class RRTransactionController extends Controller
         }
 
         $po_transaction->pr_number;
-        $orders = $request->order;
+        return $orders = $request->order;
 
         foreach ($orders as $order) {
             $itemIds[] = $order["id"];
@@ -154,7 +154,26 @@ class RRTransactionController extends Controller
             }
         }
 
+        $current_year = date("Y");
+        $latest_rr = RRTransaction::where(
+            "rr_year_number_id",
+            "like",
+            $current_year . "-RR-%"
+        )
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(rr_year_number_id, '-', -1) AS UNSIGNED) DESC"
+            )
+            ->first();
+
+        $new_number = $latest_rr
+            ? (int) explode("-", $latest_rr->rr_year_number_id)[2] + 1
+            : 1;
+
+        $rr_year_number_id =
+            $current_year . "-RR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+
         $rr_transaction = new RRTransaction([
+            "rr_year_number_id" => $rr_year_number_id,
             "pr_id" => $po_transaction->pr_number,
             "po_id" => $po_transaction->po_number,
             "received_by" => $user_id,
@@ -162,6 +181,42 @@ class RRTransactionController extends Controller
         ]);
 
         $rr_transaction->save();
+
+        $itemDetails = [];
+        foreach ($orders as $index => $values) {
+            $item_id = $request["order"][$index]["id"];
+            $quantity_serve = $request["order"][$index]["quantity_serve"];
+            $original_quantity = $quantities[$item_id] ?? 0;
+            $remaining =
+                $original_quantity -
+                ($original_quantity_serve->quantity_serve + $quantity_serve);
+
+            $itemDetails[] = [
+                "item_name" => $request["order"][$index]["item_name"],
+                "quantity_receive" => $quantity_serve,
+                "remaining" => $remaining,
+                "date" => $request["order"][$index]["delivery_date"],
+            ];
+        }
+
+        $itemList = [];
+        foreach ($itemDetails as $item) {
+            $itemList[] = "{$item["item_name"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, Date: {$item["date"]})";
+        }
+
+        $activityDescription =
+            "Received Receipt ID:" .
+            $rr_transaction->id .
+            " has been created by UID: " .
+            $user_id .
+            ". Items received: " .
+            implode(", ", $itemList);
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "rr_id" => $purchase_order->id,
+            "action_by" => $user_id,
+        ]);
 
         foreach ($orders as $index => $values) {
             $attachments = $request["order"][$index]["attachment"];
@@ -323,14 +378,16 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function asset_vladimir()
+    public function asset_vladimir($id)
     {
         $purchase_request = POTransaction::with([
             "rr_transaction.rr_orders",
             "order",
         ])
             ->where("module_name", "Asset")
-            ->whereHas("rr_transaction")
+            ->whereHas("rr_transaction", function ($query) use ($id) {
+                $query->where("id", $id);
+            })
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();

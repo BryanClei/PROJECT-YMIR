@@ -38,9 +38,7 @@ class ItemResource extends JsonResource
                     "name" => $this->types->name,
                 ]
                 : null,
-            "warehouses" => ItemWarehouseResource::collection(
-                $this->warehouse
-            ),
+            "warehouses" => ItemWarehouseResource::collection($this->warehouse),
             "allowable_percentage" => AllowablePercentage::get(),
             "allowable" => $this->allowable,
             "updated_at" => $this->updated_at,

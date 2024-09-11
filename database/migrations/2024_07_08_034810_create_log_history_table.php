@@ -17,6 +17,7 @@ return new class extends Migration {
             $table->longText("activity");
             $table->string("pr_id")->nullable();
             $table->string("po_id")->nullable();
+            $table->string("rr_id")->nullable();
             $table->string("jo_id")->nullable();
             $table->string("jo_po_id")->nullable();
             $table->unsignedInteger("action_by");

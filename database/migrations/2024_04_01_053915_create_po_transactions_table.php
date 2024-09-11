@@ -14,6 +14,7 @@ return new class extends Migration {
     {
         Schema::create("po_transactions", function (Blueprint $table) {
             $table->increments("id");
+            $table->string("po_year_number_id");
             $table->integer("pr_number");
             $table->integer("po_number");
             $table->string("po_description");

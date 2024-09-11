@@ -201,6 +201,7 @@ class PAController extends Controller
                         })
                         ->with("category");
                 },
+                "users",
             ])
             ->orderByDesc("updated_at")
             ->get()
@@ -540,31 +541,19 @@ class PAController extends Controller
     {
         $user_id = Auth()->user()->id;
         $status = $request->status;
-        $for_tagging = PurchaseAssistant::with([
-            "approver_history",
-            "log_history" => function ($query) {
-                $query->orderBy("created_at", "desc");
-            },
-            "po_transaction",
-            "po_transaction.order",
-            "po_transaction.approver_history",
-        ])
-            ->where("status", "Approved")
-            ->whereHas("order", function ($query) {
-                $query
-                    ->where(function ($query) {
-                        $query
-                            ->whereNull("buyer_id")
-                            ->orWhereNull("buyer_name")
-                            ->whereNull("po_at");
-                    })
-                    ->whereNull("po_at");
-            })
+        $for_tagging = PurchaseAssistant::query()
             ->with([
+                "approver_history",
+                "log_history" => function ($query) {
+                    $query->orderBy("created_at", "desc");
+                },
+                "po_transaction.order",
+                "po_transaction.approver_history",
                 "order" => function ($query) {
                     $query->whereNull("buyer_id");
                 },
             ])
+            ->where("status", "Approved")
             ->whereNull("for_po_only")
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
@@ -572,23 +561,24 @@ class PAController extends Controller
             ->whereHas("approver_history", function ($query) {
                 $query->whereNotNull("approved_at");
             })
+            ->whereHas("order", function ($query) {
+                $query
+                    ->where(function ($subQuery) {
+                        $subQuery
+                            ->whereNull("buyer_id")
+                            ->orWhereNull("buyer_name");
+                    })
+                    ->whereNull("po_at");
+            })
             ->count();
 
-        $for_po = PurchaseAssistant::with([
-            "approver_history",
-            "log_history" => function ($query) {
-                $query->orderBy("created_at", "desc");
-            },
-            "po_transaction",
-            "po_transaction.order",
-            "po_transaction.approver_history",
-        ])
-            ->where("status", "Approved")
+        $for_po = PurchaseAssistant::query()
             ->with([
                 "order" => function ($query) {
                     $query->whereNull("buyer_id");
                 },
             ])
+            ->where("status", "Approved")
             ->whereNotNull("for_po_only")
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
@@ -596,21 +586,22 @@ class PAController extends Controller
             ->whereDoesntHave("po_transaction")
             ->count();
 
-        $tagged_buyer = PurchaseAssistant::withCount([
-            "order" => function ($query) {
-                $query->whereNotNull("buyer_id")->whereNull("po_at");
-            },
-            "po_transaction" => function ($query) {
-                $query->where("status", "Return");
-            },
-        ])
+        $tagged_buyer = PurchaseAssistant::query()
+            ->withCount([
+                "order" => function ($query) {
+                    $query->whereNotNull("buyer_id")->whereNull("po_at");
+                },
+                "po_transaction" => function ($query) {
+                    $query->where("status", "Return");
+                },
+            ])
             ->where(function ($query) {
                 $query
-                    ->whereHas("order", function ($query) {
-                        $query->whereNotNull("buyer_id")->whereNull("po_at");
+                    ->whereHas("order", function ($subQuery) {
+                        $subQuery->whereNotNull("buyer_id")->whereNull("po_at");
                     })
-                    ->orWhereHas("po_transaction", function ($query) {
-                        $query->where("status", "Return");
+                    ->orWhereHas("po_transaction", function ($subQuery) {
+                        $subQuery->where("status", "Return");
                     });
             })
             ->count();
@@ -800,7 +791,7 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-         $latest_total = $jr_item->quantity * $unit_price;
+        $latest_total = $jr_item->quantity * $unit_price;
 
         $jr_item->update([
             "unit_price" => $unit_price,

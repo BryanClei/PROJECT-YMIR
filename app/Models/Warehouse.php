@@ -15,6 +15,6 @@ class Warehouse extends Model
     protected string $default_filters = WarehouseFilters::class;
     protected $table = "warehouses";
     protected $connection = "mysql";
-    protected $fillable = ["name", "code"];
+    protected $fillable = ["name", "code", "url", "token"];
     protected $hidden = ["created_at"];
 }

@@ -73,4 +73,9 @@ class PRItems extends Model
     {
         return $this->belongsTo(Categories::class, "category_id", "id");
     }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouses::class, "warehouse_id", "id");
+    }
 }
