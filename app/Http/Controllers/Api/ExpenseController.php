@@ -72,7 +72,7 @@ class ExpenseController extends Controller
         $latest_pr = PRTransaction::where(
             "pr_year_number_id",
             "like",
-            $current_year . "-P-%"
+            $current_year . "-PR-%"
         )
             ->orderByRaw(
                 "CAST(SUBSTRING_INDEX(pr_year_number_id, '-', -1) AS UNSIGNED) DESC"
@@ -90,7 +90,7 @@ class ExpenseController extends Controller
         $pr_number = $latest_pr_number + 1;
 
         $pr_year_number_id =
-            $current_year . "-P-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+            $current_year . "-PR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $purchase_request = new PRTransaction([
             "pr_year_number_id" => $pr_year_number_id,

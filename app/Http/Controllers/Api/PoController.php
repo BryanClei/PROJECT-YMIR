@@ -26,6 +26,7 @@ use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
+use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\PoItemResource;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
@@ -124,11 +125,8 @@ class PoController extends Controller
         }
 
         $current_year = date("Y");
-        $latest_po = POTransaction::where(
-            "po_year_number_id",
-            "like",
-            $current_year . "-PO-%"
-        )
+        $latest_po = POTransaction::withTrashed()
+            ->where("po_year_number_id", "like", $current_year . "-PO-%")
             ->orderByRaw(
                 "CAST(SUBSTRING_INDEX(po_year_number_id, '-', -1) AS UNSIGNED) DESC"
             )
@@ -285,12 +283,29 @@ class PoController extends Controller
 
         $orders = $request->order;
 
-        $jo_number = JOPOTransaction::latest()
+        $current_year = date("Y");
+        $latest_po = JOPOTransaction::withTrashed()
+            ->where("po_year_number_id", "like", $current_year . "-JO-%")
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(po_year_number_id, '-', -1) AS UNSIGNED) DESC"
+            )
+            ->first();
+
+        $new_number = $latest_po
+            ? (int) explode("-", $latest_po->po_year_number_id)[2] + 1
+            : 1;
+
+        $po_year_number_id =
+            $current_year . "-JO-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+
+        $jo_number = JOPOTransaction::withTrashed()
+            ->latest()
             ->get()
             ->first();
         $increment = $jo_number ? $jo_number->id + 1 : 1;
 
         $job_order = new JOPOTransaction([
+            "po_year_number_id" => $po_year_number_id,
             "po_number" => $increment,
             "jo_number" => $request->jo_number,
             "po_description" => $request->po_description,
@@ -314,6 +329,8 @@ class PoController extends Controller
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
             "status" => "Pending",
             "asset" => $request->asset,
             "sgp" => $request->sgp,
@@ -873,90 +890,32 @@ class PoController extends Controller
     {
         $user = Auth()->user()->id;
 
-        $po_id = PoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("po_id");
-        $layer = PoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
+        $po_id = BadgeHelperFunctions::poId($user);
+        $layer = BadgeHelperFunctions::layer($user);
 
-        $pr_inventoriables_count = POTransaction::where(
-            "type_name",
-            "Inventoriables"
-        )
-            ->whereIn("id", $po_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
-            ->count();
-        $pr_expense_count = POTransaction::where("type_name", "expenses")
-            ->whereIn("id", $po_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
-            ->count();
-        $pr_assets_count = POTransaction::where("type_name", "assets")
-            ->whereIn("id", $po_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
-            ->count();
-
-        $po_id = JoPoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("jo_po_id");
-        $layer = JoPoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
-
-        $po_job_order_count = JOPOTransaction::where("module_name", "Job Order")
-            ->whereIn("id", $po_id)
-            ->whereIn("layer", $layer)
-            ->where(function ($query) {
-                $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
-            })
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->whereNull("rejected_at")
-            ->whereHas("jo_approver_history", function ($query) {
-                $query->whereNull("approved_at");
-            })
-            ->count();
+        $jo_po_id = BadgeHelperFunctions::joPoId($user);
+        $jo_layer = BadgeHelperFunctions::joLayer($user);
 
         $result = [
-            "Inventoriables" => $pr_inventoriables_count,
-            "Expense" => $pr_expense_count,
-            "Assets" => $pr_assets_count,
-            "Job Order" => $po_job_order_count,
+            "Inventoriables" => BadgeHelperFunctions::getPrCount(
+                $po_id,
+                $layer,
+                "Inventoriable"
+            ),
+            "Expense" => BadgeHelperFunctions::getPrCount(
+                $po_id,
+                $layer,
+                "expense"
+            ),
+            "Assets" => BadgeHelperFunctions::getPrCount(
+                $po_id,
+                $layer,
+                "assets"
+            ),
+            "Job Order" => BadgeHelperFunctions::poJobOrderCount(
+                $jo_po_id,
+                $jo_layer
+            ),
         ];
 
         return GlobalFunction::responseFunction(

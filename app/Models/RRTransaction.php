@@ -22,6 +22,7 @@ class RRTransaction extends Model
         "pr_id",
         "received_by",
         "tagging_id",
+        "transaction_date",
     ];
 
     // protected $casts = ["remarks" => "json"];
@@ -62,5 +63,10 @@ class RRTransaction extends Model
     public function rr_orders()
     {
         return $this->hasMany(RROrders::class, "rr_id", "id");
+    }
+
+    public function log_history()
+    {
+        return $this->hasMany(LogHistory::class, "rr_id", "id");
     }
 }

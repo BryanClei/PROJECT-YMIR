@@ -26,6 +26,7 @@ return new class extends Migration {
                 ->references("id")
                 ->on("users");
             $table->string("tagging_id");
+            $table->timestamp("transaction_date")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

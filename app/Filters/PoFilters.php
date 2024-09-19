@@ -11,6 +11,15 @@ class PoFilters extends QueryFilters
 
     use DateFilter;
 
+    public function search_po_year_id($search_po_year_id)
+    {
+        $this->builder->where(
+            "po_year_number_id",
+            "like",
+            "%" . $search_po_year_id . "%"
+        );
+    }
+
     protected array $columnSearch = [
         "pr_number",
         "po_number",

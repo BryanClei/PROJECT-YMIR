@@ -28,8 +28,8 @@ return new class extends Migration {
             $table->timestamp("po_at")->nullable();
             $table->string("purchase_order_id")->nullable();
             $table->double("quantity");
-            $table->double("unit_price");
-            $table->double("total_price");
+            // $table->double("unit_price")->nullable();
+            // $table->double("total_price")->nullable();
             $table->string("remarks")->nullable();
             $table->string("attachment")->nullable();
             $table->timestamps();

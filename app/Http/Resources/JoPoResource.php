@@ -20,6 +20,7 @@ class JoPoResource extends JsonResource
         return [
             "id" => $this->id,
             "jo_year_number_id" => $this->jo_transaction->jo_year_number_id,
+            "po_year_number_id" => $this->po_year_number_id,
             "jo_number" => $this->jo_number,
             "jo_description" => $this->jo_description,
             "date_needed" => $this->date_needed,
@@ -69,6 +70,7 @@ class JoPoResource extends JsonResource
             "total_price" => $this->total_price,
             "assets" => $this->assets,
             "module_name" => $this->module_name,
+            "supplier" => $this->supplier,
             "status" => $this->status,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,

@@ -167,7 +167,8 @@ class PurchaseAssistantFilters extends QueryFilters
                             ->orWhereHas("po_transaction", function ($query) {
                                 $query->where("status", "Return");
                             });
-                    });
+                    })
+                    ->where("status", "Approved");
             })
 
             ->when($status === "return_po", function ($query) {

@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\AccountTypeController;
 use App\Http\Controllers\Api\PoApproversController;
 use App\Http\Controllers\Api\AccountGroupController;
 use App\Http\Controllers\Api\AccountTitleController;
+use App\Http\Controllers\Api\GeneralLedgerController;
 use App\Http\Controllers\Api\NormalBalanceController;
 use App\Http\Controllers\Api\PRTransactionController;
 use App\Http\Controllers\Api\RRTransactionController;
@@ -510,5 +511,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::apiResource("error_handler", PushingErrorHandlerController::class);
 
     Route::apiResource("search_po", SearchPoController::class);
+
+    Route::apiResource("general_ledger", GeneralLedgerController::class);
 });
 Route::post("login", [UserController::class, "login"]);

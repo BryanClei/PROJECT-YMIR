@@ -16,15 +16,13 @@ class JobItems extends Model
         "description",
         "uom_id",
         "quantity",
-        "unit_price",
-        "total_price",
         "remarks",
         "attachment",
         "asset",
     ];
     protected $hidden = ["created_at"];
 
-    protected $casts = ["attachment" => "array"];
+    protected $casts = ["attachment" => "json"];
 
     public function transaction()
     {

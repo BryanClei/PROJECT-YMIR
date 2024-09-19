@@ -104,11 +104,8 @@ class PRTransactionController extends Controller
         $orders = $request->order;
 
         $current_year = date("Y");
-        $latest_pr = PRTransaction::where(
-            "pr_year_number_id",
-            "like",
-            $current_year . "-P-%"
-        )
+        $latest_pr = PRTransaction::withTrashed()
+            ->where("pr_year_number_id", "like", $current_year . "-PR-%")
             ->orderByRaw(
                 "CAST(SUBSTRING_INDEX(pr_year_number_id, '-', -1) AS UNSIGNED) DESC"
             )
@@ -122,7 +119,7 @@ class PRTransactionController extends Controller
         $pr_number = $latest_pr_number + 1;
 
         $pr_year_number_id =
-            $current_year . "-P-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+            $current_year . "-PR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $purchase_request = new PRTransaction([
             "pr_year_number_id" => $pr_year_number_id,
@@ -319,39 +316,8 @@ class PRTransactionController extends Controller
             );
         }
 
-        $approver_settings = ApproverSettings::where(
-            "company_id",
-            $purchase_request->company_id
-        )
-            ->where("business_unit_id", $purchase_request->business_unit_id)
-            ->where("department_id", $purchase_request->department_id)
-            ->where("department_unit_id", $purchase_request->department_unit_id)
-            ->where("sub_unit_id", $purchase_request->sub_unit_id)
-            ->where("location_id", $purchase_request->location_id)
-            ->whereHas("set_approver")
-            ->get()
-            ->first();
-
-        $approvers = SetApprover::where(
-            "approver_settings_id",
-            $approver_settings->id
-        )->get();
-
-        if ($approvers->isEmpty()) {
-            return GlobalFunction::save(Message::NO_APPROVERS);
-        }
-
-        foreach ($approvers as $index) {
-            PrHistory::create([
-                "pr_id" => $purchase_request->id,
-                "approver_id" => $index["approver_id"],
-                "approver_name" => $index["approver_name"],
-                "layer" => $index["layer"],
-            ]);
-        }
-
         $activityDescription =
-            "Purchase request ID: " .
+            "Returned Purchase request ID: " .
             $purchase_request->id .
             " has been resubmitted by UID: " .
             $user_id;
@@ -383,14 +349,14 @@ class PRTransactionController extends Controller
         $latest_pr = PRTransaction::where(
             "pr_year_number_id",
             "like",
-            $current_year . "-V-%"
+            $current_year . "-FA-%"
         )
             ->orderBy("pr_year_number_id", "desc")
             ->first();
 
         if ($latest_pr) {
             $latest_number = intval(
-                explode("-V-", $latest_pr->pr_year_number_id)[1]
+                explode("-FA-", $latest_pr->pr_year_number_id)[1]
             );
             $new_number = $latest_number + 1;
         } else {
@@ -400,7 +366,7 @@ class PRTransactionController extends Controller
         foreach ($assets as $sync) {
             $pr_year_number_id =
                 $current_year .
-                "-V-" .
+                "-FA-" .
                 str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
             $type_id = Type::where("name", "Assets")
@@ -470,41 +436,6 @@ class PRTransactionController extends Controller
                 ]);
             }
             $new_number++;
-
-            // $approver_settings = ApproverSettings::where(
-            //     "company_id",
-            //     $purchase_request->company_id
-            // )
-            //     ->where("business_unit_id", $purchase_request->business_unit_id)
-            //     ->where("department_id", $purchase_request->department_id)
-            //     ->where(
-            //         "department_unit_id",
-            //         $purchase_request->department_unit_id
-            //     )
-            //     ->where("sub_unit_id", $purchase_request->sub_unit_id)
-            //     ->where("location_id", $purchase_request->location_id)
-            //     ->whereHas("set_approver")
-            //     ->get()
-            //     ->first();
-
-            // $approvers = SetApprover::where(
-            //     "approver_settings_id",
-            //     $approver_settings->id
-            // )->get();
-
-            // if ($approvers->isEmpty()) {
-            //     return GlobalFunction::save(Message::NO_APPROVERS);
-            // }
-
-            // foreach ($approvers as $index) {
-            //     PrHistory::create([
-            //         "pr_id" => $purchase_request->id,
-            //         "approver_id" => $index["approver_id"],
-            //         "approver_name" => $index["approver_name"],
-            //         "approved_at" => $date_today,
-            //         "layer" => $index["layer"],
-            //     ]);
-            // }
 
             $activityDescription =
                 "Purchase request ID: " .
@@ -849,6 +780,10 @@ class PRTransactionController extends Controller
     {
         $user_id = Auth()->user()->id;
         $purchase_request = PRTransaction::with("order")->find($id);
+
+        if ($purchase_request->cancelled_at) {
+            return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
+        }
 
         $payload = $request->all();
         $is_update = $payload["updated"] ?? false;

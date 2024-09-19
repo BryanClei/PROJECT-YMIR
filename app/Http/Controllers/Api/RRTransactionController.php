@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use Carbon\Carbon;
 use App\Models\Items;
 use App\Models\POItems;
 use App\Models\PRItems;
@@ -13,17 +14,19 @@ use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Models\RRTransaction;
 use App\Functions\GlobalFunction;
+use App\Helpers\RRHelperFunctions;
 use App\Http\Resources\PoResource;
 use App\Http\Resources\RRResource;
+use App\Http\Requests\PO\PORequest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
+use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\RRSyncDisplay;
 use App\Http\Resources\RROrdersResource;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\AssetVladimir\UpdateRequest;
 use App\Http\Requests\ReceivedReceipt\StoreRequest;
 use App\Http\Resources\LogHistory\LogHistoryResource;
-use App\Http\Requests\PO\PORequest;
 
 class RRTransactionController extends Controller
 {
@@ -33,6 +36,8 @@ class RRTransactionController extends Controller
             "rr_orders" => function ($query) {
                 $query->withTrashed();
             },
+            "log_history",
+            "log_history.users",
             "pr_transaction.users",
             "pr_transaction",
         ])
@@ -82,190 +87,44 @@ class RRTransactionController extends Controller
     public function store(StoreRequest $request)
     {
         $user_id = Auth()->user()->id;
-        $po_id = $request->po_no;
-        $po_transaction = POTransaction::where("id", $po_id)->first();
-        $new_add = $request->new_or_add_to_receipt;
+        $po_transaction = POTransaction::findOrFail($request->po_no);
 
-        $po_transaction->module_name;
-
-        if ($po_transaction->module_name == "Asset") {
-            $pr_id_exists = PRTransaction::where(
-                "pr_number",
-                $request->pr_no
-            )->exists();
-        } else {
-            $pr_id_exists = PRTransaction::where(
-                "id",
-                $request->pr_no
-            )->exists();
-        }
-
+        $pr_id_exists = RRHelperFunctions::checkPRExists(
+            $po_transaction,
+            $request->pr_no
+        );
         if (!$pr_id_exists) {
             return GlobalFunction::invalid(Message::NOT_FOUND);
         }
 
-        $po_transaction->pr_number;
         $orders = $request->order;
+        $po_items = RRHelperFunctions::getPoItems($orders);
 
-        foreach ($orders as $order) {
-            $itemIds[] = $order["id"];
+        $validation_result = RRHelperFunctions::validateQuantities(
+            $orders,
+            $po_items
+        );
+        if ($validation_result !== true) {
+            return $validation_result;
         }
 
-        $po_items = POItems::whereIn("id", $itemIds)
-            ->get()
-            ->toArray();
+        $rr_transaction = RRHelperFunctions::createRRTransaction(
+            $po_transaction,
+            $user_id,
+            $request->tagging_id
+        );
 
-        $quantities = [];
-        $quantities_serve = [];
-        foreach ($po_items as $item) {
-            $quantities[$item["id"]] = $item["quantity"];
-            $quantities_serve[$item["id"]] = $item["quantity_serve"];
-        }
+        $itemDetails = RRHelperFunctions::processOrders(
+            $orders,
+            $po_items,
+            $rr_transaction
+        );
 
-        foreach ($orders as $index => $values) {
-            $item_id = $request["order"][$index]["id"];
-            $original_quantity = $quantities[$item_id] ?? 0;
-            $quantity_serve = $request["order"][$index]["quantity_serve"];
-
-            $get_quantity_serve = POItems::where("id", $item_id)
-                ->get()
-                ->first();
-
-            if ($get_quantity_serve->quantity_serve <= 0) {
-                if ($original_quantity < $quantity_serve) {
-                    return GlobalFunction::invalid(
-                        Message::QUANTITY_VALIDATION
-                    );
-                }
-            } elseif (
-                $get_quantity_serve->quantity ===
-                $get_quantity_serve->quantity_serve
-            ) {
-                return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
-            } else {
-                $remaining_ondb =
-                    $get_quantity_serve->quantity -
-                    $get_quantity_serve->quantity_serve;
-                if ($remaining_ondb < $quantity_serve) {
-                    return GlobalFunction::invalid(
-                        Message::QUANTITY_VALIDATION
-                    );
-                }
-            }
-        }
-
-        $current_year = date("Y");
-        $latest_rr = RRTransaction::where(
-            "rr_year_number_id",
-            "like",
-            $current_year . "-RR-%"
-        )
-            ->orderByRaw(
-                "CAST(SUBSTRING_INDEX(rr_year_number_id, '-', -1) AS UNSIGNED) DESC"
-            )
-            ->first();
-
-        $new_number = $latest_rr
-            ? (int) explode("-", $latest_rr->rr_year_number_id)[2] + 1
-            : 1;
-
-        $rr_year_number_id =
-            $current_year . "-RR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
-
-        $rr_transaction = new RRTransaction([
-            "rr_year_number_id" => $rr_year_number_id,
-            "pr_id" => $po_transaction->pr_number,
-            "po_id" => $po_transaction->po_number,
-            "received_by" => $user_id,
-            "tagging_id" => $request->tagging_id,
-        ]);
-
-        $rr_transaction->save();
-
-        $itemDetails = [];
-        $itemDetails = [];
-        foreach ($orders as $index => $values) {
-            $item_id = $request["order"][$index]["id"];
-            $quantity_serve = $request["order"][$index]["quantity_serve"];
-            $original_quantity = $quantities[$item_id] ?? 0;
-            $remaining =
-                $original_quantity -
-                ($quantities_serve[$item_id] + $quantity_serve);
-
-            $itemDetails[] = [
-                "item_name" => $request["order"][$index]["item_name"],
-                "quantity_receive" => $quantity_serve,
-                "remaining" => $remaining,
-                "date" => $request["order"][$index]["delivery_date"],
-            ];
-        }
-
-        $itemList = [];
-        foreach ($itemDetails as $item) {
-            $itemList[] = "{$item["item_name"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, Date: {$item["date"]})";
-        }
-
-        $activityDescription =
-            "Received Receipt ID:" .
-            $rr_transaction->id .
-            " has been created by UID: " .
-            $user_id .
-            ". Items received: " .
-            implode(", ", $itemList);
-
-        LogHistory::create([
-            "activity" => $activityDescription,
-            "rr_id" => $rr_transaction->id,
-            "action_by" => $user_id,
-        ]);
-
-        foreach ($orders as $index => $values) {
-            $attachments = $request["order"][$index]["attachment"];
-            $filenames = [];
-            if (!empty($attachments)) {
-                foreach ($attachments as $fileIndex => $file) {
-                    $originalFilename = basename($file);
-                    $info = pathinfo($originalFilename);
-                    $filenameOnly = $info["filename"];
-                    $extension = $info["extension"];
-                    $filename = "{$filenameOnly}_rr_id_{$rr_transaction->id}_item_{$index}_file_{$fileIndex}.{$extension}";
-                    $filenames[] = $filename;
-                }
-            }
-
-            $item_id = $request["order"][$index]["id"];
-            $quantity_serve = $request["order"][$index]["quantity_serve"];
-            $original_quantity = $quantities[$item_id] ?? 0;
-
-            $original_quantity_serve = POItems::where("id", $item_id)
-                ->get()
-                ->first();
-
-            $os = $original_quantity_serve->quantity_serve + $quantity_serve;
-            $remaining = $original_quantity - $os;
-
-            RROrders::create([
-                "rr_number" => $rr_transaction->id,
-                "rr_id" => $rr_transaction->id,
-                "item_id" => $item_id,
-                "item_code" => $request["order"][$index]["item_code"],
-                "item_name" => $request["order"][$index]["item_name"],
-                "quantity_receive" => $quantity_serve,
-                "remaining" => $remaining,
-                "shipment_no" => $request["order"][$index]["shipment_no"],
-                "delivery_date" => $request["order"][$index]["delivery_date"],
-                "rr_date" => $request["order"][$index]["rr_date"],
-                "attachment" => json_encode($filenames),
-                "sync" => 0,
-            ]);
-
-            $po_item = POItems::find($item_id);
-            $po_item->update([
-                "quantity_serve" =>
-                    $original_quantity_serve->quantity_serve +
-                    $request["order"][$index]["quantity_serve"],
-            ]);
-        }
+        RRHelperFunctions::createLogHistory(
+            $rr_transaction,
+            $user_id,
+            $itemDetails
+        );
 
         $rr_collect = new RRResource($rr_transaction);
 
@@ -275,25 +134,19 @@ class RRTransactionController extends Controller
     public function update(Request $request, $id)
     {
         $rr_number = $id;
-
         $orders = $request->order;
-        $rr_transaction = RRTransaction::where("id", $rr_number)->first();
+        $rr_transaction = RRHelperFunctions::checkRRExists($rr_number);
 
+        if (!$rr_transaction) {
+            return GlobalFunction::invalid(Message::NOT_FOUND);
+        }
         $itemIds = [];
         $rr_collect = [];
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
 
-        foreach ($orders as $index => $values) {
-            $rr_orders_id = $request["order"][$index]["item_id"];
-            $quantity_receiving = $request["order"][$index]["quantity_serve"];
-            $po_order = POItems::where("id", $rr_orders_id)
-                ->get()
-                ->first();
-            $remaining = $po_order->quantity - $po_order->quantity_serve;
-
-            if ($quantity_receiving > $remaining) {
-                return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
-            }
-        }
+        RRHelperFunctions::validateQuantityReceiving($orders, $request);
 
         foreach ($orders as $index => $values) {
             $rr_orders_id = $request["order"][$index]["item_id"];
@@ -302,33 +155,25 @@ class RRTransactionController extends Controller
                 ->get()
                 ->first();
 
-            $remaining = $po_orders->quantity - $po_orders->quantity_serve;
-
-            $add_previous = RROrders::create([
-                "rr_number" => $rr_number,
-                "rr_id" => $rr_number,
-                "item_id" => $rr_orders_id,
-                "item_name" => $request["order"][$index]["item_name"],
-                "item_code" => $request["order"][$index]["item_code"],
-                "quantity_receive" =>
-                    $request["order"][$index]["quantity_serve"],
-                "remaining" =>
-                    $remaining - $request["order"][$index]["quantity_serve"],
-                "shipment_no" => $request["order"][$index]["shipment_no"],
-                "delivery_date" => $request["order"][$index]["delivery_date"],
-                "rr_date" => $request["order"][$index]["rr_date"],
-                "attachment" => $request["order"][$index]["attachment"],
-                "sync" => 0,
-            ]);
-
-            $po_orders->update([
-                "quantity_serve" =>
-                    $po_orders->quantity_serve +
-                    $request["order"][$index]["quantity_serve"],
-            ]);
+            $add_previous = RRHelperFunctions::createRROrderAndUpdatePOItem(
+                $rr_orders_id,
+                $request,
+                $po_orders,
+                $index,
+                $rr_number,
+                $itemDetails
+            );
 
             $rr_collect[] = new RROrdersResource($add_previous);
         }
+
+        $user_id = auth()->id();
+
+        RRHelperFunctions::logRRTransaction(
+            $rr_transaction,
+            $itemDetails,
+            $user_id
+        );
 
         return GlobalFunction::responseFunction(
             Message::RR_UPDATE,
@@ -496,13 +341,21 @@ class RRTransactionController extends Controller
     public function report_rr()
     {
         $rr_orders = RROrders::with(
-            "pr_items",
-            "pr_items.uom",
             "order",
+            "order.uom",
             "rr_transaction",
             "rr_transaction.pr_transaction",
             "rr_transaction.pr_transaction.users",
-            "rr_transaction.po_transaction"
+            "rr_transaction.po_transaction.company",
+            "rr_transaction.po_transaction.department",
+            "rr_transaction.po_transaction.department_unit",
+            "rr_transaction.po_transaction.sub_unit",
+            "rr_transaction.po_transaction.location",
+            "rr_transaction.po_transaction.account_title",
+            "rr_transaction.po_transaction.account_title.account_type",
+            "rr_transaction.po_transaction.account_title.account_group",
+            "rr_transaction.po_transaction.account_title.account_sub_group",
+            "rr_transaction.po_transaction.account_title.financial_statement"
         )
             ->useFilters()
             ->dynamicPaginate();
@@ -519,8 +372,16 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function cancel_rr($id)
+    public function cancel_rr(Request $request, $id)
     {
+        $reason = $request->remarks;
+        $vlad_user = $request->v_name;
+        $rdf_id = $request->rdf_id;
+
+        $user = $vlad_user
+            ? $rdf_id . " (" . $vlad_user . ")"
+            : ($user = Auth()->user()->id);
+
         $rr_transaction = RRTransaction::where("id", $id)
             ->with("rr_orders", "po_order")
             ->get()
@@ -545,6 +406,13 @@ class RRTransactionController extends Controller
             $rr_order->delete();
         }
 
+        $activityDescription = "Received Receipt ID: {$rr_transaction->id} has been cancelled by UID: {$user}. Reason: {$reason}.";
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "rr_id" => $rr_transaction->id,
+        ]);
+
         $cancelled_rr_transaction = $rr_transaction;
 
         $rr_transaction->delete();
@@ -558,55 +426,16 @@ class RRTransactionController extends Controller
     public function rr_badge()
     {
         $user_id = Auth()->user()->id;
-        $for_receiving = POTransaction::with(
-            "order",
-            "approver_history",
-            "rr_transaction",
-            "rr_transaction.rr_orders"
-        )
-
-            ->with([
-                "order" => function ($query) {
-                    $query->whereColumn("quantity", "<>", "quantity_serve");
-                },
-            ])
-            ->where("status", "For Receiving")
-            ->whereNull("cancelled_at")
-            ->whereNull("voided_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNotNull("approved_at");
-            })
-            ->whereHas("order", function ($query) {
-                $query->whereColumn("quantity", "<>", "quantity_serve");
-            })
-            ->count();
-
-        $for_receivin_user = POTransaction::with(
-            "order",
-            "approver_history",
-            "rr_transaction",
-            "rr_transaction.rr_orders"
-        )
-            ->with([
-                "order" => function ($query) {
-                    $query->whereColumn("quantity", "<>", "quantity_serve");
-                },
-            ])
-            ->where("user_id", $user_id)
-            ->where("status", "For Receiving")
-            ->whereNull("cancelled_at")
-            ->whereNull("voided_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNotNull("approved_at");
-            })
-            ->whereHas("order", function ($query) {
-                $query->whereColumn("quantity", "<>", "quantity_serve");
-            })
-            ->count();
 
         $result = [
-            "for_receiving" => $for_receiving,
-            "for_receiving_user" => $for_receivin_user,
+            "for_receiving" => BadgeHelperFunctions::forReceiving(),
+            "for_receiving_user" => BadgeHelperFunctions::forReceivingUser(
+                $user_id
+            ),
+            "for_receiving_job_order" => BadgeHelperFunctions::rrJobOrderCount(),
+            "for_receiving_job_order_user" => BadgeHelperFunctions::rrJobOrderCountUser(
+                $user_id
+            ),
         ];
 
         return GlobalFunction::responseFunction(

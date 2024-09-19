@@ -29,7 +29,7 @@ class JobOrderTransactionController extends Controller
         $job_order_request = JobOrderTransaction::with(
             "order",
             "approver_history",
-            "log_history",
+            "log_history.users",
             "jo_po_transaction",
             "jo_po_transaction.jo_approver_history"
         )
@@ -65,11 +65,8 @@ class JobOrderTransactionController extends Controller
         $orders = $request->order;
 
         $current_year = date("Y");
-        $latest_pr = JobOrderTransaction::where(
-            "jo_year_number_id",
-            "like",
-            $current_year . "-J-%"
-        )
+        $latest_pr = JobOrderTransaction::withTrashed()
+            ->where("jo_year_number_id", "like", $current_year . "-JR-%")
             ->orderByRaw(
                 "CAST(SUBSTRING_INDEX(jo_year_number_id, '-', -1) AS UNSIGNED) DESC"
             )
@@ -87,7 +84,7 @@ class JobOrderTransactionController extends Controller
         $increment = $latest_pr_number + 1;
 
         $pr_year_number_id =
-            $current_year . "-J-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+            $current_year . "-JR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $user_details = User::with(
             "company",
@@ -157,8 +154,8 @@ class JobOrderTransactionController extends Controller
                 "description" => $request["order"][$index]["description"],
                 "uom_id" => $request["order"][$index]["uom_id"],
                 "quantity" => $request["order"][$index]["quantity"],
-                "unit_price" => $values["unit_price"],
-                "total_price" => $values["unit_price"] * $values["quantity"],
+                // "unit_price" => $values["unit_price"],
+                // "total_price" => $values["unit_price"] * $values["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => $filenames,
                 "assets" => $request["order"][$index]["asset"],
@@ -289,9 +286,6 @@ class JobOrderTransactionController extends Controller
                     "description" => $values["description"],
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
-                    "unit_price" => $values["unit_price"],
-                    "total_price" =>
-                        $values["unit_price"] * $values["quantity"],
                     "remarks" => $values["remarks"],
                     "attachment" => $values["attachment"],
                     "asset" => $values["asset"],

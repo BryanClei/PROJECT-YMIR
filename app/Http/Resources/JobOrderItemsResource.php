@@ -22,10 +22,10 @@ class JobOrderItemsResource extends JsonResource
             "po_at" => $this->po_at,
             "purchase_order_id" => $this->purchase_order_id,
             "quantity" => $this->quantity,
-            "unit_price" => $this->unit_price,
-            "total_price" => $this->total_price,
+            // "unit_price" => $this->unit_price,
+            // "total_price" => $this->total_price,
             "remarks" => $this->remarks,
-            "attachment" => $this->attachment,
+            "attachment" => json_decode($this->attachment, true),
             "asset" => $this->asset,
         ];
     }

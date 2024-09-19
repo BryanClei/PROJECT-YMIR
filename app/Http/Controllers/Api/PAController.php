@@ -291,6 +291,8 @@ class PAController extends Controller
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
             "status" => "Pending",
             "asset" => $request->asset,
             "sgp" => $request->sgp,
@@ -405,6 +407,7 @@ class PAController extends Controller
         $job_order = JOPOTransaction::where("id", $id)
             ->get()
             ->first();
+
         $oldTotalPrice = $job_order->total_item_price;
         $not_found = JOPOTransaction::where("id", $id)->exists();
 
@@ -428,8 +431,15 @@ class PAController extends Controller
             }
         }
 
+        $job_order->update([
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
+        ]);
+
         $updatedItems = [];
         $totalPriceSum = 0;
+        $oldSupplier = $job_order->supplier_name;
+        $newSupplier = $request["supplier_name"];
 
         foreach ($orders as $values) {
             $order_id = $values["id"];
@@ -462,7 +472,13 @@ class PAController extends Controller
         foreach ($updatedItems as $item) {
             $activityDescription .= "Item ID {$item["id"]}: {$item["old_price"]} -> {$item["new_price"]}, ";
         }
-        $activityDescription = rtrim($activityDescription, ", ") . ".";
+        $activityDescription = rtrim($activityDescription, ", ");
+
+        if ($oldSupplier !== $newSupplier) {
+            $activityDescription .= ". Supplier changed from $oldSupplier to $newSupplier";
+        }
+
+        $activityDescription .= ".";
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -604,6 +620,7 @@ class PAController extends Controller
                         $subQuery->where("status", "Return");
                     });
             })
+            ->whereNull("cancelled_at")
             ->count();
 
         $pending_po_count = PurchaseAssistant::withCount([

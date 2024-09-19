@@ -17,14 +17,18 @@ class Authenticate extends Middleware
     protected function redirectTo($request)
     {
         if (!$request->expectsJson()) {
-            return route('login');
+            return route("login");
         }
     }
     public function handle($request, Closure $next, ...$guards)
     {
-        if ($sanctum = $request->cookie("project-ymir")) {
-            $request->headers->set("Authorization", "Bearer " . $sanctum);
-        }
+        $sanctum =
+            $request->cookie("project-ymir") ?: $request->header("Token");
+
+        $sanctum
+            ? $request->headers->set("Authorization", "Bearer " . $sanctum)
+            : null;
+
         $this->authenticate($request, $guards);
 
         return $next($request);

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Suppliers;
 use App\Filters\JoPoFilters;
 use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +18,7 @@ class JOPOTransaction extends Model
     protected $table = "jo_po_transactions";
 
     protected $fillable = [
+        "po_year_number_id",
         "jo_number",
         "po_number",
         "po_description",
@@ -40,6 +42,8 @@ class JOPOTransaction extends Model
         "account_title_name",
         "module_name",
         "total_item_price",
+        "supplier_id",
+        "supplier_name",
         "status",
         "layer",
         "description",
@@ -106,7 +110,7 @@ class JOPOTransaction extends Model
 
     public function supplier()
     {
-        return $this->hasMany(Suppliers::class, "supplier_id", "id");
+        return $this->belongsTo(Suppliers::class, "supplier_id", "id");
     }
 
     public function log_history()

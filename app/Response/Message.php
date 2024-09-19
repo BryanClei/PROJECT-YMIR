@@ -109,6 +109,7 @@ class Message
     const RESUBMITTED_PO = "Purchase order successfully resubmitted.";
     const BUYER_TAGGED = "Buyer tagged successfully.";
     const BUYER_UPDATED = "Buyer updated succesfully.";
+    const CANCELLED_ALREADY = "Purchase Request already cancelled by requestor. Please Contact the requestor for more details";
     const RR_UPDATE = "RR transaction updated successfully";
     const RR_CANCELLATION = "RR transaction cancelled successfully";
     const ALLOWABLE_UPDATE = "Allowable percentage update successfully.";

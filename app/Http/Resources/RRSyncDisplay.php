@@ -56,6 +56,9 @@ class RRSyncDisplay extends JsonResource
         return [
             "remarks" => $this->po_description,
             "pr_number" => $this->pr_number,
+            "rr_year_number_id" => $this->rr_transaction->pluck(
+                "rr_year_number_id"
+            ),
             "transaction_no" => $this->pr_transaction->transaction_no,
             "po_number" => $this->id,
             "rr_numbers" => $this->rr_transaction->pluck("id"),
