@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Controllers\Api\CategoriesController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\PrApproverController;
+use App\Http\Controllers\Api\SmallToolsController;
 use App\Http\Controllers\Api\AccountTypeController;
 use App\Http\Controllers\Api\PoApproversController;
 use App\Http\Controllers\Api\AccountGroupController;
@@ -513,5 +514,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::apiResource("search_po", SearchPoController::class);
 
     Route::apiResource("general_ledger", GeneralLedgerController::class);
+
+    Route::patch("small_tools/archived/{id}", [
+        SmallToolsController::class,
+        "destroy",
+    ]);
+    Route::apiResource("small_tools", SmallToolsController::class);
 });
 Route::post("login", [UserController::class, "login"]);

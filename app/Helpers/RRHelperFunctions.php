@@ -243,6 +243,7 @@ class RRHelperFunctions
             "delivery_date" => $request["order"][$index]["delivery_date"],
             "rr_date" => $request["order"][$index]["rr_date"],
             "attachment" => $request["order"][$index]["attachment"],
+            "late_attachment" => $request["order"][$index]["late_attachment"],
             "sync" => 0,
         ]);
 

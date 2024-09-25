@@ -26,6 +26,9 @@ return new class extends Migration {
             $table->string("shipment_no");
             $table->timestamp("delivery_date");
             $table->timestamp("rr_date");
+            $table->string("attachment")->nullable();
+            $table->string("late_attachment")->nullable();
+            $table->integer("sync")->default(0);
             $table->timestamps();
             $table->softDeletes();
         });

@@ -42,7 +42,7 @@ class POItems extends Model
 
     public function uom()
     {
-        return $this->belongsTo(UOM::class, "uom_id", "id");
+        return $this->belongsTo(Uom::class, "uom_id", "id");
     }
 
     public function supplier()

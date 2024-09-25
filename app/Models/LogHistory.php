@@ -49,4 +49,9 @@ class LogHistory extends Model
     {
         return $this->belongsTo(JobOrderTransaction::class, "jo_id", "id");
     }
+
+    public function pr_transaction()
+    {
+        return $this->belongsTo(PRTransaction::class, "pr_id", "id");
+    }
 }

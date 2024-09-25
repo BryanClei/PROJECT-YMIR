@@ -25,6 +25,7 @@ use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\PurchaseRequest\AssetRequest;
 use App\Http\Requests\PurchaseRequest\StoreRequest;
 use App\Http\Requests\PurchaseRequest\UploadRequest;
+use Illuminate\Support\Facades\File;
 
 class PRTransactionController extends Controller
 {
@@ -404,8 +405,8 @@ class PRTransactionController extends Controller
                 "f1" => $sync["f1"],
                 "f2" => $sync["f2"],
                 "layer" => "1",
-                "for_po_only" => $date_today,
-                "for_po_only_id" => $sync["vrid"],
+                // "for_po_only" => $date_today,
+                // "for_po_only_id" => $sync["vrid"],
                 "vrid" => $sync["vrid"],
                 "approved_at" => $date_today,
             ]);
@@ -520,6 +521,19 @@ class PRTransactionController extends Controller
         }
 
         foreach ($orders as $index => $values) {
+            $attachments = $values["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_pr_id_{$id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames = $filename;
+                }
+            }
+
             PRItems::withTrashed()->updateOrCreate(
                 [
                     "id" => $values["id"] ?? null,
@@ -532,7 +546,7 @@ class PRTransactionController extends Controller
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => json_encode($filenames),
                     "assets" => $values["assets"],
                     "warehouse_id" => $values["warehouse_id"],
                     "category_id" => $values["category_id"],
@@ -698,9 +712,8 @@ class PRTransactionController extends Controller
 
     public function store_multiple(UploadRequest $request, $id)
     {
-        $items = $request->input("items");
         $files = $request->file("files");
-
+        $filenames = $request->input("filenames", []);
         $type = $request->input("type");
 
         $typeSelectors = [
@@ -715,41 +728,54 @@ class PRTransactionController extends Controller
         }
 
         $selector = $typeSelectors[$type];
-
+        $updateFilename = $request->input("update_file", false);
         $uploadedFiles = [];
 
-        foreach (range(0, $items - 1) as $itemIndex) {
-            if (isset($files[$itemIndex])) {
-                foreach ($files[$itemIndex] as $fileIndex => $file) {
-                    if (!$file->isValid()) {
-                        continue;
-                    }
-                    $originalFilename = pathinfo(
-                        $file->getClientOriginalName(),
-                        PATHINFO_FILENAME
-                    );
-                    $filename =
-                        "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
-                        "." .
-                        $file->getClientOriginalExtension();
-                    $stored = Storage::putFileAs(
-                        "public/attachment",
-                        $file,
-                        $filename
-                    );
+        foreach ($files as $itemIndex => $itemFiles) {
+            foreach ($itemFiles as $fileIndex => $file) {
+                if (!$file->isValid()) {
+                    continue;
+                }
 
-                    if ($stored) {
-                        $uploadedFiles[] = [
-                            "filename" => $filename,
-                            "filepath" => "public/attachment/{$filename}",
-                            "url" => url(
-                                "storage/public/attachment/{$filename}"
-                            ),
-                        ];
-                    } else {
-                        $message = "Failed to store file: {$filename}";
-                        return GlobalFunction::uploadfailed($message, $files);
+                if (
+                    $updateFilename &&
+                    isset($filenames[$itemIndex][$fileIndex])
+                ) {
+                    $filename = $filenames[$itemIndex][$fileIndex];
+
+                    $filePath = "app/public/attachment/{$filename}";
+                    if (File::exists(storage_path($filePath))) {
+                        File::delete(storage_path($filePath));
                     }
+                }
+
+                $originalFilename = pathinfo(
+                    $file->getClientOriginalName(),
+                    PATHINFO_FILENAME
+                );
+
+                $filename =
+                    "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
+                    "." .
+                    $file->getClientOriginalExtension();
+
+                $stored = Storage::disk("public")->putFileAs(
+                    "attachment",
+                    $file,
+                    $filename
+                );
+
+                if ($stored) {
+                    $uploadedFiles[] = [
+                        "filename" => $filename,
+                        "filepath" => "public/attachment/{$filename}",
+                        "url" => Storage::disk("public")->url(
+                            "attachment/{$filename}"
+                        ),
+                    ];
+                } else {
+                    $message = "Failed to store file: {$filename}";
+                    return GlobalFunction::uploadfailed($message, $files);
                 }
             }
         }
@@ -760,7 +786,9 @@ class PRTransactionController extends Controller
 
     public function download($filename)
     {
-        if (!Storage::exists("public/attachment/" . $filename)) {
+        $disk = Storage::disk("public");
+
+        if (!$disk->exists("attachment/{$filename}")) {
             $message = Message::FILE_NOT_FOUND;
             return GlobalFunction::uploadfailed(
                 $message,
@@ -768,11 +796,9 @@ class PRTransactionController extends Controller
             )->setStatusCode(Message::DATA_NOT_FOUND);
         }
 
-        $path = storage_path("app/public/attachment/" . $filename);
-        $file_path = "app/public/attachment/" . $filename;
-
+        $filePath = $disk->path("attachment/{$filename}");
         return response()
-            ->download($path, $filename)
+            ->download($filePath, $filename)
             ->setStatusCode(200);
     }
 

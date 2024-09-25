@@ -574,8 +574,22 @@ class PAController extends Controller
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
             ->whereNull("cancelled_at")
-            ->whereHas("approver_history", function ($query) {
-                $query->whereNotNull("approved_at");
+            ->where(function ($query) {
+                $query
+                    ->where("module_name", "!=", "Asset")
+                    ->orWhere(function ($query) {
+                        $query
+                            ->where("module_name", "Asset")
+                            ->where(function ($query) {
+                                $query
+                                    ->whereHas("approver_history", function (
+                                        $query
+                                    ) {
+                                        $query->whereNotNull("approved_at");
+                                    })
+                                    ->orWhereDoesntHave("approver_history");
+                            });
+                    });
             })
             ->whereHas("order", function ($query) {
                 $query
@@ -713,7 +727,7 @@ class PAController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $for_job = PurchaseAssistant::where("status", "Approved")
+        $for_job = JobOrderTransactionPA::where("status", "Approved")
             ->with("order", function ($query) {
                 $query->whereNull("po_at");
             })

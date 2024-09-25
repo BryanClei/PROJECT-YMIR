@@ -28,6 +28,7 @@ class RROrders extends Model
         "delivery_date",
         "rr_date",
         "attachment",
+        "late_attachment",
         "sync",
     ];
 

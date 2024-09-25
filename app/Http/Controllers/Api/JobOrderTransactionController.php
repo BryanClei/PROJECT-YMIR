@@ -277,6 +277,18 @@ class JobOrderTransactionController extends Controller
         }
 
         foreach ($orders as $index => $values) {
+            $attachments = $values["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_jo_id_{$id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames = $filename;
+                }
+            }
             JobItems::withTrashed()->updateOrCreate(
                 [
                     "id" => $values["id"] ?? null,
@@ -287,7 +299,7 @@ class JobOrderTransactionController extends Controller
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => json_encode($filenames),
                     "asset" => $values["asset"],
                 ]
             );

@@ -31,7 +31,9 @@ class PRItemsResource extends JsonResource
             "supplier_id" => $this->supplier_id,
             "quantity" => $this->quantity,
             "remarks" => $this->remarks,
-            "attachment" => json_decode($this->attachment, true),
+            "attachment" => is_array($this->attachment)
+                ? $this->attachment
+                : json_decode($this->attachment ?? "{}", true),
             "assets" => $this->asset,
             "warehouse_id" => $this->warehouse_id,
             "category_id" => $this->category,

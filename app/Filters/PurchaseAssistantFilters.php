@@ -58,8 +58,27 @@ class PurchaseAssistantFilters extends QueryFilters
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
-                    ->whereHas("approver_history", function ($query) {
-                        $query->whereNotNull("approved_at");
+                    ->where(function ($query) {
+                        $query
+                            ->where("module_name", "!=", "Asset")
+                            ->orWhere(function ($query) {
+                                $query
+                                    ->where("module_name", "Asset")
+                                    ->where(function ($query) {
+                                        $query
+                                            ->whereHas(
+                                                "approver_history",
+                                                function ($query) {
+                                                    $query->whereNotNull(
+                                                        "approved_at"
+                                                    );
+                                                }
+                                            )
+                                            ->orWhereDoesntHave(
+                                                "approver_history"
+                                            );
+                                    });
+                            });
                     });
             })
             ->when($status === "for_po", function ($query) {

@@ -42,6 +42,7 @@ class Message
     const ASSET_SAVE = "Asset save successfully.";
     const RR_SAVE = "Received Receipt successfully save.";
     const ALLOWABLE_SAVE = "Allowable percentage successfully save.";
+    const SMALL_TOOLS_SAVE = "Small tools save successfully.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -76,6 +77,7 @@ class Message
     const DISPLAY_COUNT = "Count display successfully.";
     const DISPLAY_LOG_HISTORY = "Log history display successfully.";
     const DISPLAY_ALLOWABLE = "Allowable percentage display successfully.";
+    const SMALL_TOOLS_DISPLAY = "Small tools display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -115,6 +117,7 @@ class Message
     const ALLOWABLE_UPDATE = "Allowable percentage update successfully.";
     const REMARKS_UPDATE = "Remarks updated successfully.";
     const LOG_SUCCESSFULLY = "Log successfully.";
+    const SMALL_TOOLS_UPDATE = "Small tools update successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";

@@ -481,6 +481,19 @@ class PoController extends Controller
         }
 
         foreach ($orders as $index => $values) {
+            $attachments = $values["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_po_id_{$id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames = $filename;
+                }
+            }
+
             POItems::withTrashed()->updateOrCreate(
                 [
                     "id" => $values["id"] ?? null,
@@ -497,7 +510,7 @@ class PoController extends Controller
                     "quantity" => $values["quantity"],
                     "quantity_serve" => $values["quantity_serve"],
                     "total_price" => $values["total_price"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => json_encode($filenames),
                     "buyer_id" => $values["buyer_id"],
                     "buyer_name" => $values["buyer_name"],
                     "remarks" => $values["remarks"],
