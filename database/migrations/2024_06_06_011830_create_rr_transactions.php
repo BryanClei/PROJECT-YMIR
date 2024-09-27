@@ -27,6 +27,8 @@ return new class extends Migration {
                 ->on("users");
             $table->string("tagging_id");
             $table->timestamp("transaction_date")->nullable();
+            $table->string("attachment")->nullable();
+            $table->string("late_attachment")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

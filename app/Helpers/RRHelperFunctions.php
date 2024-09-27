@@ -113,7 +113,7 @@ class RRHelperFunctions
                 "date" => $date_today,
             ];
 
-            self::createRROrder($rr_transaction, $order, $remaining);
+            self::createRROrder($rr_transaction, $order, $remaining, $index);
             self::updatePOItem(
                 $item_id,
                 $original_quantity_serve,
@@ -123,12 +123,16 @@ class RRHelperFunctions
         return $itemDetails;
     }
 
-    private static function createRROrder($rr_transaction, $order, $remaining)
-    {
+    private static function createRROrder(
+        $rr_transaction,
+        $order,
+        $remaining,
+        $orderIndex
+    ) {
         $filenames = self::processAttachments(
             $order["attachment"],
             $rr_transaction->id,
-            $order["id"]
+            $orderIndex
         );
 
         RROrders::create([
@@ -158,13 +162,16 @@ class RRHelperFunctions
         ]);
     }
 
-    private static function processAttachments($attachments, $rr_id, $item_id)
-    {
+    private static function processAttachments(
+        $attachments,
+        $rr_id,
+        $orderIndex
+    ) {
         $filenames = [];
         if (!empty($attachments)) {
             foreach ($attachments as $fileIndex => $file) {
                 $info = pathinfo(basename($file));
-                $filename = "{$info["filename"]}_rr_id_{$rr_id}_item_{$item_id}_file_{$fileIndex}.{$info["extension"]}";
+                $filename = "{$info["filename"]}_rr_id_{$rr_id}_item_{$orderIndex}_file_{$fileIndex}.{$info["extension"]}";
                 $filenames[] = $filename;
             }
         }
@@ -242,8 +249,6 @@ class RRHelperFunctions
             "shipment_no" => $request["order"][$index]["shipment_no"],
             "delivery_date" => $request["order"][$index]["delivery_date"],
             "rr_date" => $request["order"][$index]["rr_date"],
-            "attachment" => $request["order"][$index]["attachment"],
-            "late_attachment" => $request["order"][$index]["late_attachment"],
             "sync" => 0,
         ]);
 

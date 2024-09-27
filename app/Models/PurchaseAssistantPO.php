@@ -4,19 +4,20 @@ namespace App\Models;
 
 use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
-use App\Filters\ApproverDashboardFilters;
+use App\Filters\PurchaseAssistantPOFilters;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class ApproverDashboard extends Model
+class PurchaseAssistantPO extends Model
 {
-    use Filterable, HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Filterable;
     protected $connection = "mysql";
-    protected string $default_filters = ApproverDashboardFilters::class;
+    protected string $default_filters = PurchaseAssistantPOFilters::class;
 
     protected $table = "po_transactions";
 
     protected $fillable = [
+        "po_year_number_id",
         "pr_number",
         "po_number",
         "po_description",
@@ -46,6 +47,7 @@ class ApproverDashboard extends Model
         "layer",
         "description",
         "reason",
+        "edit_remarks",
         "asset",
         "sgp",
         "f1",
@@ -54,13 +56,9 @@ class ApproverDashboard extends Model
         "rejected_at",
         "voided_at",
         "cancelled_at",
+        "updated_by",
         "approver_id",
     ];
-
-    public function pr_transaction()
-    {
-        return $this->belongsTo(PRTransaction::class, "pr_number", "pr_number");
-    }
 
     public function users()
     {
@@ -69,12 +67,12 @@ class ApproverDashboard extends Model
 
     public function order()
     {
-        return $this->hasMany(POItems::class, "po_id", "id");
+        return $this->hasMany(PRItems::class, "transaction_id", "pr_number");
     }
 
-    public function pr_items()
+    public function po_items()
     {
-        return $this->hasMany(PRItems::class, "buyer_id", "id");
+        return $this->hasMany(POItems::class, "po_id", "id")->withTrashed();
     }
 
     public function approver_history()
@@ -82,14 +80,9 @@ class ApproverDashboard extends Model
         return $this->hasMany(PoHistory::class, "po_id", "id");
     }
 
-    public function pr_approver_history()
+    public function assets()
     {
-        return $this->hasMany(PrHistory::class, "pr_id", "pr_number");
-    }
-
-    public function supplier()
-    {
-        return $this->hasMany(Suppliers::class, "supplier_id", "id");
+        return $this->belongsTo(Assets::class, "asset", "id");
     }
 
     public function log_history()
@@ -97,8 +90,8 @@ class ApproverDashboard extends Model
         return $this->hasMany(LogHistory::class, "po_id", "id");
     }
 
-    public function rr_transactions()
+    public function pr_transaction()
     {
-        return $this->hasMany(RRTransaction::class, "po_id", "id");
+        return $this->belongsTo(PRTransaction::class, "pr_number", "id");
     }
 }

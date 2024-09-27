@@ -23,6 +23,8 @@ class RRTransaction extends Model
         "received_by",
         "tagging_id",
         "transaction_date",
+        "attachment",
+        "late_attachment",
     ];
 
     // protected $casts = ["remarks" => "json"];

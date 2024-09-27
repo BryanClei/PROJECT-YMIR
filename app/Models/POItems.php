@@ -52,7 +52,7 @@ class POItems extends Model
 
     public function pr_item()
     {
-        return $this->belongsTo(PrItems::class, "pr_item_id", "id");
+        return $this->belongsTo(PRItems::class, "pr_item_id", "id");
     }
 
     public function items()

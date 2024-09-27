@@ -301,6 +301,7 @@ class ExpenseController extends Controller
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "category_id" => $values["category_id"],
+                    "warehouse_id" => $values["warehouse_id"],
                 ]
             );
         }
@@ -404,6 +405,18 @@ class ExpenseController extends Controller
         }
 
         foreach ($orders as $index => $values) {
+            $attachments = $values["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_pr_id_{$id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames = $filename;
+                }
+            }
             PRItems::withTrashed()->updateOrCreate(
                 [
                     "id" => $values["id"] ?? null,
@@ -412,9 +425,12 @@ class ExpenseController extends Controller
                     "transaction_id" => $purchase_request->id,
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
+                    "category_id" => $values["category_id"],
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
+                    "attachment" => json_encode($filenames),
+                    "warehouse_id" => $values["warehouse_id"],
                 ]
             );
         }

@@ -39,7 +39,7 @@ class PoItemResource extends JsonResource
                 "name" => $this->supplier->name ?? null,
                 "code" => $this->supplier->code ?? null,
             ],
-            "attachment" => $this->pr_item->attachment,
+            "attachment" => $this->pr_item->attachment ?? null,
             "canvassing" => json_decode($this->attachment, true),
             "buyer_id" => $this->buyer_id,
             "buyer_name" => $this->buyer_name,

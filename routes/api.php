@@ -429,6 +429,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         PAController::class,
         "index_jo_po",
     ]);
+    Route::get("purchase_assistant/purchase_order", [
+        PAController::class,
+        "index_purchase_order",
+    ]);
     Route::apiResource("purchase_assistant", PAController::class);
     Route::patch("return_po", [BuyerController::class, "return_po"]);
     Route::patch("buyer/update_price", [

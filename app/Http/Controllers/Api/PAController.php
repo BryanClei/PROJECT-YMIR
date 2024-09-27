@@ -22,9 +22,11 @@ use App\Http\Resources\PoResource;
 use App\Http\Requests\PO\PORequest;
 use App\Http\Resources\PAResources;
 use App\Models\JobOrderTransaction;
+use App\Models\PurchaseAssistantPO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
+use App\Http\Resources\PAPOResource;
 use App\Http\Resources\PRPOResource;
 use App\Models\JobOrderTransactionPA;
 use App\Http\Resources\JobOrderResource;
@@ -56,6 +58,33 @@ class PAController extends Controller
         }
 
         PRPOResource::collection($purchase_request);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $purchase_request
+        );
+    }
+
+    public function index_purchase_order(PADisplay $request)
+    {
+        $purchase_request = PurchaseAssistantPO::with([
+            "po_items",
+            "approver_history",
+            "log_history" => function ($query) {
+                $query->orderBy("created_at", "desc");
+            },
+        ])
+            ->withTrashed()
+            ->useFilters()
+            ->dynamicPaginate();
+
+        $is_empty = $purchase_request->isEmpty();
+
+        if ($is_empty) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        PAPOResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
@@ -157,7 +186,8 @@ class PAController extends Controller
             "log_history",
             "jo_transaction",
             "jo_transaction.users",
-            "jo_transaction.log_history"
+            "jo_transaction.log_history",
+            "jo_transaction.approver_history"
         )
             ->withTrashed()
             ->orderByDesc("updated_at")
@@ -617,6 +647,7 @@ class PAController extends Controller
             ->count();
 
         $tagged_buyer = PurchaseAssistant::query()
+            ->with("order")
             ->withCount([
                 "order" => function ($query) {
                     $query->whereNotNull("buyer_id")->whereNull("po_at");
@@ -634,6 +665,7 @@ class PAController extends Controller
                         $subQuery->where("status", "Return");
                     });
             })
+            ->where("status", "Approved")
             ->whereNull("cancelled_at")
             ->count();
 
@@ -801,7 +833,10 @@ class PAController extends Controller
             "action_by" => $user_id,
         ]);
 
-        $pr_transaction->update(["status" => "Return", "reason" => $reason]);
+        $pr_transaction->update([
+            "status" => "Return",
+            "reason" => $reason,
+        ]);
 
         new JoPoResource($pr_transaction);
 

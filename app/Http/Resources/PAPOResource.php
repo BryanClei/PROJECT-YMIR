@@ -2,10 +2,12 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\PoItemResource;
+use App\Http\Resources\ApporverHistoryResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\LogHistory\LogHistoryResource;
 
-class PRPOResource extends JsonResource
+class PAPOResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -17,11 +19,13 @@ class PRPOResource extends JsonResource
     {
         return [
             "id" => $this->id,
-            "pr_year_number_id" => $this->pr_year_number_id,
+            "pr_year_number_id" => $this->pr_transaction->pr_year_number_id,
+            "po_year_number_id" => $this->po_year_number_id,
+            "po_number" => $this->po_number,
             "pr_number" => $this->pr_number,
-            "pr_description" => $this->pr_description,
-            "transaction_no" => $this->transaction_no ?? null,
+            "po_description" => $this->po_description,
             "date_needed" => $this->date_needed,
+            "po_number" => $this->po_number,
 
             "user" => [
                 "prefix_id" => $this->users->prefix_id,
@@ -64,28 +68,34 @@ class PRPOResource extends JsonResource
                 "id" => $this->account_title_id,
                 "name" => $this->account_title_name,
             ],
+            "supplier_id" => [
+                "id" => $this->supplier_id,
+                "name" => $this->supplier_name,
+            ],
+            "asset" => $this->asset,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
-            "for_po_only" => $this->for_po_only,
-            "for_po_only_id" => $this->for_po_only_id,
-            "for_marketing" => $this->for_marketing,
             "module_name" => $this->module_name,
-            "status" => $this->status,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
             "voided_at" => $this->voided_at,
             "cancelled_at" => $this->cancelled_at,
+            "status" => $this->status,
             "description" => $this->description,
             "reason" => $this->reason,
+            "edit_remarks" => $this->edit_remarks,
             "created_at" => $this->created_at,
-            "order_transaction_id" => $this->id,
-            "order" => PRItemsResource::collection($this->order),
+            "deleted_at" => $this->deleted_at,
+            "order" => PoItemResource::collection($this->po_items),
             "approver_history" => ApporverHistoryResource::collection(
                 $this->approver_history
             ),
             "log_history" => LogHistoryResource::collection($this->log_history),
-            "po_transaction" => PoResource::collection($this->po_transaction),
+            // "rr_transaction" => RRResource::collection($this->rr_transaction),
+            // "pr_approver_history" => ApporverHistoryResource::collection(
+            //     $this->pr_approver_history
+            // ),
         ];
     }
 }
