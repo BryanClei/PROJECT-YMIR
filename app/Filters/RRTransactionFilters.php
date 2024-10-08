@@ -17,8 +17,15 @@ class RRTransactionFilters extends QueryFilters
 
     public function status($status)
     {
-        $this->builder->when($status === "cancelled", function ($query) {
-            $query->onlyTrashed();
-        });
+        $user_id = Auth()->user()->id;
+        $this->builder
+            ->when($status === "cancelled", function ($query) {
+                $query->onlyTrashed();
+            })
+            ->when($status === "user_received", function ($query) use (
+                $user_id
+            ) {
+                $query->where("received_by", $user_id);
+            });
     }
 }

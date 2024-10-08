@@ -357,6 +357,7 @@ class PoController extends Controller
                 "attachment" => $request["order"][$index]["attachment"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "asset" => $request["order"][$index]["asset"],
+                "helpdesk_id" => $request["order"][$index]["helpdesk_id"],
             ]);
         }
 

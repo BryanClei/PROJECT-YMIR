@@ -34,4 +34,13 @@ class ItemFilters extends QueryFilters
             $query->where("warehouse_id", $warehouse_id);
         });
     }
+
+    public function vladimir($vladimir)
+    {
+        $this->builder->when($vladimir == "sync", function ($query) use (
+            $vladimir
+        ) {
+            $query->withTrashed();
+        });
+    }
 }

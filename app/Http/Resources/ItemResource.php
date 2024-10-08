@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Http\Resources\UomResource;
 use App\Models\AllowablePercentage;
+use App\Http\Resources\SmallToolsResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\ItemWarehouseResource\ItemWarehouseResource;
 
@@ -38,6 +39,7 @@ class ItemResource extends JsonResource
                     "name" => $this->types->name,
                 ]
                 : null,
+            "small_tools" => SmallToolsResource::collection($this->small_tools),
             "warehouses" => ItemWarehouseResource::collection($this->warehouse),
             "allowable_percentage" => AllowablePercentage::get(),
             "allowable" => $this->allowable,

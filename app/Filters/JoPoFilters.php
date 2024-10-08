@@ -96,6 +96,9 @@ class JoPoFilters extends QueryFilters
                     ->whereHas("jo_po_orders", function ($query) {
                         $query->whereColumn("quantity", "<>", "quantity_serve");
                     });
+            })
+            ->when($status === "return_po", function ($query) {
+                $query->where("status", "Return")->whereNull("rejected_at");
             });
     }
 }

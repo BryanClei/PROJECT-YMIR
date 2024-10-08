@@ -131,6 +131,7 @@ class Message
     // DISPLAY ERRORS
     const NOT_FOUND = "Data not found.";
     const FILE_NOT_FOUND = "File not found.";
+    const SMALL_TOOLS_IN_USE = "The Small Tools is in use. Cannot be deleted.";
     //VALIDATION
     const SINGLE_VALIDATION = "Data has been validated.";
     const INVALID_ACTION = "Invalid action.";

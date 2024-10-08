@@ -44,4 +44,9 @@ class Items extends Model
     {
         return $this->hasMany(ItemWarehouse::class, "item_id", "id");
     }
+
+    public function small_tools()
+    {
+        return $this->hasMany(AssetsItem::class, "item_id", "id");
+    }
 }

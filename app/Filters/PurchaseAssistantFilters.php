@@ -177,15 +177,11 @@ class PurchaseAssistantFilters extends QueryFilters
                         },
                     ])
                     ->where(function ($query) {
-                        $query
-                            ->whereHas("order", function ($query) {
-                                $query
-                                    ->whereNotNull("buyer_id")
-                                    ->whereNull("po_at");
-                            })
-                            ->orWhereHas("po_transaction", function ($query) {
-                                $query->where("status", "Return");
-                            });
+                        $query->whereHas("order", function ($query) {
+                            $query
+                                ->whereNotNull("buyer_id")
+                                ->whereNull("po_at");
+                        });
                     })
                     ->where("status", "Approved");
             })

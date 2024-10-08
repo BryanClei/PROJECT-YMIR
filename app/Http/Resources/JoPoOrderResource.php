@@ -26,7 +26,8 @@ class JoPoOrderResource extends JsonResource
             "total_price" => $this->total_price,
             "remarks" => $this->remarks,
             "attachment" => empty($this->attachment) ? null : $this->attachment,
-            "asset" => $this->asset,
+            "asset" => $this->assets,
+            "helpdesk_id" => $this->helpdesk_id,
         ];
     }
 }

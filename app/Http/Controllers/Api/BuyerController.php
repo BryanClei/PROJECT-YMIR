@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use Illuminate\Http\Request;
 use App\Models\Buyer;
 use App\Models\POItems;
 use App\Models\PRItems;
@@ -10,7 +11,6 @@ use App\Response\Message;
 use App\Models\LogHistory;
 use App\Models\POSettings;
 use App\Models\PoApprovers;
-use Illuminate\Http\Request;
 use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Http\Requests\BDisplay;
@@ -22,8 +22,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PRPOResource;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\PoItemResource;
+use App\Http\Requests\PO\ReturnRequest;
 use App\Http\Resources\PRItemsResource;
-use App\Http\Requests\Buyer\ReturnRequest;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\Buyer\UpdatePriceRequest;
 
@@ -204,14 +204,20 @@ class BuyerController extends Controller
             "action_by" => $user_id,
         ]);
 
-        $purchase_order->update([
+        $updateData = [
             "po_description" => $request["po_description"],
             "total_item_price" => $totalPriceSum,
             "updated_by" => $user_id,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "edit_remarks" => $request->edit_remarks,
-        ]);
+        ];
+
+        if ($request->boolean("returned_po")) {
+            $updateData["status"] = "Pending";
+        }
+
+        $purchase_order->update($updateData);
 
         if ($priceIncreased) {
             $purchase_order->update([
@@ -449,21 +455,12 @@ class BuyerController extends Controller
         );
     }
 
-    public function return_po(Request $request)
+    public function return_po(ReturnRequest $request)
     {
         $reason = $request->reason;
         $buyer_id = Auth()->user()->id;
         $po_id = $request->po_id;
-        $po_transaction = POTransaction::where("po_number", $po_id)
-            ->whereHas("order", function ($query) use ($buyer_id) {
-                $query->where("buyer_id", $buyer_id);
-            })
-            ->with([
-                "order" => function ($query) use ($buyer_id) {
-                    $query->where("buyer_id", $buyer_id);
-                },
-            ])
-            ->first();
+        $po_transaction = POTransaction::where("id", $po_id)->first();
 
         if (!$po_transaction) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -485,38 +482,42 @@ class BuyerController extends Controller
             "action_by" => $buyer_id,
         ]);
 
-        $pr_id = $po_transaction->pr_number;
+        // $pr_id = $po_transaction->pr_number;
 
-        $item_ids = $request->item_id;
+        // $item_ids = $request->item_id;
 
-        $pr_items = PRTransaction::where("id", $pr_id)
-            ->whereHas("order", function ($query) use ($buyer_id) {
-                $query->where("buyer_id", $buyer_id);
-            })
-            ->with([
-                "order" => function ($query) use ($buyer_id) {
-                    $query->where("buyer_id", $buyer_id);
-                },
-            ])
-            ->first();
+        // $pr_items = PRTransaction::where("id", $pr_id)
+        //     ->whereHas("order", function ($query) use ($buyer_id) {
+        //         $query->where("buyer_id", $buyer_id);
+        //     })
+        //     ->with([
+        //         "order" => function ($query) use ($buyer_id) {
+        //             $query->where("buyer_id", $buyer_id);
+        //         },
+        //     ])
+        //     ->first();
 
-        $po_transaction
-            ->order()
-            ->where("buyer_id", $buyer_id)
-            ->update([
-                "buyer_id" => null,
-                "buyer_name" => null,
-                "supplier_id" => null,
-            ]);
+        // $po_transaction
+        //     ->order()
+        //     ->where("buyer_id", $buyer_id)
+        //     ->update([
+        //         "buyer_id" => null,
+        //         "buyer_name" => null,
+        //         "supplier_id" => null,
+        //     ]);
 
-        $pr_items
-            ->order()
-            ->whereIn("item_id", $item_ids)
-            ->update([
-                "buyer_id" => null,
-                "buyer_name" => null,
-                "supplier_id" => null,
-            ]);
+        // $pr_items
+        //     ->order()
+        //     ->whereIn("item_id", $item_ids)
+        //     ->update([
+        //         "buyer_id" => null,
+        //         "buyer_name" => null,
+        //         "supplier_id" => null,
+        //     ]);
+
+        $po_approvers = $po_transaction->approver_history()->update([
+            "approved_at" => null,
+        ]);
 
         $fresh = $po_transaction->fresh("order");
         new PoResource($fresh);

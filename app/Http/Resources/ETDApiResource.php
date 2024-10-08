@@ -15,15 +15,14 @@ class ETDApiResource extends JsonResource
     public function toArray($request)
     {
         return [
-            "pr_year_number_id" =>
-                $this->po_transaction->pr_transaction->pr_year_number_id,
             "pr_number" => $this->po_transaction->pr_transaction->pr_number,
-            "pr_date" => $this->po_transaction->pr_transaction->approved_at,
+            "pr_year_number_id" => $this->pr_transaction->pr_year_number_id,
+            "pr_date" => $this->pr_transaction->approved_at,
             "po_number" => $this->po_transaction->po_number,
             "po_date" => $this->po_transaction->approved_at,
             "item_code" => $this->item_code,
             "item_name" => $this->item_name,
-            "ordered" => $this->quantity,
+            "ordered" => $this->pr_transaction->pr_items->quantity,
             "delivered" => $this->quantity_serve,
             "uom" => $this->uom->name,
             "unit_price" => $this->price,

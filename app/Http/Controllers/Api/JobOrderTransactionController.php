@@ -28,6 +28,7 @@ class JobOrderTransactionController extends Controller
         $status = $request->status;
         $job_order_request = JobOrderTransaction::with(
             "order",
+            "order.assets",
             "approver_history",
             "log_history.users",
             "jo_po_transaction",
@@ -158,7 +159,8 @@ class JobOrderTransactionController extends Controller
                 // "total_price" => $values["unit_price"] * $values["quantity"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => $filenames,
-                "assets" => $request["order"][$index]["asset"],
+                "asset" => $request["order"][$index]["asset"],
+                "helpdesk_id" => $request["order"][$index]["helpdesk_id"],
             ]);
         }
         $approver_settings = JobOrder::where("module", "Job Order")

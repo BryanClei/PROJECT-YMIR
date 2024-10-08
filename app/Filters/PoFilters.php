@@ -112,7 +112,8 @@ class PoFilters extends QueryFilters
                     })
                     ->whereHas("order", function ($query) {
                         $query->whereColumn("quantity", "<>", "quantity_serve");
-                    });
+                    })
+                    ->withoutTrashed();
             })
             ->when($status === "for_receiving_user", function ($query) use (
                 $user_id

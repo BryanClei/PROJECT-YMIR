@@ -19,6 +19,7 @@ class JobItems extends Model
         "remarks",
         "attachment",
         "asset",
+        "helpdesk_id",
     ];
     protected $hidden = ["created_at"];
 
@@ -34,7 +35,7 @@ class JobItems extends Model
         return $this->belongsTo(Uom::class, "uom_id", "id");
     }
 
-    public function asset()
+    public function assets()
     {
         return $this->belongsTo(Assets::class, "asset", "id");
     }

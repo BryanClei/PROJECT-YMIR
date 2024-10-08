@@ -407,11 +407,16 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("asset/archived/{id}", [AssetsController::class, "destroy"]);
     Route::apiResource("asset", AssetsController::class);
 
+    Route::patch("resubmit_pr_asset/{id}", [
+        PAController::class,
+        "resubmit_pr_asset",
+    ]);
     Route::patch("edit_unit_price/{id}", [
         PAController::class,
         "edit_unit_price",
     ]);
     Route::patch("return_pr/{id}", [PAController::class, "return_pr"]);
+    Route::patch("return_jo_po/{id}", [PAController::class, "return_jo_po"]);
     Route::get("pa_badge", [PAController::class, "tagging_badge"]);
     Route::patch("update_jo_po/{id}", [PAController::class, "update_jo"]);
     Route::patch("update_jo_price/{id}", [PAController::class, "update_price"]);

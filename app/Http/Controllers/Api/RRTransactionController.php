@@ -208,7 +208,13 @@ class RRTransactionController extends Controller
 
     public function view_po_approved($id)
     {
-        $po_approve = POTransaction::with("order", "rr_transaction")
+        $po_approve = POTransaction::withTrashed()
+            ->with([
+                "order" => function ($query) {
+                    $query->withTrashed();
+                },
+                "rr_transaction",
+            ])
             ->where("id", $id)
             ->first();
 

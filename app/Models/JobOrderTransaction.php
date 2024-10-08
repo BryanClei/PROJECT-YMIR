@@ -78,11 +78,6 @@ class JobOrderTransaction extends Model
         return $this->hasMany(JobHistory::class, "jo_id", "id");
     }
 
-    public function assets()
-    {
-        return $this->belongsTo(Assets::class, "asset", "id");
-    }
-
     public function log_history()
     {
         return $this->hasMany(LogHistory::class, "jo_id", "id");

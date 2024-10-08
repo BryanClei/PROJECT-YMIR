@@ -6,6 +6,7 @@ use App\Models\Uom;
 use App\Models\Type;
 use App\Models\Items;
 use App\Response\Message;
+use App\Models\AssetsItem;
 use App\Models\Categories;
 use Illuminate\Http\Request;
 use App\Models\ItemWarehouse;
@@ -23,7 +24,12 @@ class ItemController extends Controller
         $status = $request->status;
         $item_name = $request->item_name;
 
-        $item = Items::with("types", "uom", "warehouse")
+        $item = Items::with(
+            "types",
+            "uom",
+            "small_tools",
+            "warehouse.warehouse"
+        )
             ->when($status === "inactive", function ($query) {
                 $query->onlyTrashed();
             })
@@ -37,14 +43,14 @@ class ItemController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        // ItemResource::collection($item);
-        // return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
+        ItemResource::collection($item);
+        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
 
-        $item_collect = ItemResource::collection($item);
-        return GlobalFunction::responseFunction(
-            Message::ITEM_DISPLAY,
-            $item_collect
-        );
+        // $item_collect = ItemResource::collection($item);
+        // return GlobalFunction::responseFunction(
+        //     Message::ITEM_DISPLAY,
+        //     $item_collect
+        // );
     }
 
     public function store(StoreRequest $request)
@@ -61,11 +67,29 @@ class ItemController extends Controller
         $item->save();
 
         $warehouse = $request->warehouse;
-        foreach ($warehouse as $index => $values) {
-            ItemWarehouse::create([
-                "item_id" => $item->id,
-                "warehouse_id" => $request["warehouse"][$index]["warehouse"],
-            ]);
+
+        if ($warehouse) {
+            foreach ($warehouse as $index => $values) {
+                ItemWarehouse::create([
+                    "item_id" => $item->id,
+                    "warehouse_id" =>
+                        $request["warehouse"][$index]["warehouse"],
+                ]);
+            }
+        }
+
+        $small_tools = $request->small_tools;
+
+        if ($small_tools) {
+            foreach ($small_tools as $index => $values) {
+                AssetsItem::create([
+                    "item_id" => $item->id,
+                    "small_tools_id" =>
+                        $request["small_tools"][$index]["small_tools_id"],
+                    "code" => $request["small_tools"][$index]["code"],
+                    "name" => $request["small_tools"][$index]["name"],
+                ]);
+            }
         }
 
         $item_collect = new ItemResource($item);
@@ -103,11 +127,31 @@ class ItemController extends Controller
 
         ItemWarehouse::whereIn("id", $ids)->delete();
 
-        foreach ($warehouses as $warehouse) {
-            ItemWarehouse::create([
-                "item_id" => $Item_id,
-                "warehouse_id" => $warehouse,
-            ]);
+        if ($warehouses) {
+            foreach ($warehouses as $warehouse) {
+                ItemWarehouse::create([
+                    "item_id" => $Item_id,
+                    "warehouse_id" => $warehouse,
+                ]);
+            }
+        }
+
+        $asset_ids = AssetsItem::where("item_id", $Item_id)
+            ->pluck("id")
+            ->toArray();
+
+        AssetsItem::whereIn("id", $asset_ids)->delete();
+        $small_tools = $request->small_tools;
+        if ($small_tools) {
+            foreach ($small_tools as $index => $values) {
+                AssetsItem::create([
+                    "item_id" => $Item_id,
+                    "small_tools_id" =>
+                        $request["small_tools"][$index]["small_tools_id"],
+                    "code" => $request["small_tools"][$index]["code"],
+                    "name" => $request["small_tools"][$index]["name"],
+                ]);
+            }
         }
 
         $item_collect = new ItemResource($item);

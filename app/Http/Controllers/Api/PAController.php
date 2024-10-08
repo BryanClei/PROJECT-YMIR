@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use Carbon\Carbon;
+use App\Models\Type;
+use App\Models\PRItems;
 use App\Models\JobItems;
 use App\Models\PrHistory;
 use App\Response\Message;
@@ -30,6 +33,7 @@ use App\Http\Resources\PAPOResource;
 use App\Http\Resources\PRPOResource;
 use App\Models\JobOrderTransactionPA;
 use App\Http\Resources\JobOrderResource;
+use App\Http\Requests\JoPo\UpdateRequest;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\PurchasingAssistant\StoreRequest;
 
@@ -461,11 +465,6 @@ class PAController extends Controller
             }
         }
 
-        $job_order->update([
-            "supplier_id" => $request->supplier_id,
-            "supplier_name" => $request->supplier_name,
-        ]);
-
         $updatedItems = [];
         $totalPriceSum = 0;
         $oldSupplier = $job_order->supplier_name;
@@ -533,13 +532,21 @@ class PAController extends Controller
 
         $highestPriceRange = PoApprovers::max("price_range");
 
-        $job_order->update([
+        $updateData = [
             "total_item_price" => $totalPriceSum,
             "status" => "Pending",
             "layer" => "1",
             "updated_by" => $user_id,
             "edit_remarks" => $request->edit_remarks,
-        ]);
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
+        ];
+
+        if ($request->boolean("returned_po")) {
+            $updateData["status"] = "pending";
+        }
+
+        $job_order->update($updateData);
 
         if ($totalPriceSum >= $highestPriceRange) {
             $approvers = PoApprovers::where(
@@ -652,18 +659,11 @@ class PAController extends Controller
                 "order" => function ($query) {
                     $query->whereNotNull("buyer_id")->whereNull("po_at");
                 },
-                "po_transaction" => function ($query) {
-                    $query->where("status", "Return");
-                },
             ])
             ->where(function ($query) {
-                $query
-                    ->whereHas("order", function ($subQuery) {
-                        $subQuery->whereNotNull("buyer_id")->whereNull("po_at");
-                    })
-                    ->orWhereHas("po_transaction", function ($subQuery) {
-                        $subQuery->where("status", "Return");
-                    });
+                $query->whereHas("order", function ($subQuery) {
+                    $subQuery->whereNotNull("buyer_id")->whereNull("po_at");
+                });
             })
             ->where("status", "Approved")
             ->whereNull("cancelled_at")
@@ -841,7 +841,7 @@ class PAController extends Controller
         new JoPoResource($pr_transaction);
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_ORDER_UPDATE,
+            Message::PURCHASE_REQUEST_UPDATE,
             $pr_transaction
         );
     }
@@ -867,6 +867,151 @@ class PAController extends Controller
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_UPDATE,
             $jr_item
+        );
+    }
+
+    public function return_jo_po(UpdateRequest $request, $id)
+    {
+        $reason = $request->reason;
+        $purchasing_assistant = Auth()->user()->id;
+        $jo_po_transaction = JOPOTransaction::where("id", $id)->first();
+
+        if (!$jo_po_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $jo_po = $jo_po_transaction->update([
+            "status" => "Return",
+            "reason" => $reason,
+        ]);
+
+        $activityDescription =
+            "Purchase Order ID: " .
+            $id .
+            " has been returned by UID: " .
+            $purchasing_assistant .
+            " Reason: " .
+            $reason;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_po_id" => $id,
+            "action_by" => $purchasing_assistant,
+        ]);
+
+        $jo_po_transaction->jo_approver_history()->update([
+            "approved_at" => null,
+        ]);
+
+        new JoPoResource($jo_po_transaction);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_RETURN,
+            $jo_po_transaction
+        );
+    }
+
+    public function resubmit_pr_asset(Request $request, $id)
+    {
+        $vlad_user = $request->v_name;
+        $rdf_id = $request->rdf_id;
+
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
+
+        $user = $rdf_id . " (" . $vlad_user . ")";
+
+        $pr_transaction = PRTransaction::where("pr_number", $id)
+            ->where("status", "Return")
+            ->first();
+
+        if (!$pr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $type_id = Type::where("name", "Assets")
+            ->get()
+            ->first();
+
+        $pr_transaction->update([
+            "pr_description" => $request["pr_description"],
+            "date_needed" => $request["date_needed"],
+            "type_id" => $type_id->id,
+            "type_name" => $request->type_name,
+            "business_unit_id" => $request->business_unit_id,
+            "business_unit_name" => $request->business_unit_name,
+            "company_id" => $request->company_id,
+            "company_name" => $request->company_name,
+            "department_id" => $request->department_id,
+            "department_name" => $request->department_name,
+            "department_unit_id" => $request->department_unit_id,
+            "department_unit_name" => $request->department_unit_name,
+            "location_id" => $request->location_id,
+            "location_name" => $request->location_name,
+            "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_name" => $request->sub_unit_name,
+            "account_title_id" => $request->account_title_id,
+            "account_title_name" => $request->account_title_name,
+            "module_name" => $type_id->name,
+            "status" => "Approved",
+            "asset" => $request->asset,
+            "sgp" => $request->sgp,
+            "f1" => $request->f1,
+            "f2" => $request->f2,
+            "vrid" => $request->vrid,
+            "approved_at" => $date_today,
+            "layer" => "1",
+            "description" => $request->description,
+        ]);
+        $pr_transaction->save();
+
+        $orders = $request->order;
+
+        $newOrders = collect($orders)
+            ->pluck("id")
+            ->toArray();
+
+        $currentOrders = $pr_transaction
+            ->order()
+            ->get()
+            ->pluck("id")
+            ->toArray();
+
+        foreach ($currentOrders as $order_id) {
+            if (!in_array($order_id, $newOrders)) {
+                PRItems::where("id", $order_id)->forceDelete();
+            }
+        }
+
+        foreach ($orders as $index => $values) {
+            PRItems::withTrashed()->updateOrCreate(
+                [
+                    "id" => $values["id"] ?? null,
+                ],
+                [
+                    "transaction_id" => $pr_transaction->id,
+                    "item_code" => $values["item_code"],
+                    "item_name" => $values["item_name"],
+                    "uom_id" => $values["uom_id"],
+                    "quantity" => $values["quantity"],
+                    "remarks" => $values["remarks"],
+                ]
+            );
+        }
+
+        $activityDescription = "Purchase Request ID: {$pr_transaction->id} has been resubmit by UID: {$user}.";
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "rr_id" => $pr_transaction->id,
+        ]);
+
+        $collect = new PRTransactionResource($pr_transaction);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_UPDATE,
+            $collect
         );
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Response\Message;
+use App\Models\AssetsItem;
 use App\Models\SmallTools;
 use Illuminate\Http\Request;
 use App\Functions\GlobalFunction;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DisplayRequest;
 use App\Http\Resources\SmallToolsResource;
 use App\Http\Requests\SmallTools\StoreRequest;
+use App\Http\Requests\SmallTools\DeleteRequest;
 use App\Http\Requests\SmallTools\UpdateRequest;
 
 class SmallToolsController extends Controller
@@ -72,11 +74,17 @@ class SmallToolsController extends Controller
         );
     }
 
-    public function destroy($id)
+    public function destroy(DeleteRequest $request, $id)
     {
         $small_tools = SmallTools::where("id", $id)
             ->withTrashed()
             ->get();
+
+        $small_tools_exist = AssetsItem::where("small_tools_id", $id)->exists();
+
+        if ($small_tools_exist) {
+            return GlobalFunction::invalid(Message::SMALL_TOOLS_IN_USE);
+        }
 
         if ($small_tools->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);

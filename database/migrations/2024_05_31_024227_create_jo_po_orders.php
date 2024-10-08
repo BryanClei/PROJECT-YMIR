@@ -38,6 +38,7 @@ return new class extends Migration {
             $table->string("remarks")->nullable();
             $table->string("attachment")->nullable();
             $table->string("asset")->nullable();
+            $table->string("helpdesk_id")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

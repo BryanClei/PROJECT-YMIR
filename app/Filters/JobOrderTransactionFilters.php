@@ -47,6 +47,12 @@ class JobOrderTransactionFilters extends QueryFilters
             })
             ->when($status === "cancelled", function ($query) use ($user_id) {
                 $query
+                    ->with([
+                        "order" => function ($query) {
+                            $query->withTrashed();
+                        },
+                    ])
+                    ->withTrashed()
                     ->whereNotNull("cancelled_at")
                     ->whereNull("approved_at")
                     ->where("user_id", $user_id);

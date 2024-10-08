@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\AssetsResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class JobOrderItemsResource extends JsonResource
@@ -26,7 +27,8 @@ class JobOrderItemsResource extends JsonResource
             // "total_price" => $this->total_price,
             "remarks" => $this->remarks,
             "attachment" => json_decode($this->attachment, true),
-            "asset" => $this->asset,
+            "asset" => new AssetsResource($this->assets),
+            "helpdesk_id" => $this->helpdesk_id,
         ];
     }
 }
