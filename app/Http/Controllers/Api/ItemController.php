@@ -53,6 +53,22 @@ class ItemController extends Controller
         // );
     }
 
+    public function show(DisplayRequest $request, $id)
+    {
+        $status = $request->status;
+        $item = Items::where("id", $id)
+            ->with("types", "uom", "small_tools", "warehouse.warehouse")
+            ->when($status === "inactive", function ($query) {
+                $query->onlyTrashed();
+            })
+            ->useFilters()
+            ->orderByDesc("code")
+            ->dynamicPaginate();
+        $collect = new ItemResource($item);
+
+        return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
+    }
+
     public function store(StoreRequest $request)
     {
         $item = new Items([
@@ -213,12 +229,29 @@ class ItemController extends Controller
             ]);
 
             $warehouse = $request->warehouse;
-            foreach ($warehouse as $index => $values) {
-                ItemWarehouse::create([
-                    "item_id" => $item->id,
-                    "warehouse_id" =>
-                        $request["warehouse"][$index]["warehouse"],
-                ]);
+
+            if ($warehouse) {
+                foreach ($warehouse as $index => $values) {
+                    ItemWarehouse::create([
+                        "item_id" => $item->id,
+                        "warehouse_id" =>
+                            $request["warehouse"][$index]["warehouse"],
+                    ]);
+                }
+            }
+
+            $small_tools = $request->small_tools;
+
+            if ($small_tools) {
+                foreach ($small_tools as $index => $values) {
+                    AssetsItem::create([
+                        "item_id" => $item->id,
+                        "small_tools_id" =>
+                            $request["small_tools"][$index]["small_tools_id"],
+                        "code" => $request["small_tools"][$index]["code"],
+                        "name" => $request["small_tools"][$index]["name"],
+                    ]);
+                }
             }
         }
 

@@ -14,6 +14,7 @@ class PRItems extends Model
     protected $table = "pr_items";
     protected $fillable = [
         "transaction_id",
+        "reference_no",
         "item_id",
         "item_code",
         "item_name",
@@ -76,6 +77,6 @@ class PRItems extends Model
 
     public function warehouse()
     {
-        return $this->belongsTo(Warehouses::class, "warehouse_id", "id");
+        return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
     }
 }

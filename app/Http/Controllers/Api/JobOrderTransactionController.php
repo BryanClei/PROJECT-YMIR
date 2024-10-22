@@ -160,6 +160,7 @@ class JobOrderTransactionController extends Controller
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => $filenames,
                 "asset" => $request["order"][$index]["asset"],
+                "asset_code" => $request["order"][$index]["asset_code"],
                 "helpdesk_id" => $request["order"][$index]["helpdesk_id"],
             ]);
         }
@@ -303,6 +304,7 @@ class JobOrderTransactionController extends Controller
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "asset" => $values["asset"],
+                    "asset_code" => $values["asset_code"],
                 ]
             );
         }
@@ -454,6 +456,7 @@ class JobOrderTransactionController extends Controller
                     "id" => $values["id"] ?? null,
                 ],
                 [
+                    
                     "jo_transaction_id" => $job_order_request->id,
                     "description" => $values["description"],
                     "uom_id" => $values["uom_id"],
@@ -464,6 +467,7 @@ class JobOrderTransactionController extends Controller
                     "remarks" => $values["remarks"],
                     "attachment" => $values["attachment"],
                     "asset" => $values["asset"],
+                    "asset_code" => $values["asset_code"],
                 ]
             );
         }

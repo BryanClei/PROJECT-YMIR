@@ -27,20 +27,22 @@ class UserResource extends JsonResource
                 "last_name" => $this->last_name,
                 "suffix" => $this->suffix,
             ],
-            "company" => [
-                "id" => $this->company->id,
-                "name" => $this->company->name,
-                "code" => $this->company->code,
-                "updated_at" => $this->company->updated_at,
-                "deleted_at" => $this->company->deleted_at,
-            ],
-            "business_unit" => [
-                "id" => $this->business_unit->id,
-                "name" => $this->business_unit->name,
-                "code" => $this->business_unit->code,
-                "updated_at" => $this->business_unit->updated_at,
-                "deleted_at" => $this->business_unit->deleted_at,
-            ],
+            "company" =>
+                [
+                    "id" => $this->company->id,
+                    "name" => $this->company->name,
+                    "code" => $this->company->code,
+                    "updated_at" => $this->company->updated_at,
+                    "deleted_at" => $this->company->deleted_at,
+                ] ?? null,
+            "business_unit" =>
+                [
+                    "id" => $this->business_unit->id,
+                    "name" => $this->business_unit->name,
+                    "code" => $this->business_unit->code,
+                    "updated_at" => $this->business_unit->updated_at,
+                    "deleted_at" => $this->business_unit->deleted_at,
+                ] ?? null,
             "department" => [
                 "id" => $this->department->id,
                 "name" => $this->department->name,
@@ -63,11 +65,11 @@ class UserResource extends JsonResource
                 "deleted_at" => $this->sub_unit->deleted_at,
             ],
             "location" => [
-                "id" => $this->location->id,
-                "name" => $this->location->name,
-                "code" => $this->location->code,
-                "updated_at" => $this->location->updated_at,
-                "deleted_at" => $this->location->deleted_at,
+                "id" => $this->location->id ?? null,
+                "name" => $this->location->name ?? null,
+                "code" => $this->location->code ?? null,
+                "updated_at" => $this->location->updated_at ?? null,
+                "deleted_at" => $this->location->deleted_at ?? null,
             ],
             "warehouse" => [
                 "id" => $this->warehouse->id,

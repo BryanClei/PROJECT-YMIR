@@ -22,6 +22,7 @@ class PoFilters extends QueryFilters
 
     protected array $columnSearch = [
         "pr_number",
+        "po_year_number_id",
         "po_number",
         "po_description",
         "date_needed",
@@ -68,12 +69,11 @@ class PoFilters extends QueryFilters
                     ->whereNull("approved_at")
                     ->where("user_id", $user_id);
             })
-            ->when($status === "for_receiving_cancelled", function (
+            ->when($status === "for_receiving_cancelled", function ($query) {
                 $query
-            ) use ($user_id) {
-                $query
-                    ->whereNotNull("cancelled_at")
-                    ->whereHas("rr_transaction");
+                    ->where("status", "Cancelled")
+                    ->whereHas("rr_transaction")
+                    ->withTrashed();
             })
             ->when($status === "voided", function ($query) use ($user_id) {
                 $query->whereNotNull("voided_at")->where("user_id", $user_id);

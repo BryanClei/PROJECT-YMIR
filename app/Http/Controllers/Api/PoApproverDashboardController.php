@@ -25,7 +25,6 @@ class PoApproverDashboardController extends Controller
 {
     public function index(POADRequest $request)
     {
-
         $user = Auth()->user()->id;
 
         $user_id = User::where("id", $user)
@@ -44,7 +43,7 @@ class PoApproverDashboardController extends Controller
         }
 
         $purchase_request = ApproverDashboard::with(
-            "order",
+            "order.warehouse",
             "order.category",
             "approver_history",
             "log_history.users",

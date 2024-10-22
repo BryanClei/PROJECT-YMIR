@@ -297,6 +297,18 @@ class PRTransactionController extends Controller
         }
 
         foreach ($orders as $index => $values) {
+            $attachments = $values["attachment"];
+            $filenames = [];
+            if (!empty($attachments)) {
+                foreach ($attachments as $fileIndex => $file) {
+                    $originalFilename = basename($file);
+                    $info = pathinfo($originalFilename);
+                    $filenameOnly = $info["filename"];
+                    $extension = $info["extension"];
+                    $filename = "{$filenameOnly}_pr_id_{$id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filenames = $filename;
+                }
+            }
             PRItems::withTrashed()->updateOrCreate(
                 [
                     "id" => $values["id"] ?? null,
@@ -309,7 +321,7 @@ class PRTransactionController extends Controller
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => json_encode($filenames),
                     "assets" => $values["assets"],
                     "warehouse_id" => $values["warehouse_id"],
                     "category_id" => $values["category_id"],
@@ -429,6 +441,7 @@ class PRTransactionController extends Controller
             foreach ($orders as $index => $values) {
                 PRItems::create([
                     "transaction_id" => $purchase_request->id,
+                    "reference_no" => $values["reference_no"],
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
@@ -784,6 +797,81 @@ class PRTransactionController extends Controller
         return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
     }
 
+    // production store multiple for public path
+    // public function store_multiple(UploadRequest $request, $id)
+    // {
+    //     $files = $request->file("files");
+    //     $filenames = $request->input("filenames", []);
+    //     $type = $request->input("type");
+
+    //     $typeSelectors = [
+    //         "pr" => "pr",
+    //         "po" => "po",
+    //         "jo" => "jo",
+    //         "rr" => "rr",
+    //     ];
+
+    //     if (!isset($typeSelectors[$type])) {
+    //         throw new \Exception("Invalid type");
+    //     }
+
+    //     $selector = $typeSelectors[$type];
+    //     $updateFilename = $request->input("update_file", false);
+    //     $uploadedFiles = [];
+
+    //     $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
+
+    //     if (!File::exists($publicHtmlPath)) {
+    //         File::makeDirectory($publicHtmlPath, 0755, true);
+    //     }
+
+    //     foreach ($files as $itemIndex => $itemFiles) {
+    //         foreach ($itemFiles as $fileIndex => $file) {
+    //             if (!$file->isValid()) {
+    //                 continue;
+    //             }
+
+    //             if (
+    //                 $updateFilename &&
+    //                 isset($filenames[$itemIndex][$fileIndex])
+    //             ) {
+    //                 $filename = $filenames[$itemIndex][$fileIndex];
+
+    //                 $filePath = "app/public/attachment/{$filename}";
+    //                 if (File::exists(storage_path($filePath))) {
+    //                     File::delete(storage_path($filePath));
+    //                 }
+    //             }
+
+    //             $originalFilename = pathinfo(
+    //                 $file->getClientOriginalName(),
+    //                 PATHINFO_FILENAME
+    //             );
+
+    //             $filename =
+    //                 "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
+    //                 "." .
+    //                 $file->getClientOriginalExtension();
+
+    //             $stored = $file->move($publicHtmlPath, $filename);
+
+    //             if ($stored) {
+    //                 $uploadedFiles[] = [
+    //                     "filename" => $filename,
+    //                     "filepath" => "{$publicHtmlPath}/{$filename}",
+    //                     "url" => "https://rdfymir.com/attachment/{$filename}", // Correct URL for accessing the file
+    //                 ];
+    //             } else {
+    //                 $message = "Failed to store file: {$filename}";
+    //                 return GlobalFunction::uploadfailed($message, $files);
+    //             }
+    //         }
+    //     }
+
+    //     $message = Message::UPLOAD_SUCCESSFUL;
+    //     return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
+    // }
+
     public function download($filename)
     {
         $disk = Storage::disk("public");
@@ -801,6 +889,26 @@ class PRTransactionController extends Controller
             ->download($filePath, $filename)
             ->setStatusCode(200);
     }
+
+    // Production Download for public path
+    // public function download($filename)
+    // {
+    //     $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
+
+    //     $filePath = "{$publicHtmlPath}/{$filename}";
+
+    //     if (!File::exists($filePath)) {
+    //         $message = Message::FILE_NOT_FOUND;
+    //         return GlobalFunction::uploadfailed(
+    //             $message,
+    //             $filename
+    //         )->setStatusCode(Message::DATA_NOT_FOUND);
+    //     }
+
+    //     return response()
+    //         ->download($filePath, $filename)
+    //         ->setStatusCode(200);
+    // }
 
     public function buyer(Request $request, $id)
     {

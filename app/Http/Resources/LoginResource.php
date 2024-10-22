@@ -53,9 +53,9 @@ class LoginResource extends JsonResource
                 "code" => $this->sub_unit->code,
             ],
             "location" => [
-                "id" => $this->location->id,
-                "name" => $this->location->name,
-                "code" => $this->location->code,
+                "id" => $this->location->id ?? null,
+                "name" => $this->location->name ?? null,
+                "code" => $this->location->code ?? null,
             ],
             "warehouse" => [
                 "id" => $this->warehouse->id,

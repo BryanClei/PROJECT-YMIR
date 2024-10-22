@@ -10,6 +10,7 @@ class PRTransactionFilters extends QueryFilters
 
     protected array $columnSearch = [
         "pr_number",
+        "pr_year_number_id",
         "pr_description",
         "date_needed",
         "user_id",

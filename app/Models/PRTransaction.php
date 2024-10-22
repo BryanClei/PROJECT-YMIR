@@ -46,6 +46,7 @@ class PRTransaction extends Model
         "module_name",
         "transaction_number",
         "status",
+        "asset_code",
         "layer",
         "description",
         "helpdesk_id",

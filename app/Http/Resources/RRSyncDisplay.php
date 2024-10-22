@@ -22,6 +22,7 @@ class RRSyncDisplay extends JsonResource
             $matching_rr_orders = $rr_orders->where("item_id", $po_item->id);
 
             return [
+                "reference_no" => $po_item->reference_no,
                 "item_code" => $po_item->item_code,
                 "item_name" => $po_item->item_name,
                 "supplier" => $this->supplier_id,
@@ -56,10 +57,10 @@ class RRSyncDisplay extends JsonResource
         return [
             "remarks" => $this->po_description,
             "pr_number" => $this->pr_number,
+            "transaction_no" => $this->pr_transaction->transaction_no,
             "rr_year_number_id" => $this->rr_transaction->pluck(
                 "rr_year_number_id"
             ),
-            "transaction_no" => $this->pr_transaction->transaction_no,
             "po_number" => $this->id,
             "rr_numbers" => $this->rr_transaction->pluck("id"),
             "order" => $po_items->toArray(),

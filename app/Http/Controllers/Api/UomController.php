@@ -99,6 +99,7 @@ class UomController extends Controller
             $company = Uom::create([
                 "name" => $index["name"],
                 "code" => $index["code"],
+                "is_integer" => $index["is_integer"],
             ]);
         }
 

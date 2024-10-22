@@ -25,6 +25,7 @@ class ImportRequest extends FormRequest
     {
         return [
             "*.code" => ["unique:items,code", "distinct"],
+            "*.is_integer" => ["required", "in:0,1"],
         ];
     }
 

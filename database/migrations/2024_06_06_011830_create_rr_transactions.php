@@ -29,6 +29,7 @@ return new class extends Migration {
             $table->timestamp("transaction_date")->nullable();
             $table->string("attachment")->nullable();
             $table->string("late_attachment")->nullable();
+            $table->string("reason")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

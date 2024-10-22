@@ -19,6 +19,7 @@ class PoItemResource extends JsonResource
             "id" => $this->id,
             "pr_id" => $this->pr_id,
             "po_id" => $this->po_id,
+            "reference_no" => $this->reference_no,
             "pr_item_id" => $this->pr_item_id,
             "item" => [
                 "id" => $this->item_id,
@@ -45,7 +46,7 @@ class PoItemResource extends JsonResource
             "buyer_name" => $this->buyer_name,
             "remarks" => $this->remarks,
             "updated_at" => $this->updated_at,
-            "warehouse_id" => $this->warehouse_id,
+            "warehouse_id" => $this->warehouse,
             "category_id" => $this->category,
         ];
     }

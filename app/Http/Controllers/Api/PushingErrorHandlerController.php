@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Response\Message;
+use App\Models\LogHistory;
 use Illuminate\Http\Request;
 use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
@@ -16,15 +17,23 @@ class PushingErrorHandlerController extends Controller
         $push = $request->push;
         $rr_id = $request->rr_id;
 
-        $sync_error = $sync
-            ? ($error = "Sync Error -> " . $request->response)
-            : "False";
-        $push_error = $push
-            ? ($error = "Push Error -> " . $request->response)
-            : "False";
+        $error = "";
+
+        if ($sync) {
+            $error .= "Sync Error -> " . $request->response;
+        }
+
+        if ($push) {
+            $error .=
+                ($error ? " | " : "") . "Push Error -> " . $request->response;
+        }
+
+        if (!$error) {
+            $error = "False";
+        }
 
         $activityDescription =
-            "Received Receipt ID:" . $rr_id . " Error: " . $error;
+            "Received Receipt ID: " . $rr_id . " Error: " . $error;
 
         $log = LogHistory::create([
             "activity" => $activityDescription,

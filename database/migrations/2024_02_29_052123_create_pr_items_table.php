@@ -19,6 +19,7 @@ return new class extends Migration {
                 ->foreign("transaction_id")
                 ->references("id")
                 ->on("pr_transactions");
+            $table->string("reference_no")->nullable();
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
             $table->string("item_name")->nullable();

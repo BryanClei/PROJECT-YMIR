@@ -378,7 +378,7 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function cancel_rr(Request $request, $id)
+    public function cancel_rr(PORequest $request, $id)
     {
         $reason = $request->remarks;
         $vlad_user = $request->v_name;
@@ -421,6 +421,7 @@ class RRTransactionController extends Controller
 
         $cancelled_rr_transaction = $rr_transaction;
 
+        $rr_transaction->update(["reason" => $reason]);
         $rr_transaction->delete();
 
         return GlobalFunction::responseFunction(

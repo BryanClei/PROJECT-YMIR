@@ -24,6 +24,7 @@ class JoPoOrders extends Model
         "remarks",
         "attachment",
         "asset",
+        "asset_code",
         "helpdesk_id",
     ];
     protected $hidden = ["created_at"];

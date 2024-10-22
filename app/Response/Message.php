@@ -146,6 +146,7 @@ class Message
     const QUANTITY_VALIDATION = "The received item cannot be more than the quantity.";
 
     const NO_APPROVERS = "No approvers yet.";
+    const NO_APPROVERS_SETTINGS_YET = "No approvers settings yet.";
 
     //PR RESPONSE
     const CANCELLED = "Purchase request has been cancelled.";

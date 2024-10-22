@@ -124,6 +124,25 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $po_settings = POSettings::where("company_id", $request->company_id)
+            ->where("business_unit_id", $request->business_unit_id)
+            ->where("department_id", $request->department_id)
+            ->get()
+            ->first();
+
+        if (!$po_settings) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
+        }
+
+        $approvers_exist = PoApprovers::where(
+            "po_settings_id",
+            $po_settings->company_id
+        )->get();
+
+        if ($approvers_exist->isEmpty()) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS);
+        }
+
         $current_year = date("Y");
         $latest_po = POTransaction::withTrashed()
             ->where("po_year_number_id", "like", $current_year . "-PO-%")
@@ -199,6 +218,7 @@ class PoController extends Controller
                 "po_id" => $purchase_order->id,
                 "pr_id" => $purchase_order->pr_number,
                 "pr_item_id" => $request["order"][$index]["pr_item_id"],
+                "reference_no" => $request["order"][$index]["reference_no"],
                 "item_id" => $request["order"][$index]["item_id"],
                 "item_code" => $request["order"][$index]["item_code"],
                 "item_name" => $request["order"][$index]["item_name"],
@@ -239,15 +259,6 @@ class PoController extends Controller
             "po_id" => $purchase_order->id,
             "action_by" => $user_id,
         ]);
-
-        $po_settings = POSettings::where(
-            "company_id",
-            $purchase_order->company_id
-        )
-            ->where("business_unit_id", $purchase_order->business_unit_id)
-            ->where("department_id", $purchase_order->department_id)
-            ->get()
-            ->first();
 
         $purchase_items = POItems::where("po_id", $purchase_order->id)
             ->get()
@@ -357,6 +368,7 @@ class PoController extends Controller
                 "attachment" => $request["order"][$index]["attachment"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "asset" => $request["order"][$index]["asset"],
+                "asset_code" => $request["order"][$index]["asset_code"],
                 "helpdesk_id" => $request["order"][$index]["helpdesk_id"],
             ]);
         }
@@ -502,6 +514,7 @@ class PoController extends Controller
                 [
                     "po_id" => $purchase_order->id,
                     "pr_id" => $purchase_order->pr_number,
+                    "reference_no" => $value["reference_no"],
                     "item_id" => $values["item_id"],
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
@@ -591,6 +604,7 @@ class PoController extends Controller
                 [
                     "po_id" => $purchase_order->id,
                     "pr_id" => $purchase_order->pr_number,
+                    "reference_no" => $values["reference_no"],
                     "item_id" => $values["item_id"],
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],

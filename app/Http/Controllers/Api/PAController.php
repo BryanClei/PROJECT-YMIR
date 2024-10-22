@@ -235,6 +235,7 @@ class PAController extends Controller
                         })
                         ->with("category");
                 },
+                "order.warehouse",
                 "users",
             ])
             ->orderByDesc("updated_at")
@@ -263,6 +264,7 @@ class PAController extends Controller
                 "order" => function ($query) {
                     $query->withTrashed();
                 },
+                "order.warehouse",
             ])
             ->orderByDesc("updated_at")
             ->withTrashed()
@@ -373,6 +375,8 @@ class PAController extends Controller
                     "total_price" => $newTotalPrice,
                     "attachment" => $values["attachment"],
                     "remarks" => $values["remarks"],
+                    "asset" => $values["asset"],
+                    "asset_code" => $values["asset_code"],
                 ]
             );
             $totalPriceSum += $newTotalPrice;
@@ -817,7 +821,7 @@ class PAController extends Controller
         }
 
         $activityDescription =
-            "Purchase request '.$pr_transaction->pr_year_number_id.' has been return by UID: " .
+            "Purchase request '.$pr_transaction->pr_year_number_id.' has been returned by UID: " .
             $user_id .
             " Reason: " .
             $reason;

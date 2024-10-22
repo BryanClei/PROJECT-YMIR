@@ -189,9 +189,14 @@ class BuyerFilters extends QueryFilters
             ->when($status === "s_buyer", function ($query) {
                 $query
                     ->whereHas("order", function ($orderQuery) {
-                        $orderQuery
-                            ->whereNotNull("buyer_id")
-                            ->whereNull("supplier_id");
+                        $orderQuery->whereNotNull("buyer_id");
+                    })
+                    ->where("status", "Approved");
+            })
+            ->when($status === "s_buyer_tagged", function ($query) {
+                $query
+                    ->whereHas("order", function ($query) {
+                        $query->whereNull("po_at");
                     })
                     ->with([
                         "order" => function ($query) {

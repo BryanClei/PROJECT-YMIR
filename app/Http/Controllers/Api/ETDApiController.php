@@ -55,7 +55,7 @@ class ETDApiController extends Controller
             ->get();
 
         if ($rr_transactions->isEmpty()) {
-            return GlobalFunction::notFound(Message::NOT_FOUND);
+            return GlobalFunction::responseFunction(Message::NOT_FOUND);
         }
 
         return $rr_transactions;

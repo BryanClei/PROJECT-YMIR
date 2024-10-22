@@ -73,6 +73,10 @@ class PRTransactionResource extends JsonResource
                 "id" => $this->account_title_id,
                 "name" => $this->account_title_name,
             ],
+            "asset" => [
+                "asset" => $this->asset,
+                "asset_code" => $this->asset_code ?? null,
+            ],
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,

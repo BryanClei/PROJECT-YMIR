@@ -94,6 +94,7 @@ return new class extends Migration {
             $table->string("reason")->nullable();
             $table->string("edit_remarks")->nullable();
             $table->string("asset")->nullable();
+            $table->string("asset_code")->nullable();
             $table->string("sgp")->nullable();
             $table->string("f1")->nullable();
             $table->string("f2")->nullable();

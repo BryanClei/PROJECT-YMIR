@@ -9,6 +9,7 @@ class RRTransactionFilters extends QueryFilters
     protected array $allowedFilters = [];
 
     protected array $columnSearch = [
+        "rr_year_number_id",
         "po_id",
         "pr_id",
         "received_by",

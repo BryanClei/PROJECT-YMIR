@@ -94,6 +94,30 @@ class BuyerController extends Controller
         );
     }
 
+    public function show(Request $request, $id)
+    {
+        $status = $request->status;
+        $user_id = Auth()->user()->id;
+
+        $purchase_order = POTransaction::where("id", $id)
+            ->with(["order", "order.category", "approver_history"])
+            ->withTrashed()
+            ->orderByDesc("updated_at")
+            ->get()
+            ->first();
+
+        if (!$purchase_order) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $purchase_collect = new PoResource($purchase_order);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $purchase_collect
+        );
+    }
+
     public function viewto_po(Request $request, $id)
     {
         $status = $request->status;
@@ -158,6 +182,7 @@ class BuyerController extends Controller
                 $oldPrice = $poItem->price;
                 $newPrice = $values["price"];
                 $newTotalPrice = $poItem->quantity * $newPrice;
+                $poItemName = $poItem->item_name;
 
                 if ($newPrice > $oldPrice) {
                     $priceIncreased = true;
@@ -173,6 +198,7 @@ class BuyerController extends Controller
 
                 $updatedItems[] = [
                     "id" => $order_id,
+                    "item_name" => $poItemName,
                     "old_price" => $oldPrice,
                     "new_price" => $newPrice,
                     "new_supplier" => $newSupplier,
@@ -188,7 +214,7 @@ class BuyerController extends Controller
             $user_id .
             " prices for PO items: ";
         foreach ($updatedItems as $item) {
-            $activityDescription .= "Item ID {$item["id"]}: {$item["old_price"]} -> {$item["new_price"]}, ";
+            $activityDescription .= "Item ID {$item["id"]}: {$item["item_name"]} {$item["old_price"]} -> {$item["new_price"]}, ";
         }
         $activityDescription = rtrim($activityDescription, ", ");
 

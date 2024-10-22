@@ -16,6 +16,7 @@ class POItems extends Model
     protected $table = "po_orders";
     protected $fillable = [
         "po_id",
+        "reference_no",
         "pr_id",
         "pr_item_id",
         "item_id",
@@ -68,5 +69,10 @@ class POItems extends Model
     public function category()
     {
         return $this->belongsTo(Categories::class, "category_id", "id");
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
     }
 }

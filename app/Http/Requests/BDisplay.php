@@ -27,7 +27,7 @@ class BDisplay extends FormRequest
             "status" => [
                 "required",
                 "string",
-                "in:to_po,rejected,approved,pending,For approval,po_approved,cancelled,s_buyer",
+                "in:to_po,rejected,approved,pending,For approval,po_approved,cancelled,s_buyer,s_buyer_tagged",
             ],
         ];
     }

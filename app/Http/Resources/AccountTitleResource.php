@@ -16,8 +16,8 @@ class AccountTitleResource extends JsonResource
     {
         return [
             "id" => $this->id,
-            "name" => $this->name,
             "code" => $this->code,
+            "name" => $this->name,
             "updated_at" => $this->updated_at,
             "deleted_at" => $this->deleted_at,
             "account types" => [

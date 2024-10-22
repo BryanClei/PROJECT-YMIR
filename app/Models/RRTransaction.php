@@ -25,6 +25,7 @@ class RRTransaction extends Model
         "transaction_date",
         "attachment",
         "late_attachment",
+        "reason",
     ];
 
     // protected $casts = ["remarks" => "json"];

@@ -31,6 +31,9 @@ class ImportRequest extends FormRequest
             "warehouse.*.warehouse" => [
                 "exists:warehouse,name,deleted_at,NULL",
             ],
+            "small_tools" => "nullable|array",
+            "small_tools.*.small_tools_id" =>
+                "exists:small_tools,id,deleted_at,NULL",
         ];
     }
 

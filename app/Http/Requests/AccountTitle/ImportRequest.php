@@ -27,7 +27,6 @@ class ImportRequest extends FormRequest
             "*.name" => ["required", "unique:account_titles,name", "distinct"],
             "*.code" => [
                 "required",
-                "string",
                 $this->route()->account_title
                     ? "unique:account_titles,code," .
                         $this->route()->account_title
