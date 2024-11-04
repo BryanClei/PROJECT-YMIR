@@ -95,6 +95,7 @@ return new class extends Migration {
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();
             $table->string("helpdesk_id")->nullable();
+            $table->string("rush")->nullable();
             $table->timestamp("approved_at")->nullable();
             $table->timestamp("rejected_at")->nullable();
             $table->timestamp("voided_at")->nullable();

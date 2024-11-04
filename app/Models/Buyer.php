@@ -49,6 +49,8 @@ class Buyer extends Model
         "sgp",
         "f1",
         "f2",
+        "rush",
+        "place_order",
         "approved_at",
         "rejected_at",
         "voided_at",

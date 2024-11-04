@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DisplayRequest;
 use App\Http\Resources\SupplierResource;
 use App\Http\Requests\Suppliers\StoreRequest;
+use App\Http\Requests\Suppliers\ImportRequest;
 
 class SupplierController extends Controller
 {
@@ -43,11 +44,13 @@ class SupplierController extends Controller
             "code" => $request->code,
             "name" => $request->name,
             "term" => $request->term,
+            "address_1" => $request->address_1,
+            "address_2" => $request->address_2,
         ]);
 
-        $uom_collect = new SupplierResource($suppliers);
+        $supplier_collect = new SupplierResource($suppliers);
 
-        return GlobalFunction::save(Message::SUPPLIER_SAVE, $uom_collect);
+        return GlobalFunction::save(Message::SUPPLIER_SAVE, $supplier_collect);
     }
 
     public function update(StoreRequest $request, $id)
@@ -62,6 +65,8 @@ class SupplierController extends Controller
         $suppliers->update([
             "code" => $request->code,
             "name" => $request->name,
+            "address_1" => $request->address_1,
+            "address_2" => $request->address_2,
         ]);
         return GlobalFunction::responseFunction(
             Message::SUPPLIER_UPDATE,
@@ -93,5 +98,22 @@ class SupplierController extends Controller
             $message = Message::RESTORE_STATUS;
         }
         return GlobalFunction::responseFunction($message, $suppliers);
+    }
+
+    public function import(ImportRequest $request)
+    {
+        $import = $request->all();
+
+        foreach ($import as $index) {
+            $supplier = Suppliers::create([
+                "name" => $index["name"],
+                "code" => $index["code"],
+                "term" => $index["term"],
+                "address_1" => $index["address_1"],
+                "address_2" => $index["address_2"],
+            ]);
+        }
+
+        return GlobalFunction::save(Message::SUPPLIER_SAVE, $import);
     }
 }

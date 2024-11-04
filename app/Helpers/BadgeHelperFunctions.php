@@ -92,6 +92,8 @@ class BadgeHelperFunctions
                     $query->whereColumn("quantity", "<>", "quantity_serve");
                 },
             ])
+            ->where("module_name", "Inventoriables")
+            ->orWhere("module_name", "Asset")
             ->where("status", "For Receiving")
             ->whereNull("cancelled_at")
             ->whereNull("voided_at")

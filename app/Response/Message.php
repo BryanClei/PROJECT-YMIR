@@ -68,6 +68,7 @@ class Message
     const DEPARTMENT_UNIT_DISPLAY = "Department unit  display successfully.";
     const ACCOUNT_TITLE_DISPLAY = "Account title  display successfully.";
     const PURCHASE_REQUEST_DISPLAY = "Purchase request  display successfully.";
+    const PURCHASE_REQUEST_PLACE_ORDER = "Purchase request has been placed successfully.";
     const APPROVERS_DISPLAY = "Approvers display successfully.";
     const PURCHASE_ORDER_DISPLAY = "Purchase order  display successfully.";
     const CATEGORIES_DISPLAY = "Category display successfully.";
@@ -147,6 +148,7 @@ class Message
 
     const NO_APPROVERS = "No approvers yet.";
     const NO_APPROVERS_SETTINGS_YET = "No approvers settings yet.";
+    const NO_APPROVERS_PRICE = "No assigned approvers for this price range";
 
     //PR RESPONSE
     const CANCELLED = "Purchase request has been cancelled.";

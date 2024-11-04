@@ -38,7 +38,8 @@ class PoController extends Controller
         $status = $request->status;
         $user_id = Auth()->user()->id;
 
-        $purchase_order = POTransaction::orderByDesc("updated_at")
+        $purchase_order = POTransaction::orderBy("rush", "desc")
+            ->orderBy("updated_at", "desc")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -110,6 +111,8 @@ class PoController extends Controller
 
         $orders = $request->order;
 
+        $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
+
         $if_exist = PRTransaction::when(
             $request->module_name === "Asset",
             function ($query) use ($request) {
@@ -136,11 +139,23 @@ class PoController extends Controller
 
         $approvers_exist = PoApprovers::where(
             "po_settings_id",
-            $po_settings->company_id
+            $po_settings->id
         )->get();
 
         if ($approvers_exist->isEmpty()) {
             return GlobalFunction::notFound(Message::NO_APPROVERS);
+        }
+
+        $check_price_approvers = PoApprovers::where(
+            "price_range",
+            "<=",
+            $sumOfTotalPrices
+        )
+            ->where("po_settings_id", $po_settings->id)
+            ->get();
+
+        if ($check_price_approvers->isEmpty()) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_PRICE);
         }
 
         $current_year = date("Y");
@@ -193,6 +208,7 @@ class PoController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $request->rush,
             "layer" => "1",
             "description" => $request->description,
         ]);
@@ -268,7 +284,7 @@ class PoController extends Controller
         $sum = array_sum($purchase_items);
 
         $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->company_id)
+            ->where("po_settings_id", $po_settings->id)
             ->get();
 
         foreach ($approvers as $index) {
@@ -347,6 +363,7 @@ class PoController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $request->rush,
             "layer" => "1",
             "description" => $request->description,
         ]);
@@ -405,7 +422,7 @@ class PoController extends Controller
         $sum = array_sum($jo_items);
 
         $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->company_id)
+            ->where("po_settings_id", $po_settings->id)
             ->get();
 
         foreach ($approvers as $index) {
@@ -463,6 +480,7 @@ class PoController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $request->rush,
             "layer" => "1",
             "description" => $request->description,
         ]);
@@ -647,7 +665,7 @@ class PoController extends Controller
                 ">=",
                 $highestPriceRange
             )
-                ->where("po_settings_id", $po_settings->company_id)
+                ->where("po_settings_id", $po_settings->id)
                 ->get();
             $po_approver_history = $purchase_order->approver_history()->first();
 
@@ -765,7 +783,7 @@ class PoController extends Controller
         $sum = array_sum($jo_items);
 
         $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->company_id)
+            ->where("po_settings_id", $po_settings->id)
             ->get();
 
         foreach ($approvers as $index) {

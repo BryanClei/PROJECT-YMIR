@@ -77,6 +77,8 @@ class JobOrderResource extends JsonResource
             "description" => $this->description,
             "reason" => $this->reason,
             "created_at" => $this->created_at,
+            "helpdesk_id" => $this->helpdesk_id,
+            "rush" => $this->rush,
             "for_po_only" => $this->for_po_only,
             "for_po_only_id" => $this->for_po_only_id,
             "order_jo_transaction_id" => $this->id,

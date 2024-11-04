@@ -53,6 +53,7 @@ class JOPOTransaction extends Model
         "sgp",
         "f1",
         "f2",
+        "rush",
         "approved_at",
         "rejected_at",
         "voided_at",

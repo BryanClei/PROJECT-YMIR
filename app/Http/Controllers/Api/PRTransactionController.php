@@ -49,7 +49,8 @@ class PRTransactionController extends Controller
             "po_transaction.approver_history"
         )
             ->where("module_name", "Inventoriables")
-            ->orderByDesc("updated_at")
+            ->orderBy("rush", "desc")
+            ->orderBy("updated_at", "desc")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -97,6 +98,12 @@ class PRTransactionController extends Controller
 
         $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
         $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
+        $rush = $request->boolean("rush")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i")
@@ -150,6 +157,7 @@ class PRTransactionController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
             "layer" => "1",
@@ -251,6 +259,12 @@ class PRTransactionController extends Controller
 
         $orders = $request->order;
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $purchase_request->update([
             "pr_description" => $request["pr_description"],
             "date_needed" => $request["date_needed"],
@@ -276,6 +290,7 @@ class PRTransactionController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $rush,
             "approved_at" => null,
             "layer" => "1",
             "description" => $request->description,
@@ -424,17 +439,17 @@ class PRTransactionController extends Controller
             ]);
             $purchase_request->save();
 
-            $activityDescription =
-                "Purchase request ID: " .
-                $purchase_request->id .
-                " has been created by UID: " .
-                $user_id;
+            // $activityDescription =
+            //     "Purchase request ID: " .
+            //     $purchase_request->id .
+            //     " has been created by UID: " .
+            //     $user_id;
 
-            LogHistory::create([
-                "activity" => $activityDescription,
-                "pr_id" => $purchase_request->id,
-                "action_by" => $sync["vrid"],
-            ]);
+            // LogHistory::create([
+            //     "activity" => $activityDescription,
+            //     "pr_id" => $purchase_request->id,
+            //     "action_by" => $sync["vrid"],
+            // ]);
 
             $orders = $sync["order"];
 
@@ -447,6 +462,7 @@ class PRTransactionController extends Controller
                     "uom_id" => $values["uom_id"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
+                    "warehouse_id" => $values["r_warehouse_id"],
                 ]);
             }
             $new_number++;
@@ -460,7 +476,6 @@ class PRTransactionController extends Controller
             LogHistory::create([
                 "activity" => $activityDescription,
                 "pr_id" => $purchase_request->id,
-                "action_by" => $user_id,
             ]);
         }
 
@@ -489,6 +504,12 @@ class PRTransactionController extends Controller
 
         $orders = $request->order;
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $purchase_request->update([
             "pr_number" => $purchase_request->id,
             "pr_description" => $request["pr_description"],
@@ -509,12 +530,12 @@ class PRTransactionController extends Controller
             "sub_unit_id" => $request->sub_unit_id,
             "sub_unit_name" => $request->sub_unit_name,
             "module_name" => "Inventoriables",
-
             "description" => $request->description,
             "asset" => $request->asset,
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
         ]);
@@ -613,6 +634,12 @@ class PRTransactionController extends Controller
 
         $orders = $request->order;
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $purchase_request->update([
             "pr_number" => $purchase_request->id,
             "pr_description" => $request["pr_description"],
@@ -640,6 +667,7 @@ class PRTransactionController extends Controller
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
+            "rush" => $rush,
             "layer" => "1",
         ]);
 

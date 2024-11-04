@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use App\Models\Buyer;
 use App\Models\POItems;
 use App\Models\PRItems;
@@ -11,6 +11,7 @@ use App\Response\Message;
 use App\Models\LogHistory;
 use App\Models\POSettings;
 use App\Models\PoApprovers;
+use Illuminate\Http\Request;
 use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Http\Requests\BDisplay;
@@ -578,6 +579,30 @@ class BuyerController extends Controller
         return GlobalFunction::responseFunction(
             Message::ITEM_PREVIOUS_PRICE,
             $item_collect
+        );
+    }
+
+    public function place_order($id)
+    {
+        $purchase_request = Buyer::where("id", $id)
+            ->get()
+            ->first();
+
+        if (!$purchase_request) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
+
+        $purchase_request->update(["place_order" => $date_today]);
+
+        $place_order = new PRPOResource($purchase_request);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_PLACE_ORDER,
+            $place_order
         );
     }
 }

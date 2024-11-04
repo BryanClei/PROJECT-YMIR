@@ -27,14 +27,16 @@ class PoResource extends JsonResource
             "date_needed" => $this->date_needed,
             "po_number" => $this->po_number,
 
-            "user" => [
-                "prefix_id" => $this->users->prefix_id,
-                "id_number" => $this->users->id_number,
-                "first_name" => $this->users->first_name,
-                "middle_name" => $this->users->middle_name,
-                "last_name" => $this->users->last_name,
-                "mobile_no" => $this->users->mobile_no,
-            ],
+            "user" => $this->users
+                ? [
+                    "prefix_id" => $this->users->prefix_id,
+                    "id_number" => $this->users->id_number,
+                    "first_name" => $this->users->first_name,
+                    "middle_name" => $this->users->middle_name,
+                    "last_name" => $this->users->last_name,
+                    "mobile_no" => $this->users->mobile_no,
+                ]
+                : null,
 
             "type" => [
                 "id" => $this->type_id,
@@ -79,6 +81,7 @@ class PoResource extends JsonResource
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
+            "rush" => $this->rush,
             "module_name" => $this->module_name,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,

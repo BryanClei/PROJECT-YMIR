@@ -56,6 +56,12 @@ use App\Http\Controllers\Api\PushingErrorHandlerController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
  */
+Route::group(["middleware" => ["auth_key"]], function () {
+    Route::get("general_ledger_integration", [
+        GeneralLedgerController::class,
+        "integration_index",
+    ]);
+});
 
 Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::post("logout", [UserController::class, "logout"]);
@@ -189,6 +195,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         SupplierController::class,
         "destroy",
     ]);
+    Route::post("suppliers/import", [SupplierController::class, "import"]);
     Route::apiResource("suppliers", SupplierController::class);
 
     Route::patch("units/archived/{id}", [UnitController::class, "destroy"]);
@@ -242,6 +249,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         PRTransactionController::class,
         "resubmit",
     ]);
+    Route::patch("place_order/{id}", [BuyerController::class, "place_order"]);
     Route::get("buyer_badge", [BuyerController::class, "buyer_badge"]);
     Route::get("unit_item_price/{id}", [
         BuyerController::class,
@@ -528,6 +536,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         SmallToolsController::class,
         "destroy",
     ]);
+    Route::post("small_tools/import", [SmallToolsController::class, "import"]);
     Route::apiResource("small_tools", SmallToolsController::class);
 });
 Route::post("login", [UserController::class, "login"]);

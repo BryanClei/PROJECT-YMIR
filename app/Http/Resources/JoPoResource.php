@@ -72,6 +72,8 @@ class JoPoResource extends JsonResource
             "module_name" => $this->module_name,
             "supplier" => $this->supplier,
             "status" => $this->status,
+            "helpdesk_id" => $this->helpdesk_id,
+            "rush" => $this->rush,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
             "voided_at" => $this->voided_at,

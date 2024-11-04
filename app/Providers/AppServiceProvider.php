@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use App\Http\Resources\IntegrationGLResource;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,8 +24,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        // $this->app->bind("path.public", function () {
-        //     return base_path("../public_html");
-        // });
+        IntegrationGLResource::withoutWrapping();
     }
 }

@@ -33,6 +33,7 @@ class StoreRequest extends FormRequest
             ],
             "name" => ["required", "string"],
             "term" => ["required", "numeric"],
+            "address_1" => ["required"],
         ];
     }
 }

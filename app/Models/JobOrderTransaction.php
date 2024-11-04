@@ -50,6 +50,7 @@ class JobOrderTransaction extends Model
         "voided_at",
         "cancelled_at",
         "approver_id",
+        "rush",
         "helpdesk_id",
     ];
 

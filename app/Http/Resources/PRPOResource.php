@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\PoItemResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\LogHistory\LogHistoryResource;
 
@@ -19,18 +20,28 @@ class PRPOResource extends JsonResource
             "id" => $this->id,
             "pr_year_number_id" => $this->pr_year_number_id,
             "pr_number" => $this->pr_number,
+            "transaction_no" => $this->transaction_no,
             "pr_description" => $this->pr_description,
-            "transaction_no" => $this->transaction_no ?? null,
+            "helpdesk_id" => $this->helpdesk_id,
             "date_needed" => $this->date_needed,
 
-            "user" => [
-                "prefix_id" => $this->users->prefix_id,
-                "id_number" => $this->users->id_number,
-                "first_name" => $this->users->first_name,
-                "middle_name" => $this->users->middle_name,
-                "last_name" => $this->users->last_name,
-                "mobile_no" => $this->users->mobile_no,
-            ],
+            "user" => $this->users
+                ? [
+                    "prefix_id" => $this->users->prefix_id,
+                    "id_number" => $this->users->id_number,
+                    "first_name" => $this->users->first_name,
+                    "middle_name" => $this->users->middle_name,
+                    "last_name" => $this->users->last_name,
+                    "mobile_no" => $this->users->mobile_no,
+                    "warehouse" => $this->users->warehouse
+                        ? [
+                            "warehouse_id" => $this->users->warehouse_id,
+                            "warehouse_name" => $this->users->warehouse->name,
+                            "warehouse_code" => $this->users->warehouse->code,
+                        ]
+                        : null,
+                ]
+                : null,
 
             "type" => [
                 "id" => $this->type_id,
@@ -71,6 +82,8 @@ class PRPOResource extends JsonResource
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
+            "rush" => $this->rush,
+            "place_order" => $this->place_order,
             "for_po_only" => $this->for_po_only,
             "for_po_only_id" => $this->for_po_only_id,
             "for_marketing" => $this->for_marketing,

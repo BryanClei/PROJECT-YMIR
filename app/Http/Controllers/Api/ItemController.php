@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Models\Uom;
 use App\Models\Type;
 use App\Models\Items;
+use App\Models\Warehouse;
 use App\Response\Message;
 use App\Models\AssetsItem;
 use App\Models\Categories;
+use App\Models\SmallTools;
 use Illuminate\Http\Request;
 use App\Models\ItemWarehouse;
 use App\Functions\GlobalFunction;
+use App\Models\AllowablePercentage;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ItemResource;
 use App\Http\Requests\DisplayRequest;
@@ -212,45 +215,51 @@ class ItemController extends Controller
             $category = $index["category"];
             $warehouse = $index["warehouse"];
             $type = $index["type"];
+            $small_tools = $index["small_tools"];
 
             $uom_id = Uom::where("name", $uom)->first();
             $type_id = Type::where("name", $type)->first();
-            $warehouse_id = Warehouse::where("name", $warehouse)->first();
             $category_id = Categories::where("name", $category)->first();
-            $allowable = Allowable::first();
+            $allowable = AllowablePercentage::first()->value;
 
-            $department = Items::create([
+            $item = Items::create([
                 "name" => $index["name"],
                 "code" => $index["code"],
-                "type" => $type->id,
+                "type" => $type_id->id,
                 "uom_id" => $uom_id->id,
                 "category_id" => $category_id->id,
                 "allowable" => $allowable,
             ]);
 
-            $warehouse = $request->warehouse;
-
             if ($warehouse) {
-                foreach ($warehouse as $index => $values) {
-                    ItemWarehouse::create([
-                        "item_id" => $item->id,
-                        "warehouse_id" =>
-                            $request["warehouse"][$index]["warehouse"],
-                    ]);
+                foreach ($warehouse as $warehouseData) {
+                    $warehouse_id = Warehouse::where(
+                        "name",
+                        $warehouseData["warehouse"]
+                    )->first();
+                    if ($warehouse_id) {
+                        ItemWarehouse::create([
+                            "item_id" => $item->id,
+                            "warehouse_id" => $warehouse_id->id,
+                        ]);
+                    }
                 }
             }
 
-            $small_tools = $request->small_tools;
-
             if ($small_tools) {
-                foreach ($small_tools as $index => $values) {
-                    AssetsItem::create([
-                        "item_id" => $item->id,
-                        "small_tools_id" =>
-                            $request["small_tools"][$index]["small_tools_id"],
-                        "code" => $request["small_tools"][$index]["code"],
-                        "name" => $request["small_tools"][$index]["name"],
-                    ]);
+                foreach ($small_tools as $tool) {
+                    $small_tools_data = SmallTools::where(
+                        "name",
+                        $tool["name"]
+                    )->first();
+                    if ($small_tools_data) {
+                        AssetsItem::create([
+                            "item_id" => $item->id,
+                            "small_tools_id" => $small_tools_data->id,
+                            "code" => $small_tools_data->code,
+                            "name" => $small_tools_data->name,
+                        ]);
+                    }
                 }
             }
         }

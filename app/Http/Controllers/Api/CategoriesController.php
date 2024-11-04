@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\DisplayRequest;
 use App\Http\Resources\CategoryResource;
 use App\Http\Requests\Categories\StoreRequest;
+use App\Http\Requests\Categories\ImportRequest;
 use App\Http\Requests\Categories\UpdateRequest;
 
 class CategoriesController extends Controller

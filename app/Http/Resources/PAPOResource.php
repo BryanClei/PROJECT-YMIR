@@ -76,6 +76,7 @@ class PAPOResource extends JsonResource
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
+            "rush" => $this->rush,
             "module_name" => $this->module_name,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,

@@ -34,7 +34,8 @@ class JobOrderTransactionController extends Controller
             "jo_po_transaction",
             "jo_po_transaction.jo_approver_history"
         )
-            ->orderByDesc("updated_at")
+            ->orderBy("rush", "desc")
+            ->orderBy("updated_at", "desc")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -63,6 +64,13 @@ class JobOrderTransactionController extends Controller
             $date_today = null;
         }
 
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $orders = $request->order;
 
         $current_year = date("Y");
@@ -79,6 +87,12 @@ class JobOrderTransactionController extends Controller
         } else {
             $new_number = 1;
         }
+
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $latest_pr_number =
             JobOrderTransaction::withTrashed()->max("jo_number") ?? 0;
@@ -126,7 +140,10 @@ class JobOrderTransactionController extends Controller
             "status" => "Pending",
             "layer" => "1",
             "description" => $request["description"],
+            "rush" => $rush,
             "helpdesk_id" => $request["helpdesk_id"],
+            "for_po_only" => $date_today,
+            "for_po_only_id" => $for_po_id,
         ]);
 
         $job_order_request->save();
@@ -223,6 +240,17 @@ class JobOrderTransactionController extends Controller
             return GlobalFunction::not_found(Message::NOT_FOUND);
         }
         $user_id = Auth()->user()->id;
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $orders = $request->order;
 
@@ -262,7 +290,10 @@ class JobOrderTransactionController extends Controller
             "asset" => $request["asset"],
             "module_name" => "Job Order",
             "description" => $request["description"],
+            "rush" => $rush,
             "helpdesk_id" => $request["helpdesk_id"],
+            "for_po_only" => $date_today,
+            "for_po_only_id" => $for_po_id,
         ]);
 
         $newOrders = collect($orders)
@@ -390,6 +421,19 @@ class JobOrderTransactionController extends Controller
             ]);
         }
 
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $orders = $request->order;
 
         $user_details = User::with(
@@ -428,7 +472,10 @@ class JobOrderTransactionController extends Controller
             "asset" => $request["asset"],
             "module_name" => "Job Order",
             "description" => $request["description"],
+            "rush" => $rush,
             "helpdesk_id" => $request["helpdesk_id"],
+            "for_po_only" => $date_today,
+            "for_po_only_id" => $for_po_id,
             "status" => "Pending",
             "approved_at" => null,
             "rejected_at" => null,
@@ -456,7 +503,6 @@ class JobOrderTransactionController extends Controller
                     "id" => $values["id"] ?? null,
                 ],
                 [
-                    
                     "jo_transaction_id" => $job_order_request->id,
                     "description" => $values["description"],
                     "uom_id" => $values["uom_id"],

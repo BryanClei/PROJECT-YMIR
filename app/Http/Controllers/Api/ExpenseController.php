@@ -35,7 +35,8 @@ class ExpenseController extends Controller
             "po_transaction.approver_history",
         ])
             ->where("module_name", "Expense")
-            ->orderByDesc("updated_at")
+            ->orderBy("rush", "desc")
+            ->orderBy("updated_at", "desc")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -44,7 +45,8 @@ class ExpenseController extends Controller
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        PRPOResource::collection($purchase_request);
+
+        PRTransactionResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
@@ -86,6 +88,12 @@ class ExpenseController extends Controller
             $new_number = 1;
         }
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $latest_pr_number = PRTransaction::withTrashed()->max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;
 
@@ -122,6 +130,7 @@ class ExpenseController extends Controller
             "sgp" => $request["sgp"],
             "f1" => $request["f1"],
             "f2" => $request["f2"],
+            "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
             "for_marketing" => $request->boolean("for_marketing") ?? null,
@@ -227,6 +236,12 @@ class ExpenseController extends Controller
             $date_today = null;
         }
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $purchase_request->update([
             "pr_number" => $request["pr_number"],
             "pr_description" => $request["pr_description"],
@@ -257,6 +272,7 @@ class ExpenseController extends Controller
             "sgp" => $request["sgp"],
             "f1" => $request["f1"],
             "f2" => $request["f2"],
+            "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
             "for_marketing" => $request->boolean("for_marketing") ?? null,
@@ -355,6 +371,12 @@ class ExpenseController extends Controller
 
         $orders = $request->order;
 
+        $rush = $request->boolean("rush")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $purchase_request->update([
             "pr_number" => $purchase_request->id,
             "pr_description" => $request["pr_description"],
@@ -390,6 +412,7 @@ class ExpenseController extends Controller
             "sgp" => $request["sgp"],
             "f1" => $request["f1"],
             "f2" => $request["f2"],
+            "rush" => $rush,
             "layer" => "1",
         ]);
 

@@ -24,4 +24,11 @@ class POItemsFilters extends QueryFilters
     }
 
     protected array $columnSearch = [];
+
+    public function buyer($buyer)
+    {
+        $this->builder->when($buyer, function ($query) use ($buyer) {
+            $query->where("buyer_id", $buyer);
+        });
+    }
 }

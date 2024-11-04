@@ -56,6 +56,7 @@ class PRTransaction extends Model
         "sgp",
         "f1",
         "f2",
+        "rush",
         "for_po_only",
         "for_po_only_id",
         "vrid",

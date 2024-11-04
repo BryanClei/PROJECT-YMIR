@@ -52,6 +52,7 @@ class POTransaction extends Model
         "sgp",
         "f1",
         "f2",
+        "rush",
         "approved_at",
         "rejected_at",
         "voided_at",
@@ -92,7 +93,7 @@ class POTransaction extends Model
 
     public function supplier()
     {
-        return $this->hasMany(Suppliers::class, "supplier_id", "id");
+        return $this->hasMany(Suppliers::class, "id", "supplier_id");
     }
 
     public function rr_transaction()
@@ -137,5 +138,10 @@ class POTransaction extends Model
     public function location()
     {
         return $this->belongsTo(Location::class, "location_id", "id");
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Units::class, "unit_id", "id");
     }
 }

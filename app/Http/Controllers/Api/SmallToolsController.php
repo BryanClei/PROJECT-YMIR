@@ -12,6 +12,7 @@ use App\Http\Requests\DisplayRequest;
 use App\Http\Resources\SmallToolsResource;
 use App\Http\Requests\SmallTools\StoreRequest;
 use App\Http\Requests\SmallTools\DeleteRequest;
+use App\Http\Requests\SmallTools\ImportRequest;
 use App\Http\Requests\SmallTools\UpdateRequest;
 
 class SmallToolsController extends Controller
@@ -104,5 +105,19 @@ class SmallToolsController extends Controller
             $message = Message::RESTORE_STATUS;
         }
         return GlobalFunction::responseFunction($message, $small_tools);
+    }
+
+    public function import(ImportRequest $request)
+    {
+        $import = $request->all();
+
+        foreach ($import as $index) {
+            $supplier = SmallTools::create([
+                "name" => $index["name"],
+                "code" => $index["code"],
+            ]);
+        }
+
+        return GlobalFunction::save(Message::SMALL_TOOLS_SAVE, $import);
     }
 }

@@ -318,6 +318,7 @@ class RRTransactionController extends Controller
 
     public function report_po(Request $request)
     {
+        $buyer = $request->input("buyer");
         $from = $request->input("from");
         $to = $request->input("to");
         $po_items = POItems::with(

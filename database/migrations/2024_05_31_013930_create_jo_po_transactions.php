@@ -97,6 +97,7 @@ return new class extends Migration {
             $table->string("sgp")->nullable();
             $table->string("f1")->nullable();
             $table->string("f2")->nullable();
+            $table->string("rush")->nullable();
             $table->timestamp("approved_at")->nullable();
             $table->timestamp("rejected_at")->nullable();
             $table->timestamp("voided_at")->nullable();

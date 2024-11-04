@@ -24,19 +24,35 @@ class ImportRequest extends FormRequest
     public function rules()
     {
         return [
-            "*.code" => ["unique:items,code", "distinct"],
-            "*.type" => ["exists:types,name,deleted_at,NULL"],
-            "*.uom" => ["exists:uoms,name,deleted_at,NULL"],
-            "*.category" => ["exists:categories,name,deleted_at,NULL"],
-            "warehouse.*.warehouse" => [
-                "exists:warehouse,name,deleted_at,NULL",
+            // Validate each item in the root array
+            "*" => "array",
+            "*.code" => ["required", "unique:items,code", "distinct"],
+            "*.type" => ["required", "exists:types,name,deleted_at,NULL"],
+            "*.uom" => ["required", "exists:uoms,name,deleted_at,NULL"],
+            "*.category" => [
+                "required",
+                "exists:categories,name,deleted_at,NULL",
             ],
-            "small_tools" => "nullable|array",
-            "small_tools.*.small_tools_id" =>
-                "exists:small_tools,id,deleted_at,NULL",
+
+            // Validate warehouse array
+            "*.warehouse" => "array",
+            "*.warehouse.*.warehouse" => [
+                "exists:warehouses,name,deleted_at,NULL",
+            ],
+
+            // Validate small tools array
+            "*.small_tools" => "nullable|array",
+            "*.small_tools.*.name" => [
+                "exists:small_tools,name,deleted_at,NULL",
+            ],
         ];
     }
 
+    /**
+     * Get custom attributes for validator errors.
+     *
+     * @return array
+     */
     public function attributes()
     {
         return [
@@ -44,16 +60,23 @@ class ImportRequest extends FormRequest
             "*.type" => "type",
             "*.uom" => "uom",
             "*.category" => "category",
-            "warehouse.*.warehouse" => "warehouse",
+            "*.warehouse.*.warehouse" => "warehouse",
+            "*.small_tools.*.name" => "small tool name",
         ];
     }
 
-    public function message()
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array
+     */
+    public function messages()
     {
         return [
-            "unique" => "This :Attribute is already been taken.",
-            "distinct" => "This :Attribute has duplicate value.",
-            "exists" => "This :Attribute is not exists.",
+            "unique" => "This :input is already taken.",
+            "distinct" => "This :input has a duplicate value.",
+            "exists" => "This :attribute does not exist.",
+            "required" => "The :attribute field is required.",
         ];
     }
 }

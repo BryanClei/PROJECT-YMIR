@@ -95,6 +95,8 @@ class PoFilters extends QueryFilters
             })
             ->when($status === "for_receiving", function ($query) {
                 $query
+                    ->where("module_name", "Inventoriables")
+                    ->orWhere("module_name", "Asset")
                     ->with([
                         "order" => function ($query) {
                             $query->whereColumn(

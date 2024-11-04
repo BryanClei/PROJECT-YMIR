@@ -80,6 +80,8 @@ class PRTransactionResource extends JsonResource
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
+            "rush" => $this->rush,
+            "place_order" => $this->place_order,
             "for_po_only" => $this->for_po_only,
             "for_po_only_id" => $this->for_po_only_id,
             "for_marketing" => $this->for_marketing,
