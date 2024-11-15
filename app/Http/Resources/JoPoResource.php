@@ -74,6 +74,8 @@ class JoPoResource extends JsonResource
             "status" => $this->status,
             "helpdesk_id" => $this->helpdesk_id,
             "rush" => $this->rush,
+            "outside_labor" => $this->outside_labor,
+            "cap_ex" => $this->cap_ex,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
             "voided_at" => $this->voided_at,

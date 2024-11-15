@@ -32,6 +32,11 @@ class StoreRequest extends FormRequest
                     ? "unique:warehouses,code," . $this->route()->warehouse
                     : "unique:warehouses,code",
             ],
+            "account_titles" => ["array"],
+            "account_titles.*.transaction_type" => ["string"],
+            "account_titles.*.account_title_id" => [
+                "exists:account_titles,id,deleted_at,NULL",
+            ],
         ];
     }
 }

@@ -60,6 +60,21 @@ class PurchaseAssistant extends Model
 
     public function users()
     {
+        // Add module_name check before the relationship is built
+        return $this->module_name === "Asset"
+            ? $this->belongsTo(VladimirUser::class, "user_id", "id")
+            : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    // Add a specific relationship for Vladimir users
+    public function vladimir_user()
+    {
+        return $this->belongsTo(VladimirUser::class, "user_id", "id");
+    }
+
+    // Add a specific relationship for regular users
+    public function regular_user()
+    {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
 

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use DB;
 use App\Models\Warehouse;
 use App\Response\Message;
 use Illuminate\Http\Request;
 use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DisplayRequest;
+use App\Models\WarehouseAccountTitles;
 use App\Http\Resources\WarehouseResource;
 use App\Http\Requests\Warehouse\StoreRequest;
 
@@ -17,9 +19,10 @@ class WarehouseController extends Controller
     {
         $status = $request->status;
 
-        $warehouse = Warehouse::when($status === "inactive", function ($query) {
-            $query->onlyTrashed();
-        })
+        $warehouse = Warehouse::with("warehouseAccountTitles")
+            ->when($status === "inactive", function ($query) {
+                $query->onlyTrashed();
+            })
 
             ->useFilters()
             ->orderByDesc("updated_at")
@@ -30,7 +33,8 @@ class WarehouseController extends Controller
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        WarehouseResource::collection($warehouse);
+        
+         WarehouseResource::collection($warehouse);
         return GlobalFunction::responseFunction(
             Message::WAREHOUSE_DISPLAY,
             $warehouse
@@ -39,37 +43,100 @@ class WarehouseController extends Controller
 
     public function store(StoreRequest $request)
     {
-        $warehouse = Warehouse::create([
-            "name" => $request->name,
-            "code" => $request->code,
-            "url" => $request->url,
-            "token" => $request->token,
-        ]);
+        try {
+            DB::beginTransaction();
 
-        $company_collect = new WarehouseResource($warehouse);
+            $warehouse = Warehouse::create([
+                "name" => $request->name,
+                "code" => $request->code,
+                "url" => $request->url,
+                "token" => $request->token,
+            ]);
 
-        return GlobalFunction::save(Message::WAREHOUSE_SAVE, $company_collect);
+            foreach ($request->account_titles as $accountTitle) {
+                WarehouseAccountTitles::create([
+                    "warehouse_id" => $warehouse->id,
+                    "account_title_id" => $accountTitle["account_title_id"],
+                    "transaction_type" => $accountTitle["transaction_type"],
+                ]);
+            }
+
+            \DB::commit();
+
+            $warehouse->load("warehouseAccountTitles.accountTitle");
+            return GlobalFunction::save(
+                Message::WAREHOUSE_SAVE,
+                new WarehouseResource($warehouse)
+            );
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return GlobalFunction::error($e);
+        }
     }
 
     public function update(StoreRequest $request, $id)
     {
-        $warehouse = Warehouse::find($id);
-        $is_exists = Warehouse::where("id", $id)->get();
+        try {
+            DB::beginTransaction();
 
-        if ($is_exists->isEmpty()) {
-            return GlobalFunction::invalid(Message::INVALID_ACTION);
+            $warehouse = Warehouse::find($id);
+
+            if (!$warehouse) {
+                return GlobalFunction::invalid(Message::INVALID_ACTION);
+            }
+
+            // Update warehouse details
+            $warehouse->update([
+                "name" => $request->name,
+                "code" => $request->code,
+                "url" => $request->url,
+                "token" => $request->token,
+            ]);
+
+            // Update or create warehouse account titles
+            if ($request->has("account_titles")) {
+                foreach ($request->account_titles as $accountTitle) {
+                    // Check if there's an existing record for this account title
+                    $warehouseAccountTitle = WarehouseAccountTitles::where(
+                        "warehouse_id",
+                        $id
+                    )
+                        ->where(
+                            "account_title_id",
+                            $accountTitle["account_title_id"]
+                        )
+                        ->first();
+
+                    if ($warehouseAccountTitle) {
+                        // Update existing record
+                        $warehouseAccountTitle->update([
+                            "transaction_type" =>
+                                $accountTitle["transaction_type"],
+                        ]);
+                    } else {
+                        // Create new record if it doesn't exist
+                        WarehouseAccountTitles::create([
+                            "warehouse_id" => $id,
+                            "account_title_id" =>
+                                $accountTitle["account_title_id"],
+                            "transaction_type" =>
+                                $accountTitle["transaction_type"],
+                        ]);
+                    }
+                }
+            }
+
+            DB::commit();
+
+            $warehouse->load("warehouseAccountTitles.accountTitle");
+            return GlobalFunction::responseFunction(
+                Message::WAREHOUSE_UPDATE,
+                new WarehouseResource($warehouse)
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return GlobalFunction::error($e->getMessage());
         }
-
-        $warehouse->update([
-            "name" => $request->name,
-            "code" => $request->code,
-            "url" => $request->url,
-            "token" => $request->token,
-        ]);
-        return GlobalFunction::responseFunction(
-            Message::WAREHOUSE_UPDATE,
-            $warehouse
-        );
     }
 
     public function destroy($id)

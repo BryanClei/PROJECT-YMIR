@@ -94,8 +94,11 @@ return new class extends Migration {
             $table->string("reason")->nullable();
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();
-            $table->string("helpdesk_id")->nullable();
             $table->string("rush")->nullable();
+            $table->string("outside_labor")->nullable();
+            $table->string("cap_ex")->nullable();
+            $table->string("helpdesk_id")->nullable();
+            $table->string("cip_number")->nullable();
             $table->timestamp("approved_at")->nullable();
             $table->timestamp("rejected_at")->nullable();
             $table->timestamp("voided_at")->nullable();

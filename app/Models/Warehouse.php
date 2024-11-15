@@ -17,4 +17,19 @@ class Warehouse extends Model
     protected $connection = "mysql";
     protected $fillable = ["name", "code", "url", "token"];
     protected $hidden = ["created_at"];
+
+    public function warehouseAccountTitles()
+    {
+        return $this->hasMany(WarehouseAccountTitles::class);
+    }
+
+    public function accountTitles()
+    {
+        return $this->belongsToMany(
+            AccountTitle::class,
+            "warehouse_account_titles"
+        )
+            ->withPivot("transaction_type")
+            ->withTimestamps();
+    }
 }

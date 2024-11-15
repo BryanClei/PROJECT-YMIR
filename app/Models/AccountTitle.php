@@ -75,4 +75,19 @@ class AccountTitle extends Model
             "id"
         )->withTrashed();
     }
+
+    public function warehouseAccountTitles()
+    {
+        return $this->hasMany(WarehouseAccountTitles::class);
+    }
+
+    public function warehouses()
+    {
+        return $this->belongsToMany(
+            Warehouse::class,
+            "warehouse_account_titles"
+        )
+            ->withPivot("transaction_type")
+            ->withTimestamps();
+    }
 }

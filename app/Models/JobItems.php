@@ -16,6 +16,8 @@ class JobItems extends Model
         "description",
         "uom_id",
         "quantity",
+        "unit_price",
+        "total_price",
         "remarks",
         "attachment",
         "asset",

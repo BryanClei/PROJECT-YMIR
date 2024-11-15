@@ -43,6 +43,8 @@ class Message
     const RR_SAVE = "Received Receipt successfully save.";
     const ALLOWABLE_SAVE = "Allowable percentage successfully save.";
     const SMALL_TOOLS_SAVE = "Small tools save successfully.";
+    const PURCHASE_REQUEST_AND_ORDER_SAVE = "Job Order Purchase Request & Purchase Order save successfully.";
+    const MIN_MAX_SET = "Job order min and max successfully set.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -69,6 +71,7 @@ class Message
     const ACCOUNT_TITLE_DISPLAY = "Account title  display successfully.";
     const PURCHASE_REQUEST_DISPLAY = "Purchase request  display successfully.";
     const PURCHASE_REQUEST_PLACE_ORDER = "Purchase request has been placed successfully.";
+    const PURCHASE_ORDER_PLACE_ORDER = "Purchase request has been placed successfully.";
     const APPROVERS_DISPLAY = "Approvers display successfully.";
     const PURCHASE_ORDER_DISPLAY = "Purchase order  display successfully.";
     const CATEGORIES_DISPLAY = "Category display successfully.";
@@ -79,6 +82,7 @@ class Message
     const DISPLAY_LOG_HISTORY = "Log history display successfully.";
     const DISPLAY_ALLOWABLE = "Allowable percentage display successfully.";
     const SMALL_TOOLS_DISPLAY = "Small tools display successfully.";
+    const MIN_MAX_DISPLAY = "Job order min and max display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -113,12 +117,16 @@ class Message
     const BUYER_TAGGED = "Buyer tagged successfully.";
     const BUYER_UPDATED = "Buyer updated succesfully.";
     const CANCELLED_ALREADY = "Purchase Request already cancelled by requestor. Please Contact the requestor for more details";
+    const PO_CANCELLED_ALREADY = "Purchase Order already cancelled by requestor. Please Contact the requestor for more details";
+    const VOIDED_ALREADY = "Purchase Request already voided by requestor. Please Contact the requestor for more details";
     const RR_UPDATE = "RR transaction updated successfully";
     const RR_CANCELLATION = "RR transaction cancelled successfully";
     const ALLOWABLE_UPDATE = "Allowable percentage update successfully.";
     const REMARKS_UPDATE = "Remarks updated successfully.";
     const LOG_SUCCESSFULLY = "Log successfully.";
     const SMALL_TOOLS_UPDATE = "Small tools update successfully.";
+    const MIN_MAX_UPDATE = "Job order min and max update successfully.";
+    const PURCHASE_REQUEST_AND_ORDER_UPDATE = "Purchase request and purchase order updated successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";

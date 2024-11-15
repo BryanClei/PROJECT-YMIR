@@ -64,7 +64,9 @@ class ApproverDashboardJOPOFilters extends QueryFilters
                 $layer
             ) {
                 $query
-
+                    ->whereHas("jr_transaction", function ($query) {
+                        $query->where("status", "Approved");
+                    })
                     ->whereIn("id", $po_id)
                     ->whereIn("layer", $layer)
                     ->where(function ($query) {
@@ -84,6 +86,9 @@ class ApproverDashboardJOPOFilters extends QueryFilters
                 $layer
             ) {
                 $query
+                    ->whereHas("jr_transaction", function ($query) {
+                        $query->where("status", "Approved");
+                    })
                     ->whereIn("id", $po_id)
                     ->whereIn("layer", $layer)
                     ->whereNull("voided_at")
@@ -96,6 +101,9 @@ class ApproverDashboardJOPOFilters extends QueryFilters
                 $user_id
             ) {
                 $query
+                    ->whereHas("jr_transaction", function ($query) {
+                        $query->where("status", "Approved");
+                    })
                     ->whereIn("id", $po_id)
                     ->where(function ($query) {
                         $query

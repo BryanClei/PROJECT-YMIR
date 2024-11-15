@@ -41,24 +41,38 @@ class PRTransactionController extends Controller
     {
         $status = $request->status;
         $user_id = Auth()->user()->id;
-
-        $purchase_request = PRTransaction::with(
-            "order",
-            "approver_history",
-            "po_transaction.order",
-            "po_transaction.approver_history"
-        )
+        $purchase_request = PRTransaction::query()
+            ->with([
+                "vladimir_user" => function ($query) {
+                    $query->when(request()->module_name === "Asset", function (
+                        $q
+                    ) {
+                        return $q;
+                    });
+                },
+                "regular_user" => function ($query) {
+                    $query->when(request()->module_name !== "Asset", function (
+                        $q
+                    ) {
+                        return $q;
+                    });
+                },
+                "order",
+                "order.item",
+                "approver_history",
+                "po_transaction.order",
+                "po_transaction.approver_history",
+            ])
             ->where("module_name", "Inventoriables")
             ->orderBy("rush", "desc")
             ->orderBy("updated_at", "desc")
             ->useFilters()
             ->dynamicPaginate();
 
-        $is_empty = $purchase_request->isEmpty();
-
-        if ($is_empty) {
+        if ($purchase_request->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
         PRTransactionResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
@@ -73,7 +87,23 @@ class PRTransactionController extends Controller
         $type = $request->type;
         $user_id = Auth()->user()->id;
 
-        $purchase_request = AssetsTransaction::with("order", "approver_history")
+        $purchase_request = AssetsTransaction::with([
+            "vladimir_user" => function ($query) {
+                $query->when(request()->module_name === "Asset", function ($q) {
+                    return $q;
+                });
+            },
+            "regular_user" => function ($query) {
+                $query->when(request()->module_name !== "Asset", function ($q) {
+                    return $q;
+                });
+            },
+            "order",
+            "order.item",
+            "approver_history",
+            "po_transaction.order",
+            "po_transaction.approver_history",
+        ])
             ->where("module_name", "Asset")
             ->orderByDesc("updated_at")
             ->useFilters()
@@ -434,7 +464,7 @@ class PRTransactionController extends Controller
                 "layer" => "1",
                 // "for_po_only" => $date_today,
                 // "for_po_only_id" => $sync["vrid"],
-                "vrid" => $sync["vrid"],
+                "vrid" => $sync["rdf_id"],
                 "approved_at" => $date_today,
             ]);
             $purchase_request->save();
@@ -471,7 +501,8 @@ class PRTransactionController extends Controller
                 "Purchase request ID: " .
                 $purchase_request->id .
                 " has been created by UID: " .
-                $user_id;
+                $user_id .
+                "Vladimir Username : ";
 
             LogHistory::create([
                 "activity" => $activityDescription,

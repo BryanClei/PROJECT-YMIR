@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use Carbon\Carbon;
 use App\Models\Type;
+use App\Models\POItems;
 use App\Models\PRItems;
 use App\Models\JobItems;
 use App\Models\PrHistory;
@@ -42,6 +43,16 @@ class PAController extends Controller
     public function index(PADisplay $request)
     {
         $purchase_request = PurchaseAssistant::with([
+            "vladimir_user" => function ($query) {
+                $query->when(request()->module_name === "Asset", function ($q) {
+                    return $q;
+                });
+            },
+            "regular_user" => function ($query) {
+                $query->when(request()->module_name !== "Asset", function ($q) {
+                    return $q;
+                });
+            },
             "approver_history",
             "log_history" => function ($query) {
                 $query->orderBy("created_at", "desc");
@@ -77,6 +88,7 @@ class PAController extends Controller
             "log_history" => function ($query) {
                 $query->orderBy("created_at", "desc");
             },
+            "pr_approver_history",
         ])
             ->withTrashed()
             ->useFilters()
@@ -91,7 +103,7 @@ class PAController extends Controller
         PAPOResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_REQUEST_DISPLAY,
+            Message::PURCHASE_ORDER_DISPLAY,
             $purchase_request
         );
     }
@@ -1016,6 +1028,62 @@ class PAController extends Controller
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_UPDATE,
             $collect
+        );
+    }
+
+    public function update_buyer(Request $request, $id)
+    {
+        $user_id = Auth()->user()->id;
+        $purchase_order = POTransaction::with("order")->find($id);
+
+        if ($purchase_order->cancelled_at) {
+            return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
+        }
+
+        $payload = $request->all();
+        $payload_items = $payload["items"] ?? $payload;
+
+        $item_ids = array_column($payload_items, "id");
+
+        $po_items = POItems::whereIn("id", $item_ids)
+            ->where("po_id", $id)
+            ->get();
+
+        if ($po_items->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $item_details = [];
+        foreach ($po_items as $item) {
+            $payloadItem = collect($payload_items)->firstWhere("id", $item->id);
+            $old_buyer = $item->buyer_name;
+            $old_buyer_id = $item->buyer_id;
+
+            $item->update([
+                "buyer_id" => $payloadItem["buyer_id"],
+                "buyer_name" => $payloadItem["buyer_name"],
+            ]);
+
+            $item_details[] = "Item ID {$item->id}: Buyer reassigned from {$old_buyer} (ID: {$old_buyer_id}) to {$payloadItem["buyer_name"]} (ID: {$payloadItem["buyer_id"]})";
+        }
+
+        $item_details_string = implode(", ", $item_details);
+
+        $activityDescription =
+            "Purchase order ID: $id - has been updated to buyer for " .
+            count($item_details) .
+            " item(s). Details: " .
+            $item_details_string;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "po_id" => $id,
+            "action_by" => $user_id,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            Message::BUYER_UPDATED,
+            $po_items
         );
     }
 }

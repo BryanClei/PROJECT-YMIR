@@ -20,6 +20,7 @@ class PRItemsResource extends JsonResource
             "id" => $this->id,
             "transaction_no" => $this->transaction_id ?? null,
             "reference_no" => $this->reference_no ?? null,
+            "items" => new ItemResource($this->item),
             "item" => [
                 "id" => $this->item_id,
                 "name" => $this->item_name,

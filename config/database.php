@@ -63,6 +63,28 @@ return [
                 : [],
         ],
 
+        "vladimirDB" => [
+            "driver" => "mysql",
+            "url" => env("DATABASE_URL"),
+            "host" => env("VDB_HOST", "10.10.10.6"),
+            "port" => env("VDB_PORT", "3306"),
+            "database" => env("VDB_DATABASE", "forge"),
+            "username" => env("VDB_USERNAME", "forge"),
+            "password" => env("VDB_PASSWORD", ""),
+            "unix_socket" => env("DB_SOCKET", ""),
+            "charset" => "utf8mb4",
+            "collation" => "utf8mb4_unicode_ci",
+            "prefix" => "",
+            "prefix_indexes" => true,
+            "strict" => true,
+            "engine" => null,
+            "options" => extension_loaded("pdo_mysql")
+                ? array_filter([
+                    PDO::MYSQL_ATTR_SSL_CA => env("MYSQL_ATTR_SSL_CA"),
+                ])
+                : [],
+        ],
+
         "db_bridge" => [
             "driver" => "mysql",
             "url" => env("DATABASE_URL"),

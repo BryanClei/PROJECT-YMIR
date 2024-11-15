@@ -24,24 +24,7 @@ class PRPOResource extends JsonResource
             "pr_description" => $this->pr_description,
             "helpdesk_id" => $this->helpdesk_id,
             "date_needed" => $this->date_needed,
-
-            "user" => $this->users
-                ? [
-                    "prefix_id" => $this->users->prefix_id,
-                    "id_number" => $this->users->id_number,
-                    "first_name" => $this->users->first_name,
-                    "middle_name" => $this->users->middle_name,
-                    "last_name" => $this->users->last_name,
-                    "mobile_no" => $this->users->mobile_no,
-                    "warehouse" => $this->users->warehouse
-                        ? [
-                            "warehouse_id" => $this->users->warehouse_id,
-                            "warehouse_name" => $this->users->warehouse->name,
-                            "warehouse_code" => $this->users->warehouse->code,
-                        ]
-                        : null,
-                ]
-                : null,
+            "user" => $this->getUserData(),
 
             "type" => [
                 "id" => $this->type_id,
@@ -104,5 +87,46 @@ class PRPOResource extends JsonResource
             "log_history" => LogHistoryResource::collection($this->log_history),
             "po_transaction" => PoResource::collection($this->po_transaction),
         ];
+    }
+
+    protected function getUserData()
+    {
+        // If it's an Asset module, try to get Vladimir user
+        if ($this->module_name === "Asset") {
+            if ($this->vladimir_user) {
+                return [
+                    "id" => $this->vladimir_user->id,
+                    "employee_id" => $this->vladimir_user->employee_id,
+                    "username" => $this->vladimir_user->username,
+                    "first_name" => $this->vladimir_user->firstname,
+                    "last_name" => $this->vladimir_user->lastname,
+                ];
+            }
+        } else {
+            // For non-Asset modules, use regular user
+            if ($this->regular_user) {
+                return [
+                    "prefix_id" => $this->regular_user->prefix_id,
+                    "id_number" => $this->regular_user->id_number,
+                    "first_name" => $this->regular_user->first_name,
+                    "middle_name" => $this->regular_user->middle_name,
+                    "last_name" => $this->regular_user->last_name,
+                    "mobile_no" => $this->regular_user->mobile_no,
+                    "warehouse" => $this->when(
+                        $this->regular_user->warehouse,
+                        fn() => [
+                            "warehouse_id" => $this->regular_user->warehouse_id,
+                            "warehouse_name" =>
+                                $this->regular_user->warehouse->name,
+                            "warehouse_code" =>
+                                $this->regular_user->warehouse->code,
+                        ]
+                    ),
+                ];
+            }
+        }
+
+        // Return empty array if no user found
+        return [];
     }
 }

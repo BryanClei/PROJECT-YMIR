@@ -51,6 +51,8 @@ class JobOrderTransaction extends Model
         "cancelled_at",
         "approver_id",
         "rush",
+        "outside_labor",
+        "cap_ex",
         "helpdesk_id",
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Filters;
 
+use App\Models\AccountType;
 use Essa\APIToolKit\Filters\QueryFilters;
 
 class AccountTitleFilters extends QueryFilters
@@ -17,5 +18,14 @@ class AccountTitleFilters extends QueryFilters
         ) {
             $query->withTrashed();
         });
+    }
+
+    public function type($type)
+    {
+        $accountTypeId = AccountType::where("name", $type)->value("id");
+
+        if ($accountTypeId) {
+            $this->builder->where("account_type_id", $accountTypeId);
+        }
     }
 }

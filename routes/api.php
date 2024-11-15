@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\NormalBalanceController;
 use App\Http\Controllers\Api\PRTransactionController;
 use App\Http\Controllers\Api\RRTransactionController;
 use App\Http\Controllers\Api\DepartmentUnitController;
+use App\Http\Controllers\Api\JobOrderMinMaxController;
 use App\Http\Controllers\Api\AccountSubGroupController;
 use App\Http\Controllers\Api\JORRTransactionController;
 use App\Http\Controllers\Api\AccountTitleUnitController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\Api\ApproverSettingsController;
 use App\Http\Controllers\Api\JobOrderTransactionController;
 use App\Http\Controllers\Api\PoApproverDashboardController;
 use App\Http\Controllers\Api\PushingErrorHandlerController;
+use App\Http\Controllers\Api\JobOrderPurchaseOrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -350,6 +352,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "cancel_jo",
     ]);
 
+    Route::patch("void_jo/{id}", [
+        JobOrderTransactionController::class,
+        "voided_jo",
+    ]);
+
     Route::get("pa_jo_badge", [
         JobOrderTransactionController::class,
         "pa_jo_badge",
@@ -446,6 +453,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         PAController::class,
         "index_purchase_order",
     ]);
+    Route::patch("purchase_assistant/update_buyer/{id}", [
+        PAController::class,
+        "update_buyer",
+    ]);
     Route::apiResource("purchase_assistant", PAController::class);
     Route::patch("return_po", [BuyerController::class, "return_po"]);
     Route::patch("buyer/update_price", [
@@ -461,6 +472,8 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         BuyerController::class,
         "return_pr_items",
     ]);
+    Route::get("buyer/po", [BuyerController::class, "index_po"]);
+    Route::get("buyer/rr", [BuyerController::class, "index_rr"]);
     Route::apiResource("buyer", BuyerController::class);
 
     Route::get("rr_badge", [RRTransactionController::class, "rr_badge"]);
@@ -538,5 +551,17 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::post("small_tools/import", [SmallToolsController::class, "import"]);
     Route::apiResource("small_tools", SmallToolsController::class);
+
+    Route::patch("job_order_purchase_order/archived/{id}", [
+        JobOrderPurchaseOrderController::class,
+        "destroy",
+    ]);
+
+    Route::apiResource(
+        "job_order_purchase_order",
+        JobOrderPurchaseOrderController::class
+    );
+
+    Route::apiResource("job_order_min_max", JobOrderMinMaxController::class);
 });
 Route::post("login", [UserController::class, "login"]);

@@ -54,6 +54,8 @@ class JOPOTransaction extends Model
         "f1",
         "f2",
         "rush",
+        "outside_labor",
+        "cap_ex",
         "approved_at",
         "rejected_at",
         "voided_at",

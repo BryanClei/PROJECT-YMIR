@@ -24,15 +24,17 @@ class RRResource extends JsonResource
             "po_number" => $this->po_id,
             "tagging_id" => $this->tagging_id,
             "transaction_date" => $this->transaction_date,
-            "user" => [
-                "id" => $this->po_transaction->users->id,
-                "name" =>
-                    $this->po_transaction->users->first_name .
-                    " " .
-                    $this->po_transaction->users->middle_name .
-                    " " .
-                    $this->po_transaction->users->last_name,
-            ],
+            "user" => $this->po_transaction->users
+                ? [
+                    "id" => $this->po_transaction->users->id,
+                    "name" =>
+                        $this->po_transaction->users->first_name .
+                        " " .
+                        $this->po_transaction->users->middle_name .
+                        " " .
+                        $this->po_transaction->users->last_name,
+                ]
+                : null,
             "request_type" => $this->po_transaction->module_name,
             "description" => $this->po_transaction->po_description,
             "order" => $this->rr_orders,

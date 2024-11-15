@@ -61,7 +61,10 @@ class BadgeHelperFunctions
 
     public static function poJobOrderCount($jo_po_id, $jo_layer)
     {
-        return JOPOTransaction::where("module_name", "Job Order")
+        return JOPOTransaction::whereHas("jo_transaction", function ($query) {
+            $query->where("status", "Approved");
+        })
+            ->where("module_name", "Job Order")
             ->whereIn("id", $jo_po_id)
             ->whereIn("layer", $jo_layer)
             ->where(function ($query) {

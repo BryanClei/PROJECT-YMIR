@@ -85,4 +85,9 @@ class ApproverDashboardJOPO extends Model
     {
         return $this->hasMany(Suppliers::class, "supplier_id", "id");
     }
+
+    public function jr_transaction()
+    {
+        return $this->belongsTo(JobOrderTransaction::class, "jo_number", "id");
+    }
 }

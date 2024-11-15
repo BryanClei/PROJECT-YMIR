@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use Carbon\Carbon;
 use App\Models\Buyer;
+use App\Models\BuyerPO;
 use App\Models\POItems;
 use App\Models\PRItems;
+use App\Models\RROrders;
 use App\Models\PoHistory;
 use App\Response\Message;
 use App\Models\LogHistory;
@@ -14,6 +16,7 @@ use App\Models\PoApprovers;
 use Illuminate\Http\Request;
 use App\Models\POTransaction;
 use App\Models\PRTransaction;
+use App\Models\RRTransaction;
 use App\Http\Requests\BDisplay;
 use App\Functions\GlobalFunction;
 use App\Http\Requests\BPADisplay;
@@ -65,6 +68,86 @@ class BuyerController extends Controller
         );
     }
 
+    public function index_po(BDisplay $request)
+    {
+        $status = $request->status;
+        $user_id = Auth()->user()->id;
+
+        $purchase_order = BuyerPO::with([
+            "order",
+            "approver_history",
+            "log_history",
+        ])
+            ->orderByDesc("updated_at")
+            ->useFilters()
+            ->dynamicPaginate();
+
+        $is_empty = $purchase_order->isEmpty();
+
+        if ($is_empty) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+        PoResource::collection($purchase_order);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_DISPLAY,
+            $purchase_order
+        );
+    }
+
+    public function index_rr(Request $request)
+    {
+        $isAsset = $request->input("isAsset", false);
+        $requestor = $request->input("requestor");
+
+        $rr_transactions = RRTransaction::with([
+            "rr_orders",
+            "pr_transaction.vladimir_user",
+            "pr_transaction.regular_user",
+            "log_history.users",
+            "pr_transaction",
+            "po_transaction",
+        ])
+            ->whereHas("rr_orders", function ($query) {
+                $query->where("remaining", "=", 0);
+            })
+            ->whereHas("pr_transaction", function ($query) use (
+                $requestor,
+                $isAsset
+            ) {
+                if ($isAsset) {
+                    $query
+                        ->where("module_name", "=", "Asset")
+                        ->where("vrid", "LIKE", "%{$requestor}%");
+                } else {
+                    $query
+                        ->where("module_name", "!=", "Asset")
+                        ->whereHas("regular_user", function (
+                            $regularQuery
+                        ) use ($requestor) {
+                            $regularQuery->where(
+                                "id_number",
+                                "LIKE",
+                                "%{$requestor}%"
+                            );
+                        });
+                }
+            })
+            ->orderByDesc("updated_at")
+            ->useFilters();
+
+        $rr_transactions = $rr_transactions->dynamicPaginate();
+
+        if (!$rr_transactions) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $rr_transactions
+        );
+    }
+
     public function view(Request $request, $id)
     {
         $status = $request->status;
@@ -90,7 +173,7 @@ class BuyerController extends Controller
         $purchase_collect = new PoResource($purchase_order);
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_REQUEST_DISPLAY,
+            Message::PURCHASE_ORDER_DISPLAY,
             $purchase_collect
         );
     }
@@ -173,6 +256,8 @@ class BuyerController extends Controller
         $totalPriceSum = 0;
         $oldSupplier = $purchase_order->supplier_name;
         $newSupplier = $request["supplier_name"];
+        $oldBuyer = $purchase_order->buyer_name;
+        $newBuyer = $request["buyer_name"];
         $priceIncreased = false;
 
         foreach ($order as $values) {
@@ -193,6 +278,8 @@ class BuyerController extends Controller
                     "price" => $newPrice,
                     "total_price" => $newTotalPrice,
                     "remarks" => $request["remarks"],
+                    "buyer_id" => $request["buyer_id"],
+                    "buyer_name" => $request["buyer_name"],
                 ]);
 
                 $totalPriceSum += $newTotalPrice;
@@ -204,6 +291,8 @@ class BuyerController extends Controller
                     "new_price" => $newPrice,
                     "new_supplier" => $newSupplier,
                     "old_supplier" => $oldSupplier,
+                    "old_buyer" => $oldBuyer,
+                    "new_buyer" => $newBuyer,
                 ];
             }
         }
@@ -223,6 +312,10 @@ class BuyerController extends Controller
             $activityDescription .= ". Supplier changed from $oldSupplier to $newSupplier";
         }
 
+        if ($oldBuyer !== $newBuyer) {
+            $activityDescription .= ". Buyer changed from $oldBuyer to $newBuyer";
+        }
+
         $activityDescription .= ".";
 
         LogHistory::create([
@@ -237,6 +330,8 @@ class BuyerController extends Controller
             "updated_by" => $user_id,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
+            "buyer_id" => $request->buyer_id,
+            "buyer_name" => $request->buyer_name,
             "edit_remarks" => $request->edit_remarks,
         ];
 
@@ -383,38 +478,16 @@ class BuyerController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $po_approved = Buyer::with(
-            "order",
-            "approver_history",
-            "log_history",
-            "po_transaction",
-            "po_transaction.order",
-            "po_transaction.approver_history",
-            "po_transaction.log_history"
-        )
+        $po_approved = BuyerPO::whereHas("order", function ($orderQuery) use (
+            $user_id
+        ) {
+            $orderQuery->where("buyer_id", $user_id);
+        })
+            ->where("status", "For Receiving")
             ->whereNotNull("approved_at")
-            ->whereHas("po_transaction", function ($query) {
-                $query
-                    ->where("status", "For Receiving")
-                    ->whereNull("deleted_at");
-            })
-            ->with("po_transaction", function ($query) {
-                $query
-                    ->where("status", "For Receiving")
-                    ->whereNull("deleted_at")
-                    ->whereNotNull("approved_at")
-                    ->whereNull("cancelled_at")
-                    ->whereNull("rejected_at");
-            })
-            ->withCount([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->where("status", "For Receiving")
-                        ->whereNull("deleted_at");
-                },
-            ])
-            ->get()
-            ->sum("po_transaction_count");
+            ->whereNull("cancelled_at")
+            ->whereNull("rejected_at")
+            ->count();
 
         $rejected = Buyer::whereHas("po_transaction", function ($query) use (
             $user_id
@@ -468,12 +541,31 @@ class BuyerController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
+        $pending_to_received = BuyerPO::whereHas("order", function (
+            $query
+        ) use ($user_id) {
+            $query
+                ->where("buyer_id", $user_id)
+                ->where("quantity_serve", ">", 0)
+                ->whereColumn("quantity_serve", "<", "quantity");
+        })->count();
+
+        $completed_rr = BuyerPO::whereHas("order", function ($query) use (
+            $user_id
+        ) {
+            $query
+                ->where("buyer_id", $user_id)
+                ->whereColumn("quantity_serve", "=", "quantity");
+        })->count();
+
         $result = [
             "tagged_request" => $tagged_request,
             "for_po_approval" => $for_po_approval,
             "po_approved" => $po_approved,
             "rejected" => $rejected,
             "cancelled" => $cancelled,
+            "pending_to_received" => $pending_to_received,
+            "completed_rr" => $completed_rr,
         ];
 
         return GlobalFunction::responseFunction(
@@ -584,24 +676,36 @@ class BuyerController extends Controller
 
     public function place_order($id)
     {
-        $purchase_request = Buyer::where("id", $id)
+        $purchase_order = POTransaction::where("id", $id)
             ->get()
             ->first();
 
-        if (!$purchase_request) {
+        if (!$purchase_order) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $date_today = Carbon::now()
-            ->timeZone("Asia/Manila")
-            ->format("Y-m-d H:i");
+        $place_order = $request->place_order;
 
-        $purchase_request->update(["place_order" => $date_today]);
+        $purchase_order->update(["place_order" => $place_order]);
 
-        $place_order = new PRPOResource($purchase_request);
+        $buyer_id = Auth()->user()->id;
+
+        $activityDescription =
+            "Purchase Order ID: " .
+            $purchase_order->id .
+            " has been place ordered by UID: " .
+            $buyer_id;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "po_id" => $purchase_order->id,
+            "action_by" => $buyer_id,
+        ]);
+
+        $place_order = new PoResource($purchase_order);
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_REQUEST_PLACE_ORDER,
+            Message::PURCHASE_ORER_PLACE_ORDER,
             $place_order
         );
     }

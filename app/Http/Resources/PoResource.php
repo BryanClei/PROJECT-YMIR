@@ -82,6 +82,7 @@ class PoResource extends JsonResource
             "f1" => $this->f1,
             "f2" => $this->f2,
             "rush" => $this->rush,
+            "place_order" => $this->place_order,
             "module_name" => $this->module_name,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
@@ -93,6 +94,12 @@ class PoResource extends JsonResource
             "edit_remarks" => $this->edit_remarks,
             "created_at" => $this->created_at,
             "deleted_at" => $this->deleted_at,
+            "buyer" => $this->order->first()
+                ? [
+                    "buuyer_id" => $this->order->first()->buyer_id,
+                    "buyer_name" => $this->order->first()->buyer_name,
+                ]
+                : null,
             "order" => PoItemResource::collection($this->order),
             "approver_history" => ApporverHistoryResource::collection(
                 $this->approver_history

@@ -57,6 +57,7 @@ class PRTransaction extends Model
         "f1",
         "f2",
         "rush",
+        "place_order",
         "for_po_only",
         "for_po_only_id",
         "vrid",
@@ -69,6 +70,21 @@ class PRTransaction extends Model
     ];
 
     public function users()
+    {
+        // Add module_name check before the relationship is built
+        return $this->module_name === "Asset"
+            ? $this->belongsTo(VladimirUser::class, "user_id", "id")
+            : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    // Add a specific relationship for Vladimir users
+    public function vladimir_user()
+    {
+        return $this->belongsTo(VladimirUser::class, "user_id", "id");
+    }
+
+    // Add a specific relationship for regular users
+    public function regular_user()
     {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
@@ -110,5 +126,10 @@ class PRTransaction extends Model
     public function pr_items2()
     {
         return $this->hasMany(PRItems2::class, "transaction_id", "id");
+    }
+
+    public function vladuser()
+    {
+        $this->belongsTo(VladimirUser::class, "user_id", "id");
     }
 }

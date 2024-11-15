@@ -19,7 +19,6 @@ class PoFilters extends QueryFilters
             "%" . $search_po_year_id . "%"
         );
     }
-
     protected array $columnSearch = [
         "pr_number",
         "po_year_number_id",

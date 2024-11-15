@@ -43,7 +43,13 @@ class JobOrderTransactionFilters extends QueryFilters
 
         $this->builder
             ->when($status === "pending", function ($query) use ($user_id) {
-                $query->where("user_id", $user_id)->where("status", "Pending");
+                $query
+                    ->where("user_id", $user_id)
+                    ->where("status", "Pending")
+                    ->orWhere("status", "For Approval")
+                    ->whereNull("approved_at")
+                    ->whereNull("cancelled_at")
+                    ->whereNull("voided_at");
             })
             ->when($status === "cancelled", function ($query) use ($user_id) {
                 $query
@@ -58,7 +64,11 @@ class JobOrderTransactionFilters extends QueryFilters
                     ->where("user_id", $user_id);
             })
             ->when($status === "voided", function ($query) use ($user_id) {
-                $query->whereNotNull("voided_at")->where("user_id", $user_id);
+                $query
+                    ->whereNotNull("voided_at")
+                    ->whereNull("approved_at")
+                    ->whereNull("cancelled_at")
+                    ->where("user_id", $user_id);
             })
             ->when($status === "rejected", function ($query) use ($user_id) {
                 $query->whereNotNull("rejected_at")->where("user_id", $user_id);
@@ -69,8 +79,17 @@ class JobOrderTransactionFilters extends QueryFilters
                     ->whereNotNull("approved_at")
                     ->whereNull("cancelled_at")
                     ->whereNull("voided_at")
-                    ->whereHas("approver_history", function ($query) {
-                        $query->whereNotNull("approved_at");
+                    ->where(function ($query) {
+                        $query
+                            ->whereNotNull("direct_po")
+                            ->orWhere(function ($q) {
+                                $q->whereNull("direct_po")->whereHas(
+                                    "approver_history",
+                                    function ($subQuery) {
+                                        $subQuery->whereNotNull("approved_at");
+                                    }
+                                );
+                            });
                     });
             })
             ->when($status === "jo_approved", function ($query) use ($user_id) {

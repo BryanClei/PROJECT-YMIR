@@ -52,6 +52,8 @@ class PurchaseAssistantPO extends Model
         "sgp",
         "f1",
         "f2",
+        "rush",
+        "place_order",
         "approved_at",
         "rejected_at",
         "voided_at",
@@ -93,5 +95,10 @@ class PurchaseAssistantPO extends Model
     public function pr_transaction()
     {
         return $this->belongsTo(PRTransaction::class, "pr_number", "id");
+    }
+
+    public function pr_approver_history()
+    {
+        return $this->hasMany(PrHistory::class, "id", "pr_number");
     }
 }
