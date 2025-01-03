@@ -19,7 +19,7 @@ return new class extends Migration {
                 ->foreign("jo_id")
                 ->references("id")
                 ->on("jo_transactions");
-            $table->string("jo_po_id")->nullable();
+            $table->string("approver_type")->nullable();
             $table->string("approver_id");
             $table->string("approver_name");
             $table->timestamp("approved_at")->nullable();

@@ -57,18 +57,31 @@ class ApproverDashboardJOPOFilters extends QueryFilters
         $layer = JoPoHistory::where("approver_id", $user)
             ->get()
             ->pluck("layer");
+        $approver_histories = JoPoHistory::where("approver_id", $user)->get();
 
         $this->builder
             ->when($status == "pending", function ($query) use (
-                $po_id,
-                $layer
+                $approver_histories
             ) {
                 $query
-                    ->whereHas("jr_transaction", function ($query) {
-                        $query->where("status", "Approved");
+                    ->where(function ($query) use ($approver_histories) {
+                        foreach ($approver_histories as $history) {
+                            $query->orWhere(function ($subQuery) use (
+                                $history
+                            ) {
+                                $subQuery
+                                    ->where("id", $history->jo_po_id)
+                                    ->where("layer", $history->layer)
+                                    ->whereHas("jo_approver_history", function (
+                                        $historyQuery
+                                    ) use ($history) {
+                                        $historyQuery
+                                            ->where("layer", $history->layer)
+                                            ->whereNull("approved_at");
+                                    });
+                            });
+                        }
                     })
-                    ->whereIn("id", $po_id)
-                    ->whereIn("layer", $layer)
                     ->where(function ($query) {
                         $query
                             ->where("status", "Pending")
@@ -76,19 +89,13 @@ class ApproverDashboardJOPOFilters extends QueryFilters
                     })
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
-                    ->whereNull("rejected_at")
-                    ->whereHas("jo_approver_history", function ($query) {
-                        $query->whereNull("approved_at");
-                    });
+                    ->whereNull("rejected_at");
             })
             ->when($status == "rejected", function ($query) use (
                 $po_id,
                 $layer
             ) {
                 $query
-                    ->whereHas("jr_transaction", function ($query) {
-                        $query->where("status", "Approved");
-                    })
                     ->whereIn("id", $po_id)
                     ->whereIn("layer", $layer)
                     ->whereNull("voided_at")
@@ -101,9 +108,6 @@ class ApproverDashboardJOPOFilters extends QueryFilters
                 $user_id
             ) {
                 $query
-                    ->whereHas("jr_transaction", function ($query) {
-                        $query->where("status", "Approved");
-                    })
                     ->whereIn("id", $po_id)
                     ->where(function ($query) {
                         $query

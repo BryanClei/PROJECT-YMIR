@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Suppliers;
+namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreRequest extends FormRequest
+class RRDisplayV2 extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,16 +24,11 @@ class StoreRequest extends FormRequest
     public function rules()
     {
         return [
-            "code" => [
+            "status" => [
                 "required",
-                $this->route()->supplier
-                    ? "unique:suppliers,code," . $this->route()->supplier
-                    : "unique:suppliers,code",
                 "string",
+                "in:cancelled,user_receiving,view_all,rr_today",
             ],
-            "name" => ["required", "string"],
-            "term" => ["required", "numeric"],
-            // "address_1" => ["required"],
         ];
     }
 }

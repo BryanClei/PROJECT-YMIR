@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\PAController;
 use App\Http\Controllers\Api\PoController;
+use App\Http\Controllers\Api\RRController;
 use App\Http\Controllers\Api\UomController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\RoleController;
@@ -365,6 +366,12 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         JobOrderTransactionController::class,
         "resubmit",
     ]);
+
+    Route::patch("job_request_outside_labor/{id}", [
+        JobOrderTransactionController::class,
+        "update_job_request_outside_labor",
+    ]);
+
     Route::apiResource(
         "job_order_transaction",
         JobOrderTransactionController::class
@@ -425,10 +432,15 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("resubmit_pr_asset/{id}", [
         PAController::class,
         "resubmit_pr_asset",
+        1,
     ]);
     Route::patch("edit_unit_price/{id}", [
         PAController::class,
         "edit_unit_price",
+    ]);
+    Route::patch("update_po_to_outside/{id}", [
+        PAController::class,
+        "update_po_to_direct_po",
     ]);
     Route::patch("return_pr/{id}", [PAController::class, "return_pr"]);
     Route::patch("return_jo_po/{id}", [PAController::class, "return_jo_po"]);
@@ -456,6 +468,14 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("purchase_assistant/update_buyer/{id}", [
         PAController::class,
         "update_buyer",
+    ]);
+    Route::patch("purchase_assistant/void_direct_jo/{id}", [
+        PAController::class,
+        "voided_direct_jo",
+    ]);
+    Route::patch("purchase_assistant/voided_direct_jo/{id}", [
+        PAController::class,
+        "cancel_direct_jo",
     ]);
     Route::apiResource("purchase_assistant", PAController::class);
     Route::patch("return_po", [BuyerController::class, "return_po"]);
@@ -528,6 +548,21 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "view_single_approve_jo_po",
     ]);
 
+    Route::get("cancel_jo_rr_display", [
+        JORRTransactionController::class,
+        "cancel_jo_rr_display",
+    ]);
+
+    Route::get("cancel_jo_rr_display/{id}", [
+        JORRTransactionController::class,
+        "cancel_jo_rr_display_show",
+    ]);
+
+    Route::patch("jo_rr_multiple_receiving/{id}", [
+        JORRTransactionController::class,
+        "jo_rr_multiple",
+    ]);
+
     Route::apiResource(
         "job_order_report_transaction",
         JORRTransactionController::class
@@ -563,5 +598,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     );
 
     Route::apiResource("job_order_min_max", JobOrderMinMaxController::class);
+
+    Route::apiResource("received_receipt", RRController::class);
 });
 Route::post("login", [UserController::class, "login"]);

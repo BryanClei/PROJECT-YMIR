@@ -53,6 +53,7 @@ class JobOrderTransaction extends Model
         "rush",
         "outside_labor",
         "cap_ex",
+        "direct_po",
         "helpdesk_id",
     ];
 

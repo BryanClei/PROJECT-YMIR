@@ -346,17 +346,21 @@ class PrApproverController extends Controller
 
         $approved_history = JobHistory::where("jo_id", $id)
             ->where("approver_id", $user)
-            ->get()
-            ->first()
-            ->update([
-                "approved_at" => $date_today,
-            ]);
+            ->first();
+
+        $approved_history->update([
+            "approved_at" => $date_today,
+        ]);
+
+        $approverType = $approved_history->approver_type;
 
         $activityDescription =
             "Job order purchase request ID: " .
             $id .
             " has been approved by UID: " .
-            $user;
+            $user .
+            " Approver Type: " .
+            $approverType;
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -449,6 +453,10 @@ class PrApproverController extends Controller
             ->format("Y-m-d H:i");
 
         $pr_transaction = JobOrderTransaction::find($id);
+
+        if (!$pr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
 
         $pr_transaction->update([
             "status" => "Reject",

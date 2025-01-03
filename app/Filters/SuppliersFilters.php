@@ -8,7 +8,7 @@ class SuppliersFilters extends QueryFilters
 {
     protected array $allowedFilters = [];
 
-    protected array $columnSearch = [];
+    protected array $columnSearch = ["type", "name"];
 
     public function vladimir($vladimir)
     {

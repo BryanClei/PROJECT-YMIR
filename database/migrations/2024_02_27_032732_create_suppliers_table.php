@@ -16,6 +16,7 @@ return new class extends Migration {
             $table->increments("id");
             $table->string("name");
             $table->string("code");
+            $table->string("type")->nullable();
             $table->double("term");
             $table->string("address_1");
             $table->string("address_2")->nullable();

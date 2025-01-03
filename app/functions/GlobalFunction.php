@@ -107,6 +107,11 @@ class GlobalFunction
         );
     }
 
+    public static function badRequest($message)
+    {
+        return response()->json(["error" => $message], Message::BAD_REQUEST);
+    }
+
     public static function job_request_requestor_setting_id(
         $requestor_company_id,
         $requestor_business_id,

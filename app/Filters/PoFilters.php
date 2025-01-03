@@ -94,6 +94,28 @@ class PoFilters extends QueryFilters
             })
             ->when($status === "for_receiving", function ($query) {
                 $query
+                    // ->with([
+                    //     "order" => function ($query) {
+                    //         $query->whereColumn(
+                    //             "quantity",
+                    //             "<>",
+                    //             "quantity_serve"
+                    //         );
+                    //     },
+                    // ])
+                    // ->where("module_name", "Inventoriables")
+                    // ->orWhere("module_name", "Asset")
+                    // ->where("status", "For Receiving")
+                    // ->whereNull("cancelled_at")
+                    // ->whereNull("voided_at")
+                    // ->whereHas("approver_history", function ($query) {
+                    //     $query->whereNotNull("approved_at");
+                    // })
+                    // ->whereHas("order", function ($query) {
+                    //     $query->whereColumn("quantity", "<>", "quantity_serve");
+                    // })
+                    // ->withoutTrashed()
+
                     ->where("module_name", "Inventoriables")
                     ->orWhere("module_name", "Asset")
                     ->with([

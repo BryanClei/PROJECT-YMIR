@@ -21,6 +21,7 @@ use App\Models\PRTransaction;
 use App\Models\JOPOTransaction;
 use App\Functions\GlobalFunction;
 use App\Http\Resources\PoResource;
+use Illuminate\Support\Facades\DB;
 use App\Http\Requests\PO\PORequest;
 use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
@@ -30,6 +31,7 @@ use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\PoItemResource;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
+use App\Models\JobOrderPurchaseOrderApprovers;
 
 class PoController extends Controller
 {
@@ -310,6 +312,41 @@ class PoController extends Controller
 
         $orders = $request->order;
 
+        $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
+
+        $jr_orders = JobOrderTransaction::where(
+            "id",
+            $request->jo_number
+        )->first();
+
+        $job_request_order = $jr_orders->order;
+
+        $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
+            $request->company_id,
+            $request->business_unit_id,
+            $request->department_id
+        );
+
+        $charging_po_approvers = JobOrderPurchaseOrderApprovers::where(
+            "jo_purchase_order_id",
+            $charging_purchase_order_setting_id->id
+        )->get();
+
+        if (!$charging_po_approvers) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
+        }
+
+        $fixed_charging_approvers = $charging_po_approvers->take(2);
+        $price_based_charging_approvers = $charging_po_approvers
+            ->slice(2)
+            ->filter(function ($approver) use ($sumOfTotalPrices) {
+                return $approver->base_price <= $sumOfTotalPrices;
+            })
+            ->sortBy("base_price");
+        $final_charging_approvers = $fixed_charging_approvers->concat(
+            $price_based_charging_approvers
+        );
+
         $current_year = date("Y");
         $latest_po = JOPOTransaction::withTrashed()
             ->where("po_year_number_id", "like", $current_year . "-JO-%")
@@ -325,11 +362,9 @@ class PoController extends Controller
         $po_year_number_id =
             $current_year . "-JO-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
-        $jo_number = JOPOTransaction::withTrashed()
-            ->latest()
-            ->get()
-            ->first();
-        $increment = $jo_number ? $jo_number->id + 1 : 1;
+        $latest_po_number =
+            JOPOTransaction::withTrashed()->max("po_number") ?? 0;
+        $increment = $latest_po_number + 1;
 
         $job_order = new JOPOTransaction([
             "po_year_number_id" => $po_year_number_id,
@@ -364,6 +399,11 @@ class PoController extends Controller
             "f1" => $request->f1,
             "f2" => $request->f2,
             "rush" => $request->rush,
+            "outside_labor" => $request->outside_labor,
+            "cap_ex" => $request->cap_ex,
+            "direct_po" => $request->direct_po,
+            "helpdesk_id" => $request->helpdesk_id,
+            "cip_number" => $request->cip_number,
             "layer" => "1",
             "description" => $request->description,
         ]);
@@ -398,11 +438,56 @@ class PoController extends Controller
             ]);
         }
 
+        $updatedItems = [];
+        foreach ($orders as $index => $values) {
+            $originalItem = collect($job_request_order)->firstWhere(
+                "id",
+                $values["id"]
+            );
+
+            if ($originalItem) {
+                $oldUnitPrice =
+                    $originalItem["price"] ?? $originalItem["unit_price"];
+                $newUnitPrice = $values["price"] ?? $values["unit_price"];
+
+                $oldTotalPrice =
+                    $originalItem["total_price"] ??
+                    $oldUnitPrice * $originalItem["quantity"];
+                $newTotalPrice =
+                    $values["total_price"] ??
+                    $newUnitPrice * $values["quantity"];
+
+                if (
+                    $oldUnitPrice != $newUnitPrice ||
+                    $oldTotalPrice != $newTotalPrice
+                ) {
+                    $updatedItems[] = [
+                        "id" => $values["id"],
+                        "old_unit_price" => $oldUnitPrice,
+                        "new_unit_price" => $newUnitPrice,
+                        "old_total_price" => $oldTotalPrice,
+                        "new_total_price" => $newTotalPrice,
+                    ];
+                }
+            }
+        }
+
         $activityDescription =
             "Job order purchase order ID: " .
             $job_order->id .
             " has been created by UID: " .
             $user_id;
+
+        if (!empty($updatedItems)) {
+            $activityDescription .= ". Price updates: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .=
+                    "Item ID {$item["id"]}: " .
+                    "Unit price {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
+                    "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
+            }
+            $activityDescription = rtrim($activityDescription, ", ");
+        }
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -410,27 +495,15 @@ class PoController extends Controller
             "action_by" => $user_id,
         ]);
 
-        $po_settings = POSettings::where("company_id", $job_order->company_id)
-            ->get()
-            ->first();
+        $layer_count = 1;
 
-        $jo_items = JoPoOrders::where("jo_po_id", $job_order->id)
-            ->get()
-            ->pluck("total_price")
-            ->toArray();
-
-        $sum = array_sum($jo_items);
-
-        $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->id)
-            ->get();
-
-        foreach ($approvers as $index) {
+        foreach ($final_charging_approvers as $approver) {
             JoPoHistory::create([
                 "jo_po_id" => $job_order->id,
-                "approver_id" => $index["approver_id"],
-                "approver_name" => $index["approver_name"],
-                "layer" => $index["layer"],
+                "approver_type" => "charging",
+                "approver_id" => $approver->approver_id,
+                "approver_name" => $approver->approver_name,
+                "layer" => $layer_count++,
             ]);
         }
 
@@ -729,7 +802,7 @@ class PoController extends Controller
     public function resubmit_jo(Request $request, $id)
     {
         $job_order = JOPOTransaction::find($id);
-
+        $orders = $request->order;
         $user_id = Auth()->user()->id;
         $not_found = JOPOTransaction::where("id", $id)->exists();
 
@@ -743,14 +816,86 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
+
+        $requestor = JobOrderTransaction::where(
+            "id",
+            $request->jo_number
+        )->first();
+
+        $requestor_company_id = $requestor->users()->first()->company_id;
+        $requestor_business_id = $requestor->users()->first()->business_unit_id;
+        $requestor_department_id = $requestor->users()->first()->department_id;
+
+        $requestor_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_requestor_setting_id(
+            $requestor_company_id,
+            $requestor_business_id,
+            $requestor_department_id
+        );
+
+        $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
+            $request->company_id,
+            $request->business_unit_id,
+            $request->department_id
+        );
+
+        $requestor_po_approvers = JobOrderPurchaseOrderApprovers::where(
+            "jo_purchase_order_id",
+            $requestor_purchase_order_setting_id->id
+        )
+            ->where("base_price", "<=", $sumOfTotalPrices)
+            ->get();
+
+        if (!$requestor_po_approvers) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_PRICE);
+        }
+
+        $charging_po_approvers =
+            $requestor_purchase_order_setting_id->id !==
+            $charging_purchase_order_setting_id->id
+                ? JobOrderApprovers::where(
+                    "job_order_id",
+                    $charging_purchase_order_setting_id->id
+                )
+                    ->where("base_price", "<=", $sumOfTotalPrices)
+                    ->get()
+                : collect([]);
+
+        $layer = 1;
+        foreach ($requestor_po_approvers as $approver) {
+            JoPoHistory::updateOrCreate(
+                [
+                    "jo_po_id" => $id,
+                    "approver_id" => $approver->approver_id,
+                ],
+                [
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer++,
+                    "approved_at" => null,
+                ]
+            );
+        }
+
+        foreach ($charging_po_approvers as $approver) {
+            JoPoHistory::updateOrCreate(
+                [
+                    "jo_po_id" => $id,
+                    "approver_id" => $approver->approver_id,
+                ],
+                [
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer++,
+                    "approved_at" => null,
+                ]
+            );
+        }
+
         foreach ($po_history as $pr) {
             $pr->update([
                 "approved_at" => null,
                 "rejected_at" => null,
             ]);
         }
-
-        $orders = $request->order;
 
         $job_order->update([
             "status" => "Pending",
@@ -759,58 +904,61 @@ class PoController extends Controller
             "layer" => "1",
         ]);
 
+        // Track price changes for logging
+        $updatedItems = [];
+        foreach ($orders as $values) {
+            $order_id = $values["id"];
+            $poItem = JoPoOrders::where("id", $order_id)
+                ->withTrashed()
+                ->first();
+
+            if ($poItem) {
+                $oldPrice = $poItem->unit_price;
+                $newPrice = $values["price"];
+                $oldTotalPrice = $poItem->total_price;
+                $newTotalPrice = $values["total_price"];
+
+                $poItem->update([
+                    "unit_price" => $newPrice,
+                    "total_price" => $newTotalPrice,
+                ]);
+
+                if ($oldPrice != $newPrice) {
+                    $updatedItems[] = [
+                        "id" => $order_id,
+                        "old_price" => $oldPrice,
+                        "new_price" => $newPrice,
+                        "old_total" => $oldTotalPrice,
+                        "new_total" => $newTotalPrice,
+                    ];
+                }
+            }
+        }
+
+        // Create detailed activity description
         $activityDescription =
             "Job order purchase order ID: " .
             $id .
             " has been resubmitted by UID: " .
             $user_id;
 
-        $log = LogHistory::create([
+        if (!empty($updatedItems)) {
+            $activityDescription .= ". Price updates: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .=
+                    "Item ID {$item["id"]}: Unit price {$item["old_price"]} -> {$item["new_price"]}, " .
+                    "Total price {$item["old_total"]} -> {$item["new_total"]}, ";
+            }
+            $activityDescription = rtrim($activityDescription, ", ");
+        }
+
+        $activityDescription .= ".";
+
+        LogHistory::create([
             "activity" => $activityDescription,
             "jo_po_id" => $id,
             "action_by" => $user_id,
         ]);
-
-        $po_settings = POSettings::where("company_id", $job_order->company_id)
-            ->get()
-            ->first();
-
-        $jo_items = JoPoOrders::where("jo_po_id", $job_order->id)
-            ->get()
-            ->pluck("total_price")
-            ->toArray();
-
-        $sum = array_sum($jo_items);
-
-        $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->id)
-            ->get();
-
-        foreach ($approvers as $index) {
-            $exists = JoPoHistory::where([
-                ["jo_po_id", $job_order->id],
-                ["approver_id", $index["approver_id"]],
-            ])->exists();
-
-            if (!$exists) {
-                JoPoHistory::create([
-                    "jo_po_id" => $job_order->id,
-                    "approver_id" => $index["approver_id"],
-                    "approver_name" => $index["approver_name"],
-                    "layer" => $index["layer"],
-                ]);
-            }
-        }
-
-        foreach ($orders as $index => $values) {
-            $order_id = $values["id"];
-            JoPoOrders::where("id", $order_id)
-                ->withTrashed()
-                ->update([
-                    "unit_price" => $values["price"],
-                    "total_price" => $values["total_price"],
-                ]);
-        }
 
         $jo_collect = new JoPoResource($job_order);
 
@@ -888,10 +1036,14 @@ class PoController extends Controller
             ->get()
             ->first();
 
+        if (!$po_cancel) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
         if ($no_rr) {
             $po_cancel_order = $po_cancel
                 ->jo_po_orders()
-                ->pluck("pr_item_id")
+                ->pluck("jo_item_id")
                 ->toArray();
 
             $pr_items = JobItems::whereIn("id", $po_cancel_order)->update([
@@ -907,18 +1059,25 @@ class PoController extends Controller
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i"),
             "status" => "Cancelled",
+            "approved_at" => null,
         ]);
 
         $po_cancel->jo_po_orders()->delete();
         $po_cancel->delete();
 
-        $activityDescription =
-            "Job order purchase order ID:" .
-            $id .
-            " has been cancelled by UID: " .
-            $user .
-            " Reason: " .
-            $request->reason;
+        $activityDescription = $no_rr
+            ? "Purchase order ID:" .
+                $id .
+                " has been cancelled by UID: " .
+                $user .
+                " Reason: " .
+                $request->reason
+            : "Purchase order ID:" .
+                $id .
+                " remaining has been cancelled by UID: " .
+                $user .
+                " Reason: " .
+                $request->reason;
 
         LogHistory::create([
             "activity" => $activityDescription,

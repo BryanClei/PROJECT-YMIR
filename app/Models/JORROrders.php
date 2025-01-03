@@ -17,7 +17,10 @@ class JORROrders extends Model
     protected $fillable = [
         "jo_rr_number",
         "jo_rr_id",
+        "jo_po_id",
+        "jo_id",
         "jo_item_id",
+        "description",
         "quantity_receive",
         "remaining",
         "shipment_no",
@@ -27,7 +30,21 @@ class JORROrders extends Model
 
     public function jo_rr_transaction()
     {
-        return $this->belongsTo(JORRTransaction::class, "jo_rr_number", "id");
+        return $this->belongsTo(
+            JORRTransaction::class,
+            "jo_rr_number",
+            "id"
+        )->withTrashed();
+    }
+
+    public function jo_po_transaction()
+    {
+        return $this->belongsTo(JOPOTransaction::class, "jo_po_id", "id");
+    }
+
+    public function jo_transaction()
+    {
+        return $this->belongsTo(JobOrderTransaction::class, "jo_id", "id");
     }
 
     public function order()

@@ -46,8 +46,11 @@ class JoPoFilters extends QueryFilters
         $this->builder
             ->when($status === "approved", function ($query) {
                 $query
-                    ->where("status", "For Receiving")
-                    ->orWhere("status", "Approved")
+                    ->where(function ($query) {
+                        $query
+                            ->where("status", "For Receiving")
+                            ->orWhere("status", "Approved");
+                    })
                     ->whereNull("cancelled_at")
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at")
@@ -57,8 +60,11 @@ class JoPoFilters extends QueryFilters
             })
             ->when($status === "pending", function ($query) {
                 $query
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval")
+                    ->where(function ($query) {
+                        $query
+                            ->where("status", "For Receiving")
+                            ->orWhere("status", "Pending");
+                    })
                     ->whereNull("cancelled_at")
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at");
@@ -67,7 +73,9 @@ class JoPoFilters extends QueryFilters
                 $query
                     ->where("status", "Cancelled")
                     ->whereNotNull("cancelled_at")
-                    ->whereNull("approved_at");
+                    ->whereNull("direct_po")
+                    ->whereNull("approved_at")
+                    ->withTrashed();
             })
             ->when($status === "voided", function ($query) {
                 $query->where("status", "Voided");

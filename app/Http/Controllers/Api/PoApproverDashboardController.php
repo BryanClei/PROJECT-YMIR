@@ -290,17 +290,22 @@ class PoApproverDashboardController extends Controller
 
         $approved_history = JoPoHistory::where("jo_po_id", $id)
             ->where("approver_id", $user)
-            ->get()
-            ->first()
-            ->update([
-                "approved_at" => $date_today,
-            ]);
+            ->whereNull("approved_at")
+            ->first();
+
+        $approved_history->update([
+            "approved_at" => $date_today,
+        ]);
+
+        $approverType = $approved_history->approver_type;
 
         $activityDescription =
             "Job order purchase order ID: " .
             $id .
             " has been approved by UID: " .
-            $user;
+            $user .
+            " Approver Type: " .
+            $approverType;
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -385,14 +390,11 @@ class PoApproverDashboardController extends Controller
     {
         $user = Auth()->user()->id;
 
-        $user_id = User::where("id", $user)
-            ->get()
-            ->first();
-
-        $jo_po_id = JoPoHistory::where("approver_id", $user_id->id)
+        $jo_po_id = JoPoHistory::where("approver_id", $user)
             ->get()
             ->pluck("jo_po_id");
-        $layer = JoPoHistory::where("approver_id", $user_id)
+
+        $layer = JoPoHistory::where("approver_id", $user)
             ->get()
             ->pluck("layer");
 

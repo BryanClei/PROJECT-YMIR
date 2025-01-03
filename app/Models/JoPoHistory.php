@@ -12,6 +12,7 @@ class JoPoHistory extends Model
     protected $table = "jo_po_history";
     protected $fillable = [
         "jo_po_id",
+        "approver_type",
         "approver_id",
         "approver_name",
         "approved_at",

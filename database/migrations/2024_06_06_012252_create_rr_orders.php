@@ -20,6 +20,16 @@ return new class extends Migration {
                 ->foreign("rr_id")
                 ->references("id")
                 ->on("rr_transactions");
+            $table->unsignedInteger("po_id")->index();
+            $table
+                ->foreign("po_id")
+                ->references("id")
+                ->on("po_transactions");
+            $table->unsignedInteger("pr_id")->index();
+            $table
+                ->foreign("pr_id")
+                ->references("id")
+                ->on("pr_transactions");
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
             $table->string("item_name")->nullable();
@@ -30,6 +40,7 @@ return new class extends Migration {
             $table->timestamp("rr_date");
             $table->string("attachment")->nullable();
             $table->integer("sync");
+            $table->integer("f_tagged");
             $table->timestamps();
             $table->softDeletes();
         });

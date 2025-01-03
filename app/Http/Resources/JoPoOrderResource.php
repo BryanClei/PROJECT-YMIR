@@ -19,7 +19,7 @@ class JoPoOrderResource extends JsonResource
             "jo_transaction_id" => $this->jo_transaction_id,
             "jo_po_id" => $this->jo_po_id,
             "description" => $this->description,
-            "uom" => $this->uom_id,
+            "uom" => $this->uom,
             "quantity" => $this->quantity,
             "quantity_serve" => $this->quantity_serve,
             "unit_price" => $this->unit_price,

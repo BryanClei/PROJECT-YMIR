@@ -214,6 +214,7 @@ class PurchaseAssistantFilters extends QueryFilters
                             },
                         ]);
                 });
-            });
+            })
+            ;
     }
 }

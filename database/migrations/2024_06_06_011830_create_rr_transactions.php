@@ -14,6 +14,7 @@ return new class extends Migration {
     {
         Schema::create("rr_transactions", function (Blueprint $table) {
             $table->increments("id");
+            $table->string("rr_year_number_id");
             $table->unsignedInteger("po_id")->index();
             $table
                 ->foreign("po_id")

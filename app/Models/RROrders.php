@@ -19,6 +19,8 @@ class RROrders extends Model
     protected $fillable = [
         "rr_number",
         "rr_id",
+        "po_id",
+        "pr_id",
         "item_id",
         "item_code",
         "item_name",
@@ -30,6 +32,7 @@ class RROrders extends Model
         "attachment",
         "late_attachment",
         "sync",
+        "f_tagged",
     ];
 
     protected $casts = ["attachment" => "array"];
@@ -47,5 +50,15 @@ class RROrders extends Model
     public function order()
     {
         return $this->belongsTo(POItems::class, "item_id", "id");
+    }
+
+    public function po_transaction()
+    {
+        return $this->belongsTo(POTransaction::class, "po_id", "id");
+    }
+
+    public function pr_transaction()
+    {
+        return $this->belongsTo(PRTransaction::class, "pr_id", "id");
     }
 }

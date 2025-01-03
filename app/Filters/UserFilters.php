@@ -34,6 +34,17 @@ class UserFilters extends QueryFilters
         });
     }
 
+    public function access_permission($access_permission)
+    {
+        return $this->builder->whereHas("role", function ($query) use (
+            $access_permission
+        ) {
+            $query->whereRaw("FIND_IN_SET(?, access_permission)", [
+                $access_permission,
+            ]);
+        });
+    }
+
     public function buyer($buyer)
     {
         $this->builder->when($buyer == "active", function ($query) {

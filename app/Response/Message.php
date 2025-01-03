@@ -9,6 +9,7 @@ class Message
     const DATA_NOT_FOUND = 404;
     const SUCESS_STATUS = 200;
     const DENIED_STATUS = 403;
+    const BAD_REQUEST = 400;
 
     //CRUD OPERATION
     const REGISTERED = "User successfully save.";
@@ -45,6 +46,7 @@ class Message
     const SMALL_TOOLS_SAVE = "Small tools save successfully.";
     const PURCHASE_REQUEST_AND_ORDER_SAVE = "Job Order Purchase Request & Purchase Order save successfully.";
     const MIN_MAX_SET = "Job order min and max successfully set.";
+    const MIN_SET = "Job order min successfully set.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -127,6 +129,7 @@ class Message
     const SMALL_TOOLS_UPDATE = "Small tools update successfully.";
     const MIN_MAX_UPDATE = "Job order min and max update successfully.";
     const PURCHASE_REQUEST_AND_ORDER_UPDATE = "Purchase request and purchase order updated successfully.";
+    const RR_TAGGED_FISTO = "RR orders tagged successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";
@@ -141,6 +144,9 @@ class Message
     const NOT_FOUND = "Data not found.";
     const FILE_NOT_FOUND = "File not found.";
     const SMALL_TOOLS_IN_USE = "The Small Tools is in use. Cannot be deleted.";
+    const ITEM_NOT_FOUND = "Item does not exist.";
+    const MIN_ERROR = "Only one record is allowed.";
+    const NO_ITEM_FOUND = "No item found to tag.";
     //VALIDATION
     const SINGLE_VALIDATION = "Data has been validated.";
     const INVALID_ACTION = "Invalid action.";

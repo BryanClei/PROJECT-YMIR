@@ -19,7 +19,7 @@ class JobOrderItemsResource extends JsonResource
             "id" => $this->id,
             "jo_transaction_id" => $this->jo_transaction_id,
             "description" => $this->description,
-            "uom" => $this->uom_id,
+            "uom" => $this->uom,
             "po_at" => $this->po_at,
             "purchase_order_id" => $this->purchase_order_id,
             "quantity" => $this->quantity,

@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class JODisplay extends FormRequest
+class JORRDisplay extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,11 +24,7 @@ class JODisplay extends FormRequest
     public function rules()
     {
         return [
-            "status" => [
-                "required",
-                "string",
-                "in:cancelled,voided,rejected,approved,cancel,pr_approved,for_po,pending,received,rr_today",
-            ],
+            "status" => ["required", "string", "in:cancel"],
         ];
     }
 }

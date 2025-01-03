@@ -43,9 +43,10 @@ class SupplierController extends Controller
         $suppliers = Suppliers::create([
             "code" => $request->code,
             "name" => $request->name,
+            "type" => $request->type,
             "term" => $request->term,
-            "address_1" => $request->address_1,
-            "address_2" => $request->address_2,
+            // "address_1" => $request->address_1,
+            // "address_2" => $request->address_2,
         ]);
 
         $supplier_collect = new SupplierResource($suppliers);
@@ -65,8 +66,9 @@ class SupplierController extends Controller
         $suppliers->update([
             "code" => $request->code,
             "name" => $request->name,
-            "address_1" => $request->address_1,
-            "address_2" => $request->address_2,
+            "type" => $request->type,
+            // "address_1" => $request->address_1,
+            // "address_2" => $request->address_2,
         ]);
         return GlobalFunction::responseFunction(
             Message::SUPPLIER_UPDATE,
@@ -108,9 +110,10 @@ class SupplierController extends Controller
             $supplier = Suppliers::create([
                 "name" => $index["name"],
                 "code" => $index["code"],
+                "type" => $index["type"],
                 "term" => $index["term"],
-                "address_1" => $index["address_1"],
-                "address_2" => $index["address_2"],
+                // "address_1" => $index["address_1"],
+                // "address_2" => $index["address_2"],
             ]);
         }
 

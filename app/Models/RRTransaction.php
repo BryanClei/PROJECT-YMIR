@@ -18,6 +18,7 @@ class RRTransaction extends Model
 
     protected $fillable = [
         "rr_year_number_id",
+        "rr_id",
         "po_id",
         "pr_id",
         "received_by",

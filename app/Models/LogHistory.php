@@ -22,6 +22,7 @@ class LogHistory extends Model
         "rr_id",
         "jo_id",
         "jo_po_id",
+        "jo_rr_id",
         "action_by",
     ];
 

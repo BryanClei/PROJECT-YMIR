@@ -106,6 +106,7 @@ class BadgeHelperFunctions
             ->whereHas("order", function ($query) {
                 $query->whereColumn("quantity", "<>", "quantity_serve");
             })
+            ->withoutTrashed()
             ->count();
     }
 
@@ -139,6 +140,9 @@ class BadgeHelperFunctions
     {
         return JOPOTransaction::where("module_name", "Job Order")
             ->where("status", "For Receiving")
+            ->whereHas("jo_po_orders", function ($query) {
+                $query->whereColumn("quantity", "<>", "quantity_serve");
+            })
             ->count();
     }
 

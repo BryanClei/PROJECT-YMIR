@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\ReceivedReceipt;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class JODisplay extends FormRequest
+class MultipleRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,11 +24,10 @@ class JODisplay extends FormRequest
     public function rules()
     {
         return [
-            "status" => [
-                "required",
-                "string",
-                "in:cancelled,voided,rejected,approved,cancel,pr_approved,for_po,pending,received,rr_today",
-            ],
+            "rr_order" => "required|array",
+            "rr_order.*.jo_po_id" => "required|exists:jo_po_transactions,id",
+            "rr_order.*.jo_item_id" => "required|exists:jo_po_orders,id",
+            "rr_order.*.quantity_serve" => "required|numeric|min:0",
         ];
     }
 }

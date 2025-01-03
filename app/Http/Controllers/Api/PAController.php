@@ -37,6 +37,7 @@ use App\Http\Resources\JobOrderResource;
 use App\Http\Requests\JoPo\UpdateRequest;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\PurchasingAssistant\StoreRequest;
+use App\Http\Requests\JobOrderTransaction\CancelRequest;
 
 class PAController extends Controller
 {
@@ -205,7 +206,7 @@ class PAController extends Controller
             "jo_transaction.log_history",
             "jo_transaction.approver_history"
         )
-            ->withTrashed()
+            ->whereNull("direct_po")
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -315,7 +316,39 @@ class PAController extends Controller
         if (!$not_found) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
         $orders = $request->order;
+
+        $newTotalPrice = array_sum(array_column($orders, "total_price"));
+
+        $user_id = $request->user_id;
+
+        $existingItems = JoPoOrders::where("jo_po_id", $id)->get();
+        $updatedItems = [];
+
+        foreach ($orders as $index => $values) {
+            $existingItem = $existingItems->firstWhere("id", $values["id"]);
+
+            if ($existingItem) {
+                $oldPrice = $existingItem->price;
+                $newPrice = $values["price"];
+                $oldTotalPrice = $existingItem->total_price;
+                $newTotalPrice = $values["quantity"] * $values["price"];
+
+                if (
+                    $oldPrice != $newPrice ||
+                    $oldTotalPrice != $newTotalPrice
+                ) {
+                    $updatedItems[] = [
+                        "id" => $values["id"],
+                        "old_price" => $oldPrice,
+                        "new_price" => $newPrice,
+                        "old_total_price" => $oldTotalPrice,
+                        "new_total_price" => $newTotalPrice,
+                    ];
+                }
+            }
+        }
 
         $job_order->update([
             "po_description" => $request->po_description,
@@ -347,6 +380,12 @@ class PAController extends Controller
             "f1" => $request->f1,
             "f2" => $request->f2,
             "layer" => "1",
+            "rush" => $request->rush,
+            "outside_labor" => $request->outside_labor,
+            "cap_ex" => $request->cap_ex,
+            "direct_po" => $request->direct_po,
+            "helpdesk_id" => $request->helpdesk_id,
+            "cip_number" => $request->cip_number,
             "description" => $request->description,
         ]);
 
@@ -367,7 +406,7 @@ class PAController extends Controller
 
         foreach ($currentOrders as $order_id) {
             if (!in_array($order_id, $newOrders)) {
-                POItems::where("id", $order_id)->forceDelete();
+                JoPoOrders::where("id", $order_id)->forceDelete();
             }
         }
 
@@ -394,51 +433,293 @@ class PAController extends Controller
             $totalPriceSum += $newTotalPrice;
         }
 
-        $po_settings = POSettings::where("company_id", $job_order->company_id)
-            ->get()
-            ->first();
+        $activityDescription = "Job order purchase request ID: {$id} has been updated by UID: {$user_id}";
+
+        if (!empty($updatedItems)) {
+            $activityDescription .= ". Price updates: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .=
+                    "Item ID {$item["id"]}: " .
+                    "Price {$item["old_price"]} -> {$item["new_price"]}, " .
+                    "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
+            }
+            $activityDescription = rtrim($activityDescription, ", ");
+        }
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_po_id" => $id,
+            "action_by" => $user_id,
+        ]);
 
         if ($totalPriceSum > $current_total_price) {
-            $highestPriceRange = PoApprovers::max("price_range");
+            foreach ($po_approvers as $po_approver) {
+                $po_approver->forceDelete();
+            }
 
-            if ($totalPriceSum >= $highestPriceRange) {
-                foreach ($po_approvers as $po_approver) {
-                    $po_approver->update([
-                        "approved_at" => null,
-                        "rejected_at" => null,
-                    ]);
-                }
+            $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
+                $request->company_id,
+                $request->business_unit_id,
+                $request->department_id
+            );
 
-                $approvers = PoApprovers::where(
-                    "price_range",
-                    ">=",
-                    $highestPriceRange
-                )
-                    ->where("po_settings_id", $po_settings->company_id)
-                    ->get();
-                $po_approver_history = $job_order->approver_history()->first();
+            $charging_po_approvers = JobOrderPurchaseOrderApprovers::where(
+                "jo_purchase_order_id",
+                $charging_purchase_order_setting_id->id
+            )->get();
 
-                foreach ($approvers as $index) {
-                    $existing_approver = JoPoHistory::where(
-                        "po_id",
-                        $po_approver_history->po_id
-                    )
-                        ->where("approver_id", $index["approver_id"])
-                        ->first();
+            $fixed_charging_approvers = $charging_po_approvers->take(2);
+            $price_based_charging_approvers = $charging_po_approvers
+                ->slice(2)
+                ->filter(function ($approver) use ($sumOfTotalPrices) {
+                    return $approver->base_price <= $sumOfTotalPrices;
+                })
+                ->sortBy("base_price");
+            $final_charging_approvers = $fixed_charging_approvers->concat(
+                $price_based_charging_approvers
+            );
 
-                    if (!$existing_approver) {
-                        JoPoHistory::create([
-                            "po_id" => $po_approver_history->po_id,
-                            "approver_id" => $index["approver_id"],
-                            "approver_name" => $index["approver_name"],
-                            "layer" => $index["layer"],
-                        ]);
-                    }
-                }
+            $layer_count = 1;
+
+            foreach ($final_charging_approvers as $approver) {
+                JoPoHistory::create([
+                    "jo_po_id" => $job_order->id,
+                    "approver_type" => "charging",
+                    "approver_id" => $approver->approver_id,
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer_count++,
+                ]);
             }
         }
 
         $poTransaction = $job_order->fresh([
+            "jo_po_orders",
+            "jo_approver_history",
+        ]);
+
+        new JoPoResource($poTransaction);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_UPDATE,
+            $poTransaction
+        );
+    }
+
+    public function update_po_to_direct_po(Request $request, $id)
+    {
+        $user_id = Auth()->user()->id;
+        $requestor_deptartment_id = Auth()->user()->department_id;
+        $requestor_department_unit_id = Auth()->user()->department_unit_id;
+        $requestor_company_id = Auth()->user()->company_id;
+        $requestor_business_id = Auth()->user()->business_unit_id;
+        $requestor_location_id = Auth()->user()->location_id;
+        $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+
+        $dateToday = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
+
+        $orders = $request->order;
+        $newTotalPrice = array_sum(array_column($orders, "total_price"));
+
+        $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
+            $requestor_company_id,
+            $requestor_business_id,
+            $requestor_deptartment_id,
+            $requestor_department_unit_id,
+            $requestor_sub_unit_id,
+            $requestor_location_id
+        );
+
+        $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
+            $request->company_id,
+            $request->business_unit_id,
+            $request->department_id,
+            $request->department_unit_id,
+            $request->sub_unit_id,
+            $request->location_id
+        );
+
+        $requestor_approvers = JobOrderApprovers::where(
+            "job_order_id",
+            $requestor_setting_id->id
+        )
+            ->latest()
+            ->get();
+
+        $final_requestor_approvers = $requestor_approvers->take(2);
+
+        $final_charging_approvers = collect();
+        if ($requestor_setting_id->id !== $charging_setting_id->id) {
+            $charging_approvers = JobOrderApprovers::where(
+                "job_order_id",
+                $charging_setting_id->id
+            )
+                ->latest()
+                ->get();
+
+            $final_charging_approvers = $charging_approvers->take(2);
+        }
+
+        $current_po = JOPOTransaction::where("id", $id)->first();
+
+        if (!$current_po) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        // Get existing items before deletion
+        $existingItems = JoPoOrders::where("jo_po_id", $id)->get();
+        $updatedItems = [];
+
+        JoPoHistory::where("jo_po_id", $current_po->id)->forceDelete();
+
+        foreach ($orders as $index => $values) {
+            $existingItem = $existingItems->firstWhere("id", $values["id"]);
+
+            if ($existingItem) {
+                $oldPrice = $existingItem->price;
+                $newPrice = $values["price"];
+                $oldTotalPrice = $existingItem->total_price;
+                $newTotalPrice = $values["quantity"] * $values["price"];
+
+                if (
+                    $oldPrice != $newPrice ||
+                    $oldTotalPrice != $newTotalPrice
+                ) {
+                    $updatedItems[] = [
+                        "id" => $values["id"],
+                        "old_price" => $oldPrice,
+                        "new_price" => $newPrice,
+                        "old_total_price" => $oldTotalPrice,
+                        "new_total_price" => $newTotalPrice,
+                    ];
+                }
+            }
+        }
+
+        $current_po->update([
+            "po_description" => $request->po_description,
+            "date_needed" => $request->date_needed,
+            "user_id" => $request->user_id,
+            "type_id" => $request->type_id,
+            "type_name" => $request->type_name,
+            "business_unit_id" => $request->business_unit_id,
+            "business_unit_name" => $request->business_unit_name,
+            "company_id" => $request->company_id,
+            "company_name" => $request->company_name,
+            "department_id" => $request->department_id,
+            "department_name" => $request->department_name,
+            "department_unit_id" => $request->department_unit_id,
+            "department_unit_name" => $request->department_unit_name,
+            "location_id" => $request->location_id,
+            "location_name" => $request->location_name,
+            "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_name" => $request->sub_unit_name,
+            "account_title_id" => $request->account_title_id,
+            "account_title_name" => $request->account_title_name,
+            "module_name" => $request->module_name,
+            "total_item_price" => $newTotalPrice, // Using the calculated total price
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
+            "status" => "Pending",
+            "asset" => $request->asset,
+            "sgp" => $request->sgp,
+            "f1" => $request->f1,
+            "f2" => $request->f2,
+            "layer" => "1",
+            "rush" => $request->rush,
+            "outside_labor" => $request->outside_labor,
+            "cap_ex" => $request->cap_ex,
+            "direct_po" => $dateToday,
+            "helpdesk_id" => $request->helpdesk_id,
+            "cip_number" => $request->cip_number,
+            "description" => $request->description,
+        ]);
+
+        // Handle order updates
+        foreach ($orders as $index => $values) {
+            $newTotalPrice = $values["quantity"] * $values["price"];
+            JoPoOrders::withTrashed()->updateOrCreate(
+                [
+                    "id" => $values["id"] ?? null,
+                ],
+                [
+                    "jo_po_id" => $current_po->id, // Added this line
+                    "item_id" => $values["item_id"],
+                    "uom_id" => $values["uom_id"],
+                    "price" => $values["price"],
+                    "quantity" => $values["quantity"],
+                    "total_price" => $newTotalPrice,
+                    "attachment" => $values["attachment"],
+                    "remarks" => $values["remarks"],
+                    "asset" => $values["asset"],
+                    "asset_code" => $values["asset_code"],
+                ]
+            );
+        }
+
+        // Delete orders that are no longer present
+        $newOrderIds = collect($orders)
+            ->pluck("id")
+            ->toArray();
+        JoPoOrders::where("jo_po_id", $id)
+            ->whereNotIn("id", $newOrderIds)
+            ->forceDelete();
+
+        $activityDescription = "Job order purchase request ID: {$id} has been updated by UID: {$user_id}";
+
+        if (!empty($updatedItems)) {
+            $activityDescription .= ". Price updates: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .=
+                    "Item ID {$item["id"]}: " .
+                    "Price {$item["old_price"]} -> {$item["new_price"]}, " .
+                    "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
+            }
+            $activityDescription = rtrim($activityDescription, ", ");
+        }
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_po_id" => $id,
+            "action_by" => $user_id,
+        ]);
+
+        $layer_count = 1;
+
+        if ($requestor_setting_id->id === $charging_setting_id->id) {
+            foreach ($final_requestor_approvers as $approver) {
+                JoPoHistory::create([
+                    "jo_po_id" => $current_po->id, // Fixed variable name
+                    "approver_type" => "service provider",
+                    "approver_id" => $approver->approver_id,
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer_count++,
+                ]);
+            }
+        } else {
+            foreach ($final_requestor_approvers as $approver) {
+                JoPoHistory::create([
+                    "jo_po_id" => $current_po->id, // Fixed variable name
+                    "approver_type" => "service provider",
+                    "approver_id" => $approver->approver_id,
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer_count++,
+                ]);
+            }
+
+            foreach ($final_charging_approvers as $approver) {
+                JoPoHistory::create([
+                    "jo_po_id" => $current_po->id, // Fixed variable name
+                    "approver_type" => "charging",
+                    "approver_id" => $approver->approver_id,
+                    "approver_name" => $approver->approver_name,
+                    "layer" => $layer_count++,
+                ]);
+            }
+        }
+
+        $poTransaction = $current_po->fresh([
             "jo_po_orders",
             "jo_approver_history",
         ]);
@@ -748,21 +1029,7 @@ class PAController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $return_po = PurchaseAssistant::whereHas("order", function ($query) {
-            $query->whereNull("buyer_id");
-        })
-            ->whereHas("po_transaction", function ($query) {
-                $query->where("status", "Return");
-            })
-            ->with([
-                "po_transaction" => function ($query) {
-                    $query->where("status", "Return");
-                },
-                "order" => function ($query) {
-                    $query->whereNull("buyer_id");
-                },
-            ])
-            ->count();
+        $return_po = PurchaseAssistantPO::where("status", "Return")->count();
 
         $cancel = PurchaseAssistant::withCount([
             "po_transaction" => function ($query) {
@@ -896,6 +1163,16 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $jr_transaction = JobOrderTransaction::where(
+            "id",
+            $jo_po_transaction->jo_number
+        )->first();
+
+        $jr_transaction->update([
+            "status" => "Return",
+            "reason" => $reason,
+        ]);
+
         $jo_po = $jo_po_transaction->update([
             "status" => "Return",
             "reason" => $reason,
@@ -918,6 +1195,8 @@ class PAController extends Controller
         $jo_po_transaction->jo_approver_history()->update([
             "approved_at" => null,
         ]);
+
+        $jr_transaction->approver_history()->update(["approved_at" => null]);
 
         new JoPoResource($jo_po_transaction);
 

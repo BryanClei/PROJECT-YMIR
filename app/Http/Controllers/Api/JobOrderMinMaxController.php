@@ -34,19 +34,17 @@ class JobOrderMinMaxController extends Controller
 
     public function store(StoreRequest $request)
     {
-        DB::beginTransaction();
+        $existingRecord = JobOrderMinMax::first();
 
-        try {
-            $save_amount = JobOrderMinMax::create([
-                "amount_min" => $request->amount_min,
-            ]);
-
-            DB::commit();
-            return GlobalFunction::save(Message::MIN_MAX_SET, $save_amount);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return GlobalFunction::error($e);
+        if ($existingRecord) {
+            return GlobalFunction::responseFunction(Message::MIN_ERROR);
         }
+
+        $save_amount = JobOrderMinMax::create([
+            "amount_min" => $request->amount_min,
+        ]);
+
+        return GlobalFunction::save(Message::MIN_SET, $save_amount);
     }
 
     public function update(StoreRequest $request, $id)
@@ -57,24 +55,14 @@ class JobOrderMinMaxController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        DB::beginTransaction();
+        $current_min_max->update([
+            "amount_min" => $request->amount_min,
+        ]);
 
-        try {
-            $current_min_max->update([
-                "amount_min" => $request->amount_min,
-            ]);
+        DB::commit();
 
-            DB::commit();
+        $update_amount = JobOrderMinMax::where("id", $id)->first();
 
-            $update_amount = JobOrderMinMax::where("id", $id)->first();
-
-            return GlobalFunction::save(
-                Message::MIN_MAX_UPDATE,
-                $update_amount
-            );
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return GlobalFunction::error($e);
-        }
+        return GlobalFunction::save(Message::MIN_MAX_UPDATE, $update_amounts);
     }
 }

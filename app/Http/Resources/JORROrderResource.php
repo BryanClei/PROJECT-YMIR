@@ -16,11 +16,13 @@ class JORROrderResource extends JsonResource
     {
         return [
             "id" => $this->id,
+            "jo_year_number_id" => $this->jo_transaction->jo_year_number_id,
+            "po_year_number_id" => $this->jo_po_transaction->po_year_number_id,
             "rr_number" => $this->jo_rr_transaction->id,
             "jo_number" => $this->jo_rr_transaction->jo_id,
             "po_number" => $this->jo_rr_transaction->jo_po_id,
             "tagging_id" => $this->jo_rr_transaction->tagging_id,
-            "uom_id" => $this->order->uom_id,
+            "uom_id" => $this->order->uom,
             "description" => $this->order->description,
             "price" => $this->order->unit_price,
             "total_price" => $this->order->total_price,
@@ -29,6 +31,8 @@ class JORROrderResource extends JsonResource
             "shipment_no" => $this->shipment_no,
             "delivery_date" => $this->delivery_date,
             "rr_date" => $this->rr_date,
+            "jr_transaction" => $this->jo_transaction,
+            "jo_transaction" => $this->jo_po_transaction,
         ];
     }
 }

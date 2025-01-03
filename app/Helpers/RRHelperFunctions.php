@@ -20,9 +20,14 @@ class RRHelperFunctions
         return PRTransaction::where($column, $pr_no)->exists();
     }
 
+    public static function checkJRExists($pr_no)
+    {
+        return PRTransaction::where($pr_no)->exists();
+    }
+
     public static function getPoItems($orders)
     {
-        $itemIds = array_column($orders, "id");
+        $itemIds = array_column($orders, "item_id");
         return POItems::whereIn("id", $itemIds)
             ->get()
             ->keyBy("id")
@@ -32,7 +37,13 @@ class RRHelperFunctions
     public static function validateQuantities($orders, $po_items)
     {
         foreach ($orders as $order) {
-            $item = $po_items[$order["id"]];
+            $item_id = $order["item_id"];
+
+            if (!isset($po_items[$item_id])) {
+                return GlobalFunction::invalid(Message::ITEM_NOT_FOUND);
+            }
+
+            $item = $po_items[$item_id];
             $quantity_serve = $order["quantity_serve"];
             $remaining = $item["quantity"] - $item["quantity_serve"];
 
@@ -51,13 +62,15 @@ class RRHelperFunctions
                 return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
             }
         }
+
         return true;
     }
 
     public static function createRRTransaction(
         $po_transaction,
         $user_id,
-        $tagging_id
+        $tagging_id,
+        $attachment
     ) {
         $current_year = date("Y");
         $latest_rr = RRTransaction::withTrashed()
@@ -84,22 +97,31 @@ class RRHelperFunctions
             "received_by" => $user_id,
             "tagging_id" => $tagging_id,
             "transaction_date" => $date_today,
+            "attachment" => $attachment,
         ]);
 
         $rr_transaction->save();
         return $rr_transaction;
     }
 
-    public static function processOrders($orders, $po_items, $rr_transaction)
-    {
+    public static function processOrders(
+        $orders,
+        $po_items,
+        $rr_transaction,
+        $po_transactions
+    ) {
         $date_today = Carbon::now()
             ->timeZone("Asia/Manila")
             ->format("Y-m-d H:i");
 
         $itemDetails = [];
         foreach ($orders as $index => $order) {
-            $item_id = $order["id"];
+            $item_id = $order["item_id"];
             $quantity_serve = $order["quantity_serve"];
+            $po_no = $order["po_no"];
+
+            $po_transaction = $po_transactions->firstWhere("po_number", $po_no);
+
             $original_quantity = $po_items[$item_id]["quantity"];
             $original_quantity_serve = $po_items[$item_id]["quantity_serve"];
             $remaining =
@@ -111,9 +133,17 @@ class RRHelperFunctions
                 "quantity_receive" => $quantity_serve,
                 "remaining" => $remaining,
                 "date" => $date_today,
+                "po_no" => $po_no,
             ];
 
-            self::createRROrder($rr_transaction, $order, $remaining, $index);
+            self::createRROrder(
+                $rr_transaction,
+                $order,
+                $remaining,
+                $index,
+                $po_transaction
+            );
+
             self::updatePOItem(
                 $item_id,
                 $original_quantity_serve,
@@ -122,15 +152,15 @@ class RRHelperFunctions
         }
         return $itemDetails;
     }
-
     private static function createRROrder(
         $rr_transaction,
         $order,
         $remaining,
-        $orderIndex
+        $orderIndex,
+        $po_transaction = null
     ) {
         $filenames = self::processAttachments(
-            $order["attachment"],
+            $order["attachment"] ?? [],
             $rr_transaction->id,
             $orderIndex
         );
@@ -138,7 +168,9 @@ class RRHelperFunctions
         RROrders::create([
             "rr_number" => $rr_transaction->id,
             "rr_id" => $rr_transaction->id,
-            "item_id" => $order["id"],
+            "pr_id" => $po_transaction ? $po_transaction->pr_number : null,
+            "po_id" => $order["po_no"],
+            "item_id" => $order["item_id"],
             "item_code" => $order["item_code"],
             "item_name" => $order["item_name"],
             "quantity_receive" => $order["quantity_serve"],
@@ -148,6 +180,7 @@ class RRHelperFunctions
             "rr_date" => $order["rr_date"],
             "attachment" => json_encode($filenames),
             "sync" => 0,
+            "f_tagged" => 0,
         ]);
     }
 
@@ -184,7 +217,7 @@ class RRHelperFunctions
         $itemDetails
     ) {
         $itemList = array_map(function ($item) {
-            return "{$item["item_name"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, Date Received: {$item["date"]})";
+            return "{$item["item_name"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, PO: {$item["po_no"]}, Date Received: {$item["date"]})";
         }, $itemDetails);
 
         $activityDescription =
@@ -227,6 +260,9 @@ class RRHelperFunctions
         $rr_number,
         &$itemDetails
     ) {
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
         $remaining = $po_orders->quantity - $po_orders->quantity_serve;
 
         $itemDetails[] = [
@@ -235,11 +271,14 @@ class RRHelperFunctions
             "remaining" =>
                 $remaining - $request["order"][$index]["quantity_serve"],
             "date" => $date_today,
+            "po_no" => $request["order"][$index]["po_no"],
         ];
 
         $add_previous = RROrders::create([
             "rr_number" => $rr_number,
             "rr_id" => $rr_number,
+            "pr_id" => $request["order"][$index]["pr_no"],
+            "po_id" => $request["order"][$index]["po_no"],
             "item_id" => $rr_orders_id,
             "item_name" => $request["order"][$index]["item_name"],
             "item_code" => $request["order"][$index]["item_code"],
@@ -250,6 +289,7 @@ class RRHelperFunctions
             "delivery_date" => $request["order"][$index]["delivery_date"],
             "rr_date" => $request["order"][$index]["rr_date"],
             "sync" => 0,
+            "f_tagged" => 0,
         ]);
 
         $po_orders->update([

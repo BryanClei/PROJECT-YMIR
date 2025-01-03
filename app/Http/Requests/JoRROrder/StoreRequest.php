@@ -24,8 +24,14 @@ class StoreRequest extends FormRequest
     public function rules()
     {
         return [
-            "jo_po" => "required|exists:jo_po_transactions,id,deleted_at,NULL",
-            "jo_id" => "required|exists:jo_transactions,id,deleted_at,NULL",
+            "rr_order.*.jo_po_id" => [
+                "required",
+                "exists:jo_po_transactions,id,deleted_at,NULL",
+            ],
+            "rr_order.*.jo_id" => [
+                "required",
+                "exists:jo_transactions,id,deleted_at,NULL",
+            ],
             "rr_order.*.jo_item_id" => [
                 "required",
                 "exists:jo_po_orders,id,deleted_at,NULL",

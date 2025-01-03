@@ -78,7 +78,7 @@ class ApproverDashboardJOPO extends Model
 
     public function jo_approver_history()
     {
-        return $this->hasMany(JoPoHistory::class, "jo_po_id", "po_number");
+        return $this->hasMany(JoPoHistory::class, "jo_po_id", "id");
     }
 
     public function supplier()

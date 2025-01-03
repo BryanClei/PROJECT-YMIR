@@ -14,6 +14,7 @@ return new class extends Migration {
     {
         Schema::create("jo_rr_transactions", function (Blueprint $table) {
             $table->increments("id");
+            $table->string("jo_rr_year_number_id");
             $table->unsignedInteger("jo_po_id")->index();
             $table
                 ->foreign("jo_po_id")
@@ -30,7 +31,9 @@ return new class extends Migration {
                 ->references("id")
                 ->on("users");
             $table->string("tagging_id");
-            $table->string("reason")->nullable();
+            $table->timestamp("transaction_date")->nullable();
+            $table->string("attachment")->nullable();
+            $table->longText("reason")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

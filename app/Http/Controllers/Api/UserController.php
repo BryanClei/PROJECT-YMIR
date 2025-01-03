@@ -34,7 +34,7 @@ class UserController extends Controller
         $is_empty = $user->isEmpty();
 
         if ($is_empty) {
-            return GlobalFunction::notFound();
+            return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
         UserResource::collection($user);

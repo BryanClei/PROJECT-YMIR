@@ -21,6 +21,7 @@ class JobOrderHistoryResource extends JsonResource
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
             "layer" => $this->layer,
+            "approver_type" => $this->approver_type,
         ];
     }
 }

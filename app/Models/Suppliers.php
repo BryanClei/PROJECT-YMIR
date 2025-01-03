@@ -14,7 +14,14 @@ class Suppliers extends Model
     protected $connection = "mysql";
     protected string $default_filters = SuppliersFilters::class;
 
-    protected $fillable = ["code", "name", "term"];
+    protected $fillable = [
+        "code",
+        "name",
+        "term",
+        "type",
+        "address_1",
+        "address_2",
+    ];
 
     protected $hidden = ["created_at"];
 }

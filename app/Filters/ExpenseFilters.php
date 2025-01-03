@@ -48,10 +48,11 @@ class ExpenseFilters extends QueryFilters
 
         $this->builder
             ->when($status === "pending", function ($query) use ($user_id) {
-                $query
-                    ->where("user_id", $user_id)
-                    ->where("status", "Pending")
-                    ->orWhere("status", "For Approval");
+                $query->where("user_id", $user_id)->where(function ($query) {
+                    $query
+                        ->where("status", "Pending")
+                        ->orWhere("status", "For Approval");
+                });
             })
             ->when($status === "for_po_pending", function ($query) use (
                 $user_id

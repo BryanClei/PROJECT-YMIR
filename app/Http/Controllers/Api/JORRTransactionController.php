@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use Carbon\Carbon;
 use App\Response\Message;
 use App\Models\JoPoOrders;
 use App\Models\JORROrders;
+use App\Models\LogHistory;
 use Illuminate\Http\Request;
 use App\Models\JOPOTransaction;
 use App\Models\JORRTransaction;
 use App\Http\Requests\JODisplay;
 use App\Functions\GlobalFunction;
+use App\Helpers\RRHelperFunctions;
+use App\Http\Requests\JORRDisplay;
 use App\Http\Requests\PO\PORequest;
 use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
@@ -19,12 +23,18 @@ use App\Http\Resources\JORRResource;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\JORROrderResource;
 use App\Http\Requests\JoRROrder\StoreRequest;
+use App\Http\Requests\ReceivedReceipt\MultipleRequest;
 
 class JORRTransactionController extends Controller
 {
     public function index(JODisplay $request)
     {
-        $display = JORRTransaction::with("rr_orders", "jo_po_transactions")
+        $display = JORRTransaction::with(
+            "rr_orders",
+            "jo_po_transactions",
+            "jr_order",
+            "log_history"
+        )
             ->withTrashed()
             ->useFilters()
             ->dynamicPaginate();
@@ -33,16 +43,16 @@ class JORRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new JORRResource($display);
+        JORRResource::collection($display);
         return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
     }
 
     public function show(Request $request, $id)
     {
         $jo_rr_transaction = JORRTransaction::with(
-            "rr_orders",
-            "jo_po_transactions",
-            "jo_po_transactions.order"
+            "rr_orders.jo_po_transaction.jo_po_orders.uom",
+            "jo_po_transactions.order.uom",
+            "log_history"
         )
             ->where("id", $id)
             ->orderByDesc("updated_at")
@@ -65,7 +75,7 @@ class JORRTransactionController extends Controller
         $user_id = Auth()->user()->id;
         $status = $request->status;
         $job_order_request = JOPOTransaction::with(
-            "jo_po_orders",
+            "jo_po_orders.uom",
             "jo_approver_history",
             "jo_transaction.users"
         )
@@ -89,7 +99,13 @@ class JORRTransactionController extends Controller
     public function view_single_approve_jo_po(Request $request, $id)
     {
         $job_order_request = JOPOTransaction::where("id", $id)
-            ->with("jo_po_orders", "jo_approver_history", "jo_rr_transaction")
+            ->with([
+                "jo_po_orders",
+                "jo_approver_history",
+                "jo_rr_transaction" => function ($query) {
+                    $query->withTrashed()->with("rr_orders");
+                },
+            ])
             ->orderByDesc("updated_at")
             ->first();
 
@@ -99,21 +115,28 @@ class JORRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $collect = new JoPoResource($job_order_request);
+        $jo = new JoPoResource($job_order_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_DISPLAY,
-            $collect
+            $jo
         );
     }
 
     public function store(StoreRequest $request)
     {
         $user_id = Auth()->user()->id;
-        $po_id = $request->jo_po;
-        $jo_po_transaction = JOPOTransaction::where("id", $po_id)
-            ->get()
-            ->first();
+        // $po_id = $request->jo_po_id;
+        // $jo_po_transaction = JOPOTransaction::where("id", $po_id)->first();
+
+        $po_numbers = array_unique(
+            array_column($request->rr_order, "jo_po_id")
+        );
+
+        $jo_po_transaction = JOPOTransaction::whereIn(
+            "po_number",
+            $po_numbers
+        )->first();
 
         $orders = $request->rr_order;
 
@@ -121,9 +144,7 @@ class JORRTransactionController extends Controller
             $itemIds = $request["rr_order"][$index]["jo_item_id"];
             $quantity_serve = $request["rr_order"][$index]["quantity_serve"];
 
-            $jo_order = JoPoOrders::where("id", $itemIds)
-                ->get()
-                ->first();
+            $jo_order = JoPoOrders::where("id", $itemIds)->first();
 
             if ($jo_order->quantity_serve <= 0) {
                 if ($jo_order->quantity < $quantity_serve) {
@@ -144,21 +165,42 @@ class JORRTransactionController extends Controller
             }
         }
 
+        $current_year = date("Y");
+        $latest_rr = JORRTransaction::withTrashed()
+            ->where("jo_rr_year_number_id", "like", $current_year . "-RR-%")
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(jo_rr_year_number_id, '-', -1) AS UNSIGNED) DESC"
+            )
+            ->first();
+
+        $new_number = $latest_rr
+            ? (int) explode("-", $latest_rr->jo_rr_year_number_id)[2] + 1
+            : 1;
+        $jo_rr_year_number_id =
+            $current_year . "-RR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i:s");
+
         $jo_rr_transaction = new JORRTransaction([
+            "jo_rr_year_number_id" => $jo_rr_year_number_id,
             "jo_po_id" => $jo_po_transaction->po_number,
             "jo_id" => $jo_po_transaction->jo_number,
             "received_by" => $user_id,
             "tagging_id" => $request->tagging_id,
+            "transaction_date" => $request->transaction_date,
+            "attachment" => $request->attachment,
         ]);
 
         $jo_rr_transaction->save();
 
+        $itemDetails = [];
+
         foreach ($orders as $index => $values) {
             $itemIds = $request["rr_order"][$index]["jo_item_id"];
 
-            $jo_order = JoPoOrders::where("id", $itemIds)
-                ->get()
-                ->first();
+            $jo_order = JoPoOrders::where("id", $itemIds)->first();
 
             $original_quantity = $jo_order->quantity;
             $original_quantity_serve =
@@ -166,10 +208,13 @@ class JORRTransactionController extends Controller
                 $request["rr_order"][$index]["quantity_serve"];
             $remaining_quantity = $original_quantity - $original_quantity_serve;
 
-            JORROrders::create([
+            $createdOrder = JORROrders::create([
                 "jo_rr_number" => $jo_rr_transaction->id,
                 "jo_rr_id" => $jo_rr_transaction->id,
+                "jo_po_id" => $request["rr_order"][$index]["jo_po_id"],
+                "jo_id" => $request["rr_order"][$index]["jo_id"],
                 "jo_item_id" => $jo_order->id,
+                "description" => $request["rr_order"][$index]["description"],
                 "quantity_receive" =>
                     $request["rr_order"][$index]["quantity_serve"],
                 "remaining" => $remaining_quantity,
@@ -182,10 +227,129 @@ class JORRTransactionController extends Controller
             JoPoOrders::where("id", $itemIds)->update([
                 "quantity_serve" => $original_quantity_serve,
             ]);
+
+            $itemDetails[] = [
+                "description" => $jo_order->description,
+                "quantity_receive" =>
+                    $request["rr_order"][$index]["quantity_serve"],
+                "remaining" => $remaining_quantity,
+                "date" => $request["rr_order"][$index]["rr_date"],
+            ];
         }
 
+        $itemList = array_map(function ($item) {
+            return "{$item["description"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, Date Received: {$item["date"]})";
+        }, $itemDetails);
+
+        $activityDescription =
+            "Received Receipt ID" .
+            ": {$jo_rr_transaction->id} has been received by UID: {$user_id}. Items received: " .
+            implode(", ", $itemList);
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_rr_id" => $jo_rr_transaction->id,
+            "action_by" => $user_id,
+        ]);
+
         $rr_collect = JORRResource::collection(collect([$jo_rr_transaction]));
-        // $rr_collect = new JORRResource($jo_rr_transaction);
+
+        return GlobalFunction::responseFunction(
+            Message::RR_DISPLAY,
+            $rr_collect
+        );
+    }
+
+    public function jo_rr_multiple(MultipleRequest $request, $id)
+    {
+        $rr_number = $id;
+        $created_orders = [];
+        $user_id = Auth()->user()->id;
+
+        $jo_rr_transaction = JORRTransaction::where("id", $rr_number)->first();
+
+        if (!$jo_rr_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        foreach ($request->rr_order as $index => $order) {
+            $po_order = JoPoOrders::where("id", $order["jo_item_id"])
+                ->where("jo_po_id", $order["jo_po_id"])
+                ->first();
+
+            if (!$po_order) {
+                return GlobalFunction::invalid("Invalid PO item combination");
+            }
+
+            $remaining = $po_order->quantity - $po_order->quantity_serve;
+
+            if ($order["quantity_serve"] > $remaining) {
+                return GlobalFunction::invalid(
+                    Message::QUANTITY_VALIDATION .
+                        " for PO item: " .
+                        $order["jo_item_id"]
+                );
+            }
+        }
+
+        $itemDetails = [];
+
+        foreach ($request->rr_order as $index => $order) {
+            $po_order = JoPoOrders::where("id", $order["jo_item_id"])
+                ->where("jo_po_id", $order["jo_po_id"])
+                ->first();
+
+            $original_quantity_serve =
+                $po_order->quantity_serve + $order["quantity_serve"];
+            $remaining_quantity =
+                $po_order->quantity - $original_quantity_serve;
+
+            $add_previous = JORROrders::create([
+                "jo_rr_number" => $jo_rr_transaction->id,
+                "jo_rr_id" => $jo_rr_transaction->id,
+                "jo_po_id" => $po_order->jo_po_id,
+                "jo_id" => $po_order->jo_transaction_id,
+                "jo_item_id" => $order["jo_item_id"],
+                "description" => $order["description"],
+                "quantity_receive" => $order["quantity_serve"],
+                "remaining" => $remaining_quantity,
+                "shipment_no" => $order["shipment_no"],
+                "delivery_date" => $order["delivery_date"],
+                "rr_date" => $order["rr_date"],
+                "attachment" => $order["attachment"],
+            ]);
+
+            $itemDetails[] = [
+                "item_name" => $order["description"],
+                "quantity_receive" => $order["quantity_serve"],
+                "remaining" => $remaining_quantity,
+                "po_no" => $order["jo_po_id"],
+                "date" => $order["rr_date"],
+            ];
+
+            $created_orders[] = $add_previous;
+
+            JoPoOrders::where("id", $order["jo_item_id"])->update([
+                "quantity_serve" => $original_quantity_serve,
+            ]);
+        }
+
+        $itemList = array_map(function ($item) {
+            return "{$item["item_name"]} (Received: {$item["quantity_receive"]}, Remaining: {$item["remaining"]}, PO: {$item["po_no"]}, Date Received: {$item["date"]})";
+        }, $itemDetails);
+
+        $activityDescription =
+            "Received Receipt ID: {$jo_rr_transaction->id} has been received by UID: {$user_id}. Items received: " .
+            implode(", ", $itemList);
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_rr_id" => $jo_rr_transaction->id,
+            "action_by" => $user_id,
+        ]);
+
+        $rr_collect = JORROrderResource::collection($created_orders);
+
         return GlobalFunction::responseFunction(
             Message::RR_DISPLAY,
             $rr_collect
@@ -230,8 +394,8 @@ class JORRTransactionController extends Controller
             $remaining_quantity = $original_quantity - $original_quantity_serve;
 
             $add_previous = JORROrders::create([
-                "jo_rr_number" => $rr_number,
-                "jo_rr_id" => $rr_number,
+                "jo_rr_number" => $request["rr_order"][$index]["jo_rr_number"],
+                "jo_rr_id" => $request["rr_order"][$index]["jo_rr_id"],
                 "jo_item_id" => $rr_orders_id,
                 "quantity_receive" =>
                     $request["rr_order"][$index]["quantity_serve"],
@@ -259,8 +423,11 @@ class JORRTransactionController extends Controller
         );
     }
 
-    public function cancel_jo_rr($id)
+    public function cancel_jo_rr(PORequest $request, $id)
     {
+        $user = Auth()->user()->id;
+        $reason = $request->reason;
+
         $rr_transaction = JORRTransaction::where("id", $id)
             ->with("rr_orders", "jo_po_order")
             ->first();
@@ -276,16 +443,25 @@ class JORRTransactionController extends Controller
         foreach ($rr_transaction->rr_orders as $rr_order) {
             $po_item = $po_items->where("id", $rr_order->jo_item_id)->first();
 
-            if ($po_item) {
-                $po_item->quantity_serve -= $rr_order->quantity_receive;
-                $po_item->save();
-            }
+            // if ($po_item) {
+            //     $po_item->quantity_serve -= $rr_order->quantity_receive;
+            //     $po_item->save();
+            // }
 
             $rr_order->delete();
         }
 
+        $activityDescription = "Received Receipt ID: {$rr_transaction->id} has been cancelled by UID: {$user}. Reason: {$reason}.";
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_rr_id" => $rr_transaction->id,
+            "action_by" => $user,
+        ]);
+
         $cancelled_rr_transaction = $rr_transaction;
 
+        $rr_transaction->update(["reason" => $reason]);
         $rr_transaction->delete();
 
         return GlobalFunction::responseFunction(
@@ -348,5 +524,38 @@ class JORRTransactionController extends Controller
             Message::PURCHASE_REQUEST_DISPLAY,
             $jo_order
         );
+    }
+
+    public function cancel_jo_rr_display(JORRDisplay $request)
+    {
+        $display = JORRTransaction::whereNotNull("deleted_at")
+            ->with("rr_orders", "jo_po_transactions", "log_history")
+            ->withTrashed()
+            ->useFilters()
+            ->dynamicPaginate();
+
+        if ($display->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        JORRResource::collection($display);
+        return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
+    }
+
+    public function cancel_jo_rr_display_show($id)
+    {
+        $display = JORRTransaction::where("id", $id)
+            ->whereNotNull("deleted_at")
+            ->with("rr_orders", "jo_po_transactions", "log_history")
+            ->withTrashed()
+            ->useFilters()
+            ->dynamicPaginate();
+
+        if ($display->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        JORRResource::collection($display);
+        return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
     }
 }

@@ -931,6 +931,81 @@ class PRTransactionController extends Controller
     //     return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
     // }
 
+    // production pretest store multiple for public path
+    // public function store_multiple(UploadRequest $request, $id)
+    // {
+    //     $files = $request->file("files");
+    //     $filenames = $request->input("filenames", []);
+    //     $type = $request->input("type");
+
+    //     $typeSelectors = [
+    //         "pr" => "pr",
+    //         "po" => "po",
+    //         "jo" => "jo",
+    //         "rr" => "rr",
+    //     ];
+
+    //     if (!isset($typeSelectors[$type])) {
+    //         throw new \Exception("Invalid type");
+    //     }
+
+    //     $selector = $typeSelectors[$type];
+    //     $updateFilename = $request->input("update_file", false);
+    //     $uploadedFiles = [];
+
+    //     $publicHtmlPath = '/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment';
+
+    //     if (!File::exists($publicHtmlPath)) {
+    //         File::makeDirectory($publicHtmlPath, 0755, true);
+    //     }
+
+    //     foreach ($files as $itemIndex => $itemFiles) {
+    //         foreach ($itemFiles as $fileIndex => $file) {
+    //             if (!$file->isValid()) {
+    //                 continue;
+    //             }
+
+    //             if (
+    //                 $updateFilename &&
+    //                 isset($filenames[$itemIndex][$fileIndex])
+    //             ) {
+    //                 $filename = $filenames[$itemIndex][$fileIndex];
+
+    //                 $filePath = "app/public/pretestomega.rdfymir.com/attachment/{$filename}";
+    //                 if (File::exists(storage_path($filePath))) {
+    //                     File::delete(storage_path($filePath));
+    //                 }
+    //             }
+
+    //             $originalFilename = pathinfo(
+    //                 $file->getClientOriginalName(),
+    //                 PATHINFO_FILENAME
+    //             );
+
+    //             $filename =
+    //                 "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
+    //                 "." .
+    //                 $file->getClientOriginalExtension();
+
+    //             $stored = $file->move($publicHtmlPath, $filename);
+
+    //             if ($stored) {
+    //                 $uploadedFiles[] = [
+    //                     "filename" => $filename,
+    //                     "filepath" => "{$publicHtmlPath}/{$filename}",
+    //                     "url" => "https://pretestomega.rdfymir.com/attachment/{$filename}", // Correct URL for accessing the file
+    //                 ];
+    //             } else {
+    //                 $message = "Failed to store file: {$filename}";
+    //                 return GlobalFunction::uploadfailed($message, $files);
+    //             }
+    //         }
+    //     }
+
+    //     $message = Message::UPLOAD_SUCCESSFUL;
+    //     return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
+    // }
+
     public function download($filename)
     {
         $disk = Storage::disk("public");
@@ -953,6 +1028,26 @@ class PRTransactionController extends Controller
     // public function download($filename)
     // {
     //     $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
+
+    //     $filePath = "{$publicHtmlPath}/{$filename}";
+
+    //     if (!File::exists($filePath)) {
+    //         $message = Message::FILE_NOT_FOUND;
+    //         return GlobalFunction::uploadfailed(
+    //             $message,
+    //             $filename
+    //         )->setStatusCode(Message::DATA_NOT_FOUND);
+    //     }
+
+    //     return response()
+    //         ->download($filePath, $filename)
+    //         ->setStatusCode(200);
+    // }
+
+    // Production Pretest Download for public path
+    // public function download($filename)
+    // {
+    //     $publicHtmlPath = '/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment';
 
     //     $filePath = "{$publicHtmlPath}/{$filename}";
 
@@ -1044,6 +1139,7 @@ class PRTransactionController extends Controller
             ->where("status", "Pending")
             ->orWhere("status", "For Approval")
             ->count();
+
         $rejected_pr_inventoriables_count = PRTransaction::where(
             "type_name",
             "Inventoriable"

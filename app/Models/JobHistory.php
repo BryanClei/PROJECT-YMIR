@@ -12,6 +12,7 @@ class JobHistory extends Model
     protected $table = "jo_history";
     protected $fillable = [
         "jo_id",
+        "approver_type",
         "approver_id",
         "approver_name",
         "approved_at",

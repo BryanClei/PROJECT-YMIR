@@ -15,6 +15,8 @@ class JobItems extends Model
         "jo_transaction_id",
         "description",
         "uom_id",
+        "po_at",
+        "purchase_order_id",
         "quantity",
         "unit_price",
         "total_price",
