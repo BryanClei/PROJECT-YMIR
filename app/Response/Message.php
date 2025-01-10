@@ -36,7 +36,6 @@ class Message
     const PURCHASE_REQUEST_SAVE = "Purchase request successfully save.";
     const APPROVERS_SAVE = "Approvers successfully save.";
     const PURCHASE_ORDER_SAVE = "Purchase order successfully save.";
-    const JOB_ORDER_SAVE = "Job order successfully save.";
     const CATEGORIES_SAVE = "Category successfully save.";
     const UPLOAD_SUCCESSFUL = "Upload successfully save.";
     const NO_FILE_UPLOAD = "PR successfully created. No file uploaded.";
@@ -44,7 +43,6 @@ class Message
     const RR_SAVE = "Received Receipt successfully save.";
     const ALLOWABLE_SAVE = "Allowable percentage successfully save.";
     const SMALL_TOOLS_SAVE = "Small tools save successfully.";
-    const PURCHASE_REQUEST_AND_ORDER_SAVE = "Job Order Purchase Request & Purchase Order save successfully.";
     const MIN_MAX_SET = "Job order min and max successfully set.";
     const MIN_SET = "Job order min successfully set.";
 
@@ -118,7 +116,7 @@ class Message
     const RESUBMITTED_PO = "Purchase order successfully resubmitted.";
     const BUYER_TAGGED = "Buyer tagged successfully.";
     const BUYER_UPDATED = "Buyer updated succesfully.";
-    const CANCELLED_ALREADY = "Purchase Request already cancelled by requestor. Please Contact the requestor for more details";
+    const CANCELLED_ALREADY = "Purchase Request already cancelled. Please Contact the requestor for more details";
     const PO_CANCELLED_ALREADY = "Purchase Order already cancelled by requestor. Please Contact the requestor for more details";
     const VOIDED_ALREADY = "Purchase Request already voided by requestor. Please Contact the requestor for more details";
     const RR_UPDATE = "RR transaction updated successfully";
@@ -129,6 +127,7 @@ class Message
     const SMALL_TOOLS_UPDATE = "Small tools update successfully.";
     const MIN_MAX_UPDATE = "Job order min and max update successfully.";
     const PURCHASE_REQUEST_AND_ORDER_UPDATE = "Purchase request and purchase order updated successfully.";
+
     const RR_TAGGED_FISTO = "RR orders tagged successfully.";
 
     //SOFT DELETE
@@ -147,6 +146,7 @@ class Message
     const ITEM_NOT_FOUND = "Item does not exist.";
     const MIN_ERROR = "Only one record is allowed.";
     const NO_ITEM_FOUND = "No item found to tag.";
+    const NO_MIN_MAX = "Invalid setup please contact support.";
     //VALIDATION
     const SINGLE_VALIDATION = "Data has been validated.";
     const INVALID_ACTION = "Invalid action.";
@@ -176,4 +176,19 @@ class Message
     const PO_REJECTED = "Purchase order has been rejected.";
     const PO_VOIDED = "Purchase order has been voided.";
     const PO_APPORVED = "Purchase order successfully approved.";
+
+    //JR Response
+    const JOB_REQUEST_SAVE = "Job request successfully save.";
+    const JOB_REQUEST_CANCELLED = "Job request has been cancelled.";
+    const JOB_REQUEST_UPDATE = "Job request successfully updated  .";
+
+    //Jo Response
+    const JOB_ORDER_SAVE = "Job order successfully save.";
+    const JO_CANCELLED = "Job order has been rejected.";
+
+    //Jr Jo Response
+    const PURCHASE_REQUEST_AND_ORDER_SAVE = "Job Request and Job Order save successfully.";
+    const JR_AND_JO_CANCELLED_REMAINING_ITEMS = "Job Request and Job Order have been cancelled for the remaining items.";
+    const JOB_REQUEST_AND_ORDER_UPDATE = "Job request and job order successfully updated.";
+    const JR_AND_JO_CANCELLED = "Job Request and Job Order have been cancelled.";
 }

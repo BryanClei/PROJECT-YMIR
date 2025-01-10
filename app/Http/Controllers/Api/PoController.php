@@ -212,7 +212,7 @@ class PoController extends Controller
             "f2" => $request->f2,
             "rush" => $request->rush,
             "layer" => "1",
-            "description" => $request->description,
+            "description" => $request->po_description,
         ]);
         $purchase_order->save();
 
@@ -456,6 +456,7 @@ class PoController extends Controller
                 $newTotalPrice =
                     $values["total_price"] ??
                     $newUnitPrice * $values["quantity"];
+                $item_name = $originalItem["description"];
 
                 if (
                     $oldUnitPrice != $newUnitPrice ||
@@ -463,6 +464,7 @@ class PoController extends Controller
                 ) {
                     $updatedItems[] = [
                         "id" => $values["id"],
+                        "name" => $item_name,
                         "old_unit_price" => $oldUnitPrice,
                         "new_unit_price" => $newUnitPrice,
                         "old_total_price" => $oldTotalPrice,
@@ -483,7 +485,7 @@ class PoController extends Controller
             foreach ($updatedItems as $item) {
                 $activityDescription .=
                     "Item ID {$item["id"]}: " .
-                    "Unit price {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
+                    "{$item["name"]} {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
                     "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
             }
             $activityDescription = rtrim($activityDescription, ", ");
@@ -652,7 +654,7 @@ class PoController extends Controller
             "description" => $request->description,
             "status" => "Pending",
             "rejected_at" => null,
-            "reason" => null,
+            "reason" => $request->reason,
             "layer" => "1",
             // "supplier_id" => $request->supplier_id,
             // "supplier_name" => $request->supplier_name,
@@ -695,7 +697,7 @@ class PoController extends Controller
                 [
                     "po_id" => $purchase_order->id,
                     "pr_id" => $purchase_order->pr_number,
-                    "reference_no" => $values["reference_no"],
+                    // "reference_no" => $values["reference_no"],
                     "item_id" => $values["item_id"],
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Role;
+use App\Models\User;
 use App\Response\Message;
 use Illuminate\Http\Request;
 use App\Functions\GlobalFunction;
@@ -15,10 +16,16 @@ class RoleController extends Controller
     public function index(DisplayRequest $request)
     {
         $status = $request->status;
+        $uid = Auth()->user()->id;
+
+        $username = User::where("id", $uid)->value("username");
 
         $role = Role::when($status === "inactive", function ($query) {
             $query->onlyTrashed();
         })
+            ->when($username !== "admin", function ($query) {
+                $query->where("name", "!=", "Super Admin");
+            })
             ->useFilters()
             ->orderByDesc("updated_at")
             ->dynamicPaginate();

@@ -64,6 +64,14 @@ class JobOrderTransactionController extends Controller
     }
     public function store(StoreRequest $request)
     {
+        // $amount_min_max = JobOrderMinMax::get();
+
+        // if ($amount_min_max->isEmpty()) {
+        //     return GlobalFunction::notFound(Message::NO_MIN_MAX);
+        // }
+
+        // return "stop";
+
         $user_id = Auth()->user()->id;
         $requestor_deptartment_id = Auth()->user()->department_id;
         $requestor_department_unit_id = Auth()->user()->department_unit_id;
@@ -85,6 +93,10 @@ class JobOrderTransactionController extends Controller
         $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
 
         $amount_min_max = JobOrderMinMax::first();
+
+        if (is_null($amount_min_max)) {
+            return GloblaFunction::notFound(Message::NO_MIN_MAX);
+        }
 
         $direct_po = $sumOfTotalPrices <= $amount_min_max->amount_min;
 
@@ -223,17 +235,17 @@ class JobOrderTransactionController extends Controller
                 ]);
 
                 $job_items[] = $job_item;
-
-                LogHistory::create([
-                    "activity" =>
-                        "Job order purchase request ID: " .
-                        $job_order_request->id .
-                        " has been created by UID: " .
-                        $user_id,
-                    "jo_id" => $job_order_request->id,
-                    "action_by" => $user_id,
-                ]);
             }
+
+            LogHistory::create([
+                "activity" =>
+                    "Job order purchase request ID: " .
+                    $job_order_request->id .
+                    " has been created by UID: " .
+                    $user_id,
+                "jo_id" => $job_order_request->id,
+                "action_by" => $user_id,
+            ]);
 
             $latest_po = GlobalFunction::latest_jo($current_year);
 
@@ -274,6 +286,23 @@ class JobOrderTransactionController extends Controller
             $job_order_po->save();
 
             foreach ($orders as $index => $values) {
+                $attachments = $request["order"][$index]["attachment"];
+
+                if (!empty($attachments)) {
+                    $filenames = [];
+                    foreach ($attachments as $fileIndex => $file) {
+                        $originalFilename = basename($file);
+                        $info = pathinfo($originalFilename);
+                        $filenameOnly = $info["filename"];
+                        $extension = $info["extension"];
+                        $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filenames[] = $filename;
+                    }
+                    $filenames = $filenames;
+                } else {
+                    $filenames = $attachments;
+                }
+
                 JoPoOrders::create([
                     "jo_po_id" => $job_order_po->id,
                     "jo_transaction_id" => $job_order_request->id,
@@ -285,7 +314,7 @@ class JobOrderTransactionController extends Controller
                     "quantity_serve" => 0,
                     "total_price" =>
                         $values["unit_price"] * $values["quantity"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => $filenames,
                     "remarks" => $values["remarks"],
                     "asset" => $values["asset"],
                     "asset_code" => $values["asset_code"],
@@ -504,7 +533,7 @@ class JobOrderTransactionController extends Controller
             $message =
                 isset($job_order_po) && $job_order_po
                     ? Message::PURCHASE_REQUEST_AND_ORDER_SAVE
-                    : Message::PURCHASE_REQUEST_SAVE;
+                    : Message::JOB_REQUEST_SAVE;
 
             return GlobalFunction::save($message, [
                 "pr" => new JobOrderResource($job_order_request),
@@ -515,7 +544,7 @@ class JobOrderTransactionController extends Controller
             ]);
         }
     }
-    
+
     public function update(UpdateRequest $request, $id)
     {
         $user_id = Auth()->user()->id;
@@ -531,10 +560,9 @@ class JobOrderTransactionController extends Controller
         $orders = $request->order;
 
         $current_jr = JobOrderTransaction::where("id", $id)->first();
-        $current_po = JOPOTransaction::where(
-            "jo_number",
-            $current_jr->jo_number
-        )->first();
+        $current_po = JOPOTransaction::withoutTrashed()
+            ->where("jo_number", $current_jr->jo_number)
+            ->first();
 
         $newTotalPrice = array_sum(array_column($orders, "total_price"));
 
@@ -543,10 +571,30 @@ class JobOrderTransactionController extends Controller
         $currentTotalPrice = $currentItems->sum("total_price");
 
         $amount_min_max = JobOrderMinMax::first();
+
+        if (is_null($amount_min_max)) {
+            return GloblaFunction::notFound(Message::NO_MIN_MAX);
+        }
+
         $is_price_increased = $newTotalPrice > $currentTotalPrice;
         $is_price_decreased = $newTotalPrice < $currentTotalPrice;
-        $was_direct = $currentTotalPrice <= $amount_min_max->amount_min;
-        $will_be_direct = $newTotalPrice <= $amount_min_max->amount_min;
+
+        $was_direct = $current_jr->outside_labor;
+        if (!$was_direct) {
+            $was_direct = $currentTotalPrice <= $amount_min_max->amount_min;
+        }
+
+        $will_be_direct = $request->outside_labor;
+        if (!$will_be_direct) {
+            $will_be_direct = $newTotalPrice <= $amount_min_max->amount_min;
+        }
+
+        if (
+            !$request->outside_labor &&
+            $newTotalPrice > $amount_min_max->amount_min
+        ) {
+            $will_be_direct = false;
+        }
 
         $common_data = [
             "outside_labor" => $request->outside_labor,
@@ -655,6 +703,8 @@ class JobOrderTransactionController extends Controller
 
                     if ($current_po) {
                         $current_po->update([
+                            "supplier_id" => $request->supplier_id,
+                            "supplier_name" => $request->supplier_name,
                             "status" => "Pending",
                             "cancelled_at" => null,
                             "rejected_at" => null,
@@ -750,6 +800,14 @@ class JobOrderTransactionController extends Controller
                             }
                         }
                     }
+                } else {
+                    $current_po->update(
+                        array_merge($common_data, [
+                            "supplier_id" => $request->supplier_id,
+                            "supplier_name" => $request->supplier_name,
+                            "jo_number" => $current_jr->jo_number,
+                        ])
+                    );
                 }
             }
         } else {
@@ -964,6 +1022,28 @@ class JobOrderTransactionController extends Controller
             ]);
         }
 
+        if ($request->resubmit) {
+            if ($current_po) {
+                $current_jr->update([
+                    "status" => "Approved",
+                    "cancelled_at" => null,
+                    "rejected_at" => null,
+                ]);
+
+                $current_po->update([
+                    "status" => "Pending",
+                    "cancelled_at" => null,
+                    "rejected_at" => null,
+                ]);
+            } else {
+                $current_jr->update([
+                    "status" => "Pending",
+                    "cancelled_at" => null,
+                    "rejected_at" => null,
+                ]);
+            }
+        }
+
         foreach ($orders as $index => $values) {
             $existingItem = $existingItems->firstWhere("id", $values["id"]);
 
@@ -1096,6 +1176,7 @@ class JobOrderTransactionController extends Controller
                     $oldUnitPrice = $existingItem->unit_price;
                     $newUnitPrice = $values["unit_price"];
                     $oldTotalPrice = $existingItem->total_price;
+                    $item_name = $existingItem->description;
                     $newTotalPrice =
                         $values["unit_price"] * $values["quantity"];
 
@@ -1105,6 +1186,7 @@ class JobOrderTransactionController extends Controller
                     ) {
                         $updatedItems[] = [
                             "id" => $values["id"],
+                            "name" => $item_name,
                             "old_unit_price" => $oldUnitPrice,
                             "new_unit_price" => $newUnitPrice,
                             "old_total_price" => $oldTotalPrice,
@@ -1117,7 +1199,7 @@ class JobOrderTransactionController extends Controller
             $resubmitted = $request->resubmit;
 
             $activityDescription = $resubmitted
-                ? "Purchase request ID: " .
+                ? "Job order purchase request ID: " .
                     $id .
                     " has been resubmitted by UID: " .
                     $user_id
@@ -1128,7 +1210,7 @@ class JobOrderTransactionController extends Controller
                 foreach ($updatedItems as $item) {
                     $activityDescription .=
                         "Item ID {$item["id"]}: " .
-                        "Unit price {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
+                        "{$item["name"]} {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
                         "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
                 }
                 $activityDescription = rtrim($activityDescription, ", ");
@@ -1141,6 +1223,11 @@ class JobOrderTransactionController extends Controller
             ]);
 
             if ($current_po) {
+                $activityDescription_po =
+                    "Job order purchase order ID: " .
+                    $current_po->id .
+                    " has been created by UID: " .
+                    $user_id;
                 LogHistory::create([
                     "activity" => $activityDescription,
                     "jo_po_id" => $current_po->id,
@@ -1150,7 +1237,9 @@ class JobOrderTransactionController extends Controller
         }
 
         return GlobalFunction::save(
-            Message::PURCHASE_REQUEST_AND_ORDER_UPDATE,
+            $current_po
+                ? Message::JOB_REQUEST_AND_ORDER_UPDATE
+                : Message::JOB_REQUEST_UPDATE,
             [
                 "pr" => new JobOrderResource($current_jr),
                 "po" => $current_po ? new JoPoResource($current_po) : null,
@@ -1161,13 +1250,10 @@ class JobOrderTransactionController extends Controller
     public function destroy()
     {
     }
-
     public function cancel_jo(CancelRequest $request, $id)
     {
-        $user = Auth()->user()->id;
-        $dateToday = Carbon::now()
-            ->timeZone("Asia/Manila")
-            ->format("Y-m-d H:i");
+        $userId = auth()->id();
+        $currentDateTime = Carbon::now()->timezone("Asia/Manila");
 
         $transaction = JobOrderTransaction::find($id);
 
@@ -1179,50 +1265,49 @@ class JobOrderTransactionController extends Controller
             return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
         }
 
+        // Update JR status
         $transaction->update([
             "status" => "Cancelled",
             "approved_at" => null,
-            "cancelled_at" => $dateToday,
+            "cancelled_at" => $currentDateTime,
             "reason" => $request->reason,
         ]);
 
-        $po_transaction = $transaction->jo_po_transaction()->first();
+        $poTransaction = $transaction->jo_po_transaction->first();
         $logMessage = "";
+        $responseMessage = "";
 
-        if ($po_transaction) {
-            $has_no_rr = $request->has("no_rr") && $request->no_rr === true;
-
-            if (!$has_no_rr) {
-                $po_transaction->update([
-                    "status" => "Cancelled",
-                    "approved_at" => null,
-                    "cancelled_at" => $dateToday,
-                    "reason" => $request->reason,
-                ]);
-                $logMessage = "Job Order and Purchase Order ID: JO - {$id}, PO - {$po_transaction->id} have been cancelled by UID: {$user}. Reason: {$request->reason}";
+        if ($poTransaction) {
+            // Cancel JR and JO
+            $poTransaction->update([
+                "status" => "Cancelled",
+                "approved_at" => null,
+                "cancelled_at" => $currentDateTime,
+                "reason" => $request->reason,
+            ]);
+            if ($request->has("no_rr") && $request->no_rr === true) {
+                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled by UID: {$userId}. Reason: {$request->reason}";
+                $responseMessage = Message::JR_AND_JO_CANCELLED;
             } else {
-                $logMessage = "Job Order ID: {$id} has been cancelled by UID: {$user}. Purchase Order {$po_transaction->id} remains active. Reason: {$request->reason}";
+                // Cancel remaining items
+                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled for the remaining items by UID: {$userId}. Reason: {$request->reason}";
+                $responseMessage = Message::JR_AND_JO_CANCELLED_REMAINING_ITEMS;
             }
         } else {
-            $logMessage = "Job Order ID: {$id} has been cancelled by UID: {$user}. Reason: {$request->reason}";
+            // Cancel only JR
+            $logMessage = "Job Request ID: {$id} has been cancelled by UID: {$userId}. Reason: {$request->reason}";
+            $responseMessage = Message::JOB_REQUEST_CANCELLED;
         }
 
+        // Log the activity
         LogHistory::create([
             "activity" => $logMessage,
             "jo_id" => $id,
-            "jo_po_id" => $po_transaction ? $po_transaction->id : null,
-            "action_by" => $user,
+            "jo_po_id" => $poTransaction->id ?? null,
+            "action_by" => $userId,
         ]);
 
-        $response_message =
-            $po_transaction && $request->no_rr
-                ? "Job Order cancelled. Purchase Order remains active."
-                : Message::CANCELLED;
-
-        return GlobalFunction::responseFunction(
-            $response_message,
-            $transaction
-        );
+        return GlobalFunction::responseFunction($responseMessage, $transaction);
     }
 
     public function voided_jo(CancelRequest $request, $id)
@@ -1373,6 +1458,10 @@ class JobOrderTransactionController extends Controller
             ])
         );
 
+        if ($request->resubmit === true) {
+            $job_order_request->update(["cancelled_at" => null]);
+        }
+
         $job_items = [];
         foreach ($orders as $index => $values) {
             $attachments = $request["order"][$index]["attachment"];
@@ -1491,16 +1580,21 @@ class JobOrderTransactionController extends Controller
                     "total_item_price" => $request->total_item_price,
                     "supplier_id" => $request->supplier_id,
                     "supplier_name" => $request->supplier_name,
-                    "status" => $job_order_po->status,
+                    "status" => "Pending",
                     "sgp" => $request->sgp,
                     "f1" => $request->f1,
                     "f2" => $request->f2,
                     "rush" => $rush,
+                    "layer" => "1",
                     "direct_po" => $dateToday,
                     "helpdesk_id" => $request->helpdesk_id,
                     "updated_at" => $dateToday,
                 ])
             );
+
+            if ($request->resubmit === true) {
+                $job_order_po->update(["cancelled_at" => null]);
+            }
 
             foreach ($job_items as $item) {
                 $item->update([

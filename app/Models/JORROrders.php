@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\JORROrders;
+use App\Filters\JORROrderFilters;
 use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -11,6 +12,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class JORROrders extends Model
 {
     use HasFactory, SoftDeletes, Filterable;
+
+    protected string $default_filters = JORROrderFilters::class;
     protected $connection = "mysql";
     protected $table = "jo_rr_order";
 

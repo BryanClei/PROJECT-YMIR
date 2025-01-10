@@ -29,13 +29,13 @@ use Illuminate\Support\Facades\File;
 
 class PRTransactionController extends Controller
 {
-    public function store_file(Request $request)
-    {
-        // $path = $request->file("file")->store("public/attachment/");
+    // public function store_file(Request $request)
+    // {
+    //     // $path = $request->file("file")->store("public/attachment/");
 
-        $name = $request->file("file")->getClientOriginalName();
-        return $name;
-    }
+    //     $name = $request->file("file")->getClientOriginalName();
+    //     return $name;
+    // }
 
     public function index(PRViewRequest $request)
     {

@@ -75,4 +75,9 @@ class POItems extends Model
     {
         return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
     }
+
+    public function rr_orders()
+    {
+        return $this->hasMany(RROrders::class, "po_id", "id");
+    }
 }

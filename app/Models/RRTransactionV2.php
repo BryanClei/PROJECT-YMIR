@@ -34,6 +34,11 @@ class RRTransactionV2 extends Model
         return $this->hasMany(RROrders::class, "rr_id", "id");
     }
 
+    public function po_orders()
+    {
+        return $this->hasMany(POItems::class, "po_id", "id");
+    }
+
     public function po_transaction()
     {
         return $this->hasMany(POTransaction::class, "id", "po_id");

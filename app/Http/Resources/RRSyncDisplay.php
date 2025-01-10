@@ -14,56 +14,50 @@ class RRSyncDisplay extends JsonResource
      */
     public function toArray($request)
     {
-        $rr_orders = $this->rr_transaction->flatMap(function ($rr) {
-            return $rr->rr_orders;
-        });
-
-        $po_items = $this->order->map(function ($po_item) use ($rr_orders) {
-            $matching_rr_orders = $rr_orders->where("item_id", $po_item->id);
-
-            return [
-                "reference_no" => $po_item->reference_no,
-                "item_code" => $po_item->item_code,
-                "item_name" => $po_item->item_name,
-                "supplier" => $this->supplier_id,
-                "quantity" => $po_item->quantity,
-                "quantity_delivered" => $matching_rr_orders->sum(
-                    "quantity_receive"
-                ),
-                "remaining" =>
-                    $po_item->quantity -
-                    $matching_rr_orders->sum("quantity_receive"),
-                "unit_price" => $po_item->price,
-                "total_price" => $po_item->total_price,
-                "rr_orders" => $matching_rr_orders
-                    ->map(function ($order) {
-                        return [
-                            "id" => $order->id,
-                            "rr_number" => $order->rr_number,
-                            "item_name" => $order->item_name,
-                            "quantity_receive" => $order->quantity_receive,
-                            "remaining" => $order->remaining,
-                            "shipment_no" => $order->shipment_no,
-                            "delivery_date" => $order->delivery_date,
-                            "rr_date" => $order->rr_date,
-                            "sync" => $order->sync,
-                        ];
-                    })
-                    ->toArray(),
-                "remarks" => $po_item->remarks,
-            ];
-        });
-
         return [
-            "remarks" => $this->po_description,
-            "pr_number" => $this->pr_number,
-            "transaction_no" => $this->pr_transaction->transaction_no,
-            "rr_year_number_id" => $this->rr_transaction->pluck(
-                "rr_year_number_id"
+            "rr_year_number_id" => $this->rr_year_number_id,
+            "rr_number" => $this->id,
+            "orders" => collect($this->rr_orders)->map(
+                fn($order) => [
+                    "transaction_no" =>
+                        $order["order"]["po_transaction"]["pr_transaction"][
+                            "transaction_no"
+                        ],
+                    "reference_no" => $order["order"]["reference_no"],
+                    "item_name" => $order["order"]["item_name"],
+                    "supplier" => $order["order"]["supplier_id"],
+                    "quantity" => $order["order"]["quantity"],
+                    "quantity_delivered" => $order["order"]["quantity_serve"],
+                    "remaining" => $order["remaining"],
+                    "unit_price" => $order["order"]["price"],
+                    "total_price" => $order["order"]["total_price"],
+                    "rr_orders" => [
+                        "id" => $order["id"],
+                        "pr_id" =>
+                            $order["order"]["po_transaction"]["pr_transaction"][
+                                "id"
+                            ],
+                        "pr_year_number_id" =>
+                            $order["order"]["po_transaction"]["pr_transaction"][
+                                "pr_year_number_id"
+                            ],
+                        "po_id" => $order["order"]["po_id"],
+                        "po_year_number_id" =>
+                            $order["order"]["po_transaction"][
+                                "po_year_number_id"
+                            ],
+                        "rr_number" => $order["rr_number"],
+                        "item_name" => $order["item_name"],
+                        "quantity_received" => $order["quantity_receive"],
+                        "remaining" => $order["remaining"],
+                        "shipment_no" => $order["shipment_no"],
+                        "delivery_date" => $order["delivery_date"],
+                        "rr_date" => $order["rr_date"],
+                        "sync" => $order["sync"],
+                        "remarks" => $order["order"]["remarks"],
+                    ],
+                ]
             ),
-            "po_number" => $this->id,
-            "rr_numbers" => $this->rr_transaction->pluck("id"),
-            "order" => $po_items->toArray(),
             "cancelled_at" => $this->cancelled_at,
         ];
     }

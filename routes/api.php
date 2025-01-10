@@ -516,13 +516,18 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::put("asset_vladimir/sync", [
         RRTransactionController::class,
-        "asset_sync",
+        "asset_syncs",
     ]);
     Route::get("approved_po/po_to_rr_display/{id}", [
         RRTransactionController::class,
         "view_po_approved",
     ]);
     Route::apiResource("rr_transaction", RRTransactionController::class);
+
+    Route::get("reports_jo_rr", [
+        JORRTransactionController::class,
+        "report_jo_rr",
+    ]);
 
     Route::get("reports_jo", [JORRTransactionController::class, "report_jo"]);
 

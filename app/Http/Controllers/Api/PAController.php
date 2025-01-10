@@ -330,6 +330,7 @@ class PAController extends Controller
             $existingItem = $existingItems->firstWhere("id", $values["id"]);
 
             if ($existingItem) {
+                $item_name = $existingItem->description;
                 $oldPrice = $existingItem->price;
                 $newPrice = $values["price"];
                 $oldTotalPrice = $existingItem->total_price;
@@ -341,6 +342,7 @@ class PAController extends Controller
                 ) {
                     $updatedItems[] = [
                         "id" => $values["id"],
+                        "name" => $item_name,
                         "old_price" => $oldPrice,
                         "new_price" => $newPrice,
                         "old_total_price" => $oldTotalPrice,
@@ -440,7 +442,7 @@ class PAController extends Controller
             foreach ($updatedItems as $item) {
                 $activityDescription .=
                     "Item ID {$item["id"]}: " .
-                    "Price {$item["old_price"]} -> {$item["new_price"]}, " .
+                    "{$item["name"]} {$item["old_price"]} -> {$item["new_price"]}, " .
                     "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
             }
             $activityDescription = rtrim($activityDescription, ", ");
@@ -772,8 +774,10 @@ class PAController extends Controller
             $poItem = JoPoOrders::where("id", $order_id)->first();
 
             if ($poItem) {
+                $item_name = $poItem->description;
                 $oldPrice = $poItem->unit_price;
                 $newPrice = $values["price"];
+                $oldTotalPrice = $poItem->total_price;
                 $newTotalPrice = $poItem->quantity * $values["price"];
                 $poItem->update([
                     "unit_price" => $values["price"],
@@ -783,8 +787,11 @@ class PAController extends Controller
 
                 $updatedItems[] = [
                     "id" => $order_id,
+                    "name" => $item_name,
                     "old_price" => $oldPrice,
                     "new_price" => $newPrice,
+                    "old_total_price" => $oldTotalPrice,
+                    "new_total_price" => $newTotalPrice,
                 ];
             }
         }
@@ -794,9 +801,12 @@ class PAController extends Controller
             $job_order->id .
             " has been updated by UID: " .
             $user_id .
-            ". Updated prices for JO PO items: ";
+            ". Price updates: ";
         foreach ($updatedItems as $item) {
-            $activityDescription .= "Item ID {$item["id"]}: {$item["old_price"]} -> {$item["new_price"]}, ";
+            $activityDescription .=
+                "Item ID {$item["id"]}: " .
+                "{$item["name"]} {$item["old_price"]} -> {$item["new_price"]}, " .
+                "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
         }
         $activityDescription = rtrim($activityDescription, ", ");
 
@@ -837,6 +847,8 @@ class PAController extends Controller
             "edit_remarks" => $request->edit_remarks,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
+            "cap_ex" => $request->cap_ex,
+            "outside_labor" => $request->outside_labor,
         ];
 
         if ($request->boolean("returned_po")) {

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\JobOrderTransaction;
 
 use App\Models\JobOrder;
+use App\Response\Message;
 use App\Models\JobOrderMinMax;
 use App\Models\JobOrderPurchaseOrder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -84,6 +85,12 @@ class StoreRequest extends FormRequest
             // }
 
             $amount_min_max = JobOrderMinMax::first();
+
+            if (!$amount_min_max) {
+                return $validator
+                    ->errors()
+                    ->add("message", Message::NO_MIN_MAX);
+            }
 
             if ($total_amount <= $amount_min_max->amount_min) {
                 $charging_approvers = JobOrder::where(

@@ -490,13 +490,29 @@ class JORRTransactionController extends Controller
         );
     }
 
+    public function report_jo_rr()
+    {
+        $display = JORROrders::with("jo_rr_transaction", "jo_po_transaction")
+            ->useFilters()
+            ->dynamicPaginate();
+
+        if ($display->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        JORROrderResource::collection($display);
+        return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
+    }
+
     public function report_jo()
     {
         $jo_transaction = JobOrderTransaction::with(
             "users",
             "order",
             "approver_history"
-        )->get();
+        )
+            ->useFilters()
+            ->dynamicPaginate();
 
         if ($jo_transaction->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -512,9 +528,13 @@ class JORRTransactionController extends Controller
     {
         $jo_order = JoPoOrders::with(
             "uom",
-            "transaction.users",
-            "transaction.jo_po_transaction"
-        )->get();
+            "jr_orders",
+            "jo_po_transaction.users",
+            "jo_po_transaction.jo_transaction",
+            "jo_po_transaction.jo_rr_transaction.rr_orders"
+        )
+            ->useFilters()
+            ->dynamicPaginate();
 
         if ($jo_order->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);

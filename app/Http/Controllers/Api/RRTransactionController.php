@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Models\RRTransaction;
+use App\Models\RRTransactionV2;
 use App\Functions\GlobalFunction;
 use App\Helpers\RRHelperFunctions;
 use App\Http\Resources\PoResource;
@@ -232,31 +233,37 @@ class RRTransactionController extends Controller
 
     public function asset_vladimir($id)
     {
-        $purchase_request = POTransaction::with([
-            "rr_transaction.rr_orders",
-            "order",
-        ])
-            ->where("module_name", "Asset")
-            ->whereHas("rr_transaction", function ($query) use ($id) {
-                $query->where("id", $id);
+        // $purchase_request = POTransaction::with([
+        //     "rr_transaction.rr_orders",
+        //     "order",
+        // ])
+        //     ->where("module_name", "Asset")
+        //     ->whereHas("rr_transaction", function ($query) use ($id) {
+        //         $query->where("id", $id);
+        //     })
+        //     ->orderByDesc("updated_at")
+        //     ->useFilters()
+        //     ->dynamicPaginate();
+
+        $rr_transaction = RRTransactionV2::where("id", $id)
+            ->whereHas("po_transaction", function ($query) {
+                $query->where("module_name", "Asset");
             })
-            ->orderByDesc("updated_at")
-            ->useFilters()
-            ->dynamicPaginate();
+            ->with(["rr_orders.order", "po_transaction"])
+            ->first();
 
-        $is_empty = $purchase_request->isEmpty();
-
-        if ($is_empty) {
+        if (!$rr_transaction) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $rr_response = new RRSyncDisplay($rr_transaction);
         return GlobalFunction::responseFunction(
             Message::RR_DISPLAY,
-            RRSyncDisplay::collection($purchase_request)
+            $rr_response
         );
     }
 
-    public function asset_sync(UpdateRequest $request)
+    public function asset_syncs(UpdateRequest $request)
     {
         $request_orders = $request->rr_number;
         $updated_records = [];

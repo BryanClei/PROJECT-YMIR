@@ -67,6 +67,8 @@ class JoPoResource extends JsonResource
                 "id" => $this->account_title_id,
                 "name" => $this->account_title_name,
             ],
+            "supplier_id" => $this->supplier_id,
+            "supplier_name" => $this->supplier_name,
             "total_price" => $this->total_price,
             "assets" => $this->assets,
             "module_name" => $this->module_name,

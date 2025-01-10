@@ -62,7 +62,7 @@ class JoPoFilters extends QueryFilters
                 $query
                     ->where(function ($query) {
                         $query
-                            ->where("status", "For Receiving")
+                            ->where("status", "For Approval")
                             ->orWhere("status", "Pending");
                     })
                     ->whereNull("cancelled_at")

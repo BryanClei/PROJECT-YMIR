@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
+use App\Filters\JoPoOrderFilters;
+use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoPoOrders extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Filterable;
     protected $connection = "mysql";
     protected $table = "jo_po_orders";
+    protected string $default_filters = JoPoOrderFilters::class;
     protected $fillable = [
         "jo_transaction_id",
         "jo_item_id",
@@ -48,5 +51,20 @@ class JoPoOrders extends Model
     public function assets()
     {
         return $this->belongsTo(Assets::class, "asset", "id");
+    }
+
+    public function rr_orders()
+    {
+        return $this->hasMany(RROrders::class, "id", "jo_item_id");
+    }
+
+    public function jr_orders()
+    {
+        return $this->hasMany(JobOrder::class, "id", "jo_item_id");
+    }
+
+    public function jo_po_transaction()
+    {
+        return $this->belongsTo(JOPOTransaction::class, "jo_po_id", "id");
     }
 }
