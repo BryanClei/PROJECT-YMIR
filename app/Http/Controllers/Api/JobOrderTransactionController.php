@@ -211,7 +211,7 @@ class JobOrderTransactionController extends Controller
                         $info = pathinfo($originalFilename);
                         $filenameOnly = $info["filename"];
                         $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filename = "{$filenameOnly}_jr_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
                         $filenames[] = $filename;
                     }
                     $filenames = json_encode($filenames);
@@ -295,7 +295,7 @@ class JobOrderTransactionController extends Controller
                         $info = pathinfo($originalFilename);
                         $filenameOnly = $info["filename"];
                         $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filename = "{$filenameOnly}_jr_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
                         $filenames[] = $filename;
                     }
                     $filenames = $filenames;
@@ -482,7 +482,7 @@ class JobOrderTransactionController extends Controller
                         $info = pathinfo($originalFilename);
                         $filenameOnly = $info["filename"];
                         $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filename = "{$filenameOnly}_jr_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
                         $filenames[] = $filename;
                     }
                     $filenames = json_encode($filenames);
@@ -1022,10 +1022,11 @@ class JobOrderTransactionController extends Controller
             ]);
         }
 
-        if ($request->resubmit) {
+        if ($request->isCancelled) {
             if ($current_po) {
                 $current_jr->update([
                     "status" => "Approved",
+                    "approved_at" => $dateToday,
                     "cancelled_at" => null,
                     "rejected_at" => null,
                 ]);
@@ -1049,7 +1050,6 @@ class JobOrderTransactionController extends Controller
 
             if ($existingItem) {
                 $attachments = $request["order"][$index]["attachment"];
-
                 if (!empty($attachments)) {
                     $filenames = [];
                     foreach ($attachments as $fileIndex => $file) {
@@ -1057,7 +1057,7 @@ class JobOrderTransactionController extends Controller
                         $info = pathinfo($originalFilename);
                         $filenameOnly = $info["filename"];
                         $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jo_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filename = "{$filenameOnly}_jr_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
                         $filenames[] = $filename;
                     }
                     $filenames = json_encode($filenames);
@@ -1082,23 +1082,27 @@ class JobOrderTransactionController extends Controller
                 if ($current_po && $will_be_direct) {
                     $jobItem = $existingItem;
 
-                    JoPoOrders::create([
-                        "jo_po_id" => $current_po->id,
-                        "jo_transaction_id" => $current_jr->id,
-                        "jo_item_id" => $jobItem->id,
-                        "description" => $values["description"],
-                        "uom_id" => $values["uom_id"],
-                        "unit_price" => $values["unit_price"],
-                        "quantity" => $values["quantity"],
-                        "quantity_serve" => 0,
-                        "total_price" =>
-                            $values["unit_price"] * $values["quantity"],
-                        "attachment" => $filenames,
-                        "remarks" => $values["remarks"],
-                        "asset" => $values["asset"],
-                        "asset_code" => $values["asset_code"],
-                        "helpdesk_id" => $values["helpdesk_id"],
-                    ]);
+                    JoPoOrders::updateOrCreate(
+                        [
+                            "jo_po_id" => $current_po->id,
+                            "jo_transaction_id" => $current_jr->id,
+                            "jo_item_id" => $jobItem->id,
+                        ],
+                        [
+                            "description" => $values["description"],
+                            "uom_id" => $values["uom_id"],
+                            "unit_price" => $values["unit_price"],
+                            "quantity" => $values["quantity"],
+                            "quantity_serve" => 0,
+                            "total_price" =>
+                                $values["unit_price"] * $values["quantity"],
+                            "attachment" => $filenames,
+                            "remarks" => $values["remarks"],
+                            "asset" => $values["asset"],
+                            "asset_code" => $values["asset_code"],
+                            "helpdesk_id" => $values["helpdesk_id"],
+                        ]
+                    );
                 }
             } else {
                 $attachments = $request["order"][$index]["attachment"];
@@ -1110,7 +1114,7 @@ class JobOrderTransactionController extends Controller
                         $info = pathinfo($originalFilename);
                         $filenameOnly = $info["filename"];
                         $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jo_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                        $filename = "{$filenameOnly}_jr_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
                         $filenames[] = $filename;
                     }
                     $filenames = json_encode($filenames);
@@ -1136,16 +1140,13 @@ class JobOrderTransactionController extends Controller
                         $will_be_direct && $current_po ? $current_po->id : null,
                 ]);
 
-                // Add this condition inside your existing foreach loop
                 if ($current_po && $will_be_direct) {
-                    // Check if a PO order already exists for this item
                     $existingJoPoOrder = JoPoOrders::withTrashed()
                         ->where("jo_po_id", $current_po->id)
                         ->where("jo_transaction_id", $current_jr->id)
                         ->where("jo_item_id", $jobItem->id)
                         ->first();
 
-                    // Create PO order only if it doesn't exist
                     if (!$existingJoPoOrder || $existingJoPoOrder->trashed()) {
                         JoPoOrders::create([
                             "jo_po_id" => $current_po->id,
@@ -1463,23 +1464,31 @@ class JobOrderTransactionController extends Controller
         }
 
         $job_items = [];
+        $processed_attachments = [];
+
         foreach ($orders as $index => $values) {
             $attachments = $request["order"][$index]["attachment"];
+            $filenames = null;
 
             if (!empty($attachments)) {
                 $filenames = [];
                 foreach ($attachments as $fileIndex => $file) {
                     $originalFilename = basename($file);
                     $info = pathinfo($originalFilename);
-                    $filenameOnly = $info["filename"];
-                    $extension = $info["extension"];
-                    $filename = "{$filenameOnly}_jo_id_{$job_order_request->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                    $filename = sprintf(
+                        "%s_jr_id_%d_item_%d_file_%d.%s",
+                        $info["filename"],
+                        $job_order_request->id,
+                        $index,
+                        $fileIndex,
+                        $info["extension"]
+                    );
                     $filenames[] = $filename;
                 }
                 $filenames = json_encode($filenames);
-            } else {
-                $filenames = $attachments;
             }
+
+            $processed_attachments[$index] = $filenames;
 
             $job_item = JobItems::updateOrCreate(
                 [
@@ -1565,7 +1574,7 @@ class JobOrderTransactionController extends Controller
                     "quantity_serve" => 0,
                     "total_price" =>
                         $values["unit_price"] * $values["quantity"],
-                    "attachment" => $values["attachment"],
+                    "attachment" => $processed_attachments[$index],
                     "remarks" => $values["remarks"],
                     "asset" => $values["asset"],
                     "asset_code" => $values["asset_code"],
@@ -1617,7 +1626,7 @@ class JobOrderTransactionController extends Controller
                         "quantity_serve" => 0,
                         "total_price" =>
                             $values["unit_price"] * $values["quantity"],
-                        "attachment" => $values["attachment"],
+                        "attachment" => $processed_attachments[$index],
                         "remarks" => $values["remarks"],
                         "asset" => $values["asset"],
                         "asset_code" => $values["asset_code"],
