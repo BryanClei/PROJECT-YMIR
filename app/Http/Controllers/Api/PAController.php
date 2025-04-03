@@ -261,6 +261,10 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $purchase_request->order->each(function ($order) {
+            $order->quantity = $order->quantity - $order->partial_received;
+        });
+
         // new PRPOResource($purchase_request);
 
         return GlobalFunction::responseFunction(

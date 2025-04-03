@@ -5,6 +5,7 @@ namespace App\Helpers;
 use Carbon\Carbon;
 use App\Models\Items;
 use App\Models\POItems;
+use App\Models\PRItems;
 use App\Models\RROrders;
 use App\Response\Message;
 use App\Models\LogHistory;
@@ -311,6 +312,17 @@ class RRHelperFunctions
         $po_item->update([
             "quantity_serve" => $original_quantity_serve + $quantity_serve,
         ]);
+
+        $pr_item = PRItems::find($po_item->pr_item_id);
+        if ($pr_item) {
+            $new_partial_received = $pr_item->partial_received + $quantity_serve;
+            $new_remaining_qty = $pr_item->quantity - $new_partial_received;
+            
+            $pr_item->update([
+                "partial_received" => $new_partial_received,
+                "remaining_qty" => $new_remaining_qty, 
+            ]);
+        }
     }
 
     private static function processAttachments(

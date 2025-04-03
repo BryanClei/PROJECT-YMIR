@@ -435,7 +435,6 @@ class RRTransactionController extends Controller
 
         $rr_transaction = RRTransaction::where("id", $id)
             ->with("rr_orders", "po_order")
-            ->get()
             ->first();
 
         if (!$rr_transaction) {
@@ -452,6 +451,15 @@ class RRTransactionController extends Controller
             if ($po_item) {
                 $po_item->quantity_serve -= $rr_order->quantity_receive;
                 $po_item->save();
+
+                $pr_item = PRItems::find($po_item->pr_item_id);
+
+                if ($pr_item) {
+                    $pr_item->update([
+                        "partial_received" => $pr_item->partial_received - $rr_order->quantity_receive,
+                        "remaining_qty" => $pr_item->quantity - ($pr_item->partial_received - $rr_order->quantity_receive),
+                    ]);
+                }
             }
 
             $rr_order->delete();

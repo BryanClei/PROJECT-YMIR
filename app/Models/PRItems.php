@@ -29,6 +29,8 @@ class PRItems extends Model
         "buyer_name",
         "tagged_buyer",
         "quantity",
+        "partial_received",
+        "remaining_qty",
         "unit_price",
         "total_price",
         "item_stock",
@@ -86,5 +88,12 @@ class PRItems extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class, "warehouse_id", "id");
+    }
+
+    //accessor 
+    
+    public function getRemainingQtyAttribute()
+    {
+        return $this->quantity - $this->partial_received;
     }
 }
