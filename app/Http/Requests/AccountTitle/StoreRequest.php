@@ -57,6 +57,8 @@ class StoreRequest extends FormRequest
                 "required",
                 "exists:account_title_units,id,deleted_at,NULL",
             ],
+            "credit_id" => ["required", "exists:credit,id,deleted_at,NULL"],
+            "request_id" => ["required", "exists:types,id,deleted_at,NULL"],
         ];
     }
 }

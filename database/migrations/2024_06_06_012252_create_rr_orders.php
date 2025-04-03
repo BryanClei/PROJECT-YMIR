@@ -20,27 +20,21 @@ return new class extends Migration {
                 ->foreign("rr_id")
                 ->references("id")
                 ->on("rr_transactions");
-            $table->unsignedInteger("po_id")->index();
-            $table
-                ->foreign("po_id")
-                ->references("id")
-                ->on("po_transactions");
-            $table->unsignedInteger("pr_id")->index();
-            $table
-                ->foreign("pr_id")
-                ->references("id")
-                ->on("pr_transactions");
+            $table->string("po_id");
+            $table->string("pr_id");
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
             $table->string("item_name")->nullable();
-            $table->string("quantity_receive");
+            $table->double("quantity_receive")->nullable();
             $table->string("remaining");
             $table->string("shipment_no");
             $table->timestamp("delivery_date");
             $table->timestamp("rr_date");
+            $table->string("late_attachment")->nullable();
             $table->string("attachment")->nullable();
             $table->integer("sync");
             $table->integer("f_tagged");
+            $table->integer("etd_sync");
             $table->timestamps();
             $table->softDeletes();
         });

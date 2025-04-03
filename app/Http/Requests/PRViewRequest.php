@@ -27,7 +27,7 @@ class PRViewRequest extends FormRequest
             "status" => [
                 "required",
                 "string",
-                "in:syncing,pending,cancelled,rejected,approved,cancel,pr_approved,to_po,for_approval,for_receiving,for_receiving_cancelled,for_po_pending,for_receiving_user,reports_po,cancelled_po,return_pr,received,report_approved,report_cancelled,return_po,voided",
+                "in:syncing,pending,cancelled,rejected,approved,cancel,pr_approved,to_po,for_approval,for_receiving,for_receiving_cancelled,for_po_pending,for_receiving_user,reports_po,cancelled_po,return_pr,received,report_approved,report_cancelled,return_po,voided,report_approved_user,admin_reports",
             ],
         ];
     }

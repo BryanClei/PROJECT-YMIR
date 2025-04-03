@@ -9,8 +9,10 @@ class BuyerPOFilter extends QueryFilters
     protected array $allowedFilters = [];
 
     protected array $columnSearch = [
+        "po_year_number_id",
         "pr_number",
-        "pr_description",
+        "po_number",
+        "po_description",
         "date_needed",
         "user_id",
         "type_id",
@@ -33,6 +35,45 @@ class BuyerPOFilter extends QueryFilters
         "supplier_name",
         "module_name",
     ];
+
+    protected array $relationSearch = [
+        "pr_transaction" => ["pr_year_number_id"],
+    ];
+
+    protected function processSearch($search)
+    {
+        // Join the required relationships first
+        foreach ($this->relationSearch as $relation => $columns) {
+            $this->builder->leftJoin(
+                $relation,
+                "po_transactions.pr_number",
+                "=",
+                $relation . ".pr_number"
+            );
+        }
+
+        $this->builder->where(function ($query) use ($search) {
+            // Search in main table columns
+            foreach ($this->columnSearch as $column) {
+                $query->orWhere(
+                    "po_transactions." . $column,
+                    "like",
+                    "%{$search}%"
+                );
+            }
+
+            // Search in relationship columns
+            foreach ($this->relationSearch as $table => $columns) {
+                foreach ($columns as $column) {
+                    $query->orWhere(
+                        $table . "." . $column,
+                        "like",
+                        "%{$search}%"
+                    );
+                }
+            }
+        });
+    }
 
     public function search_business_unit($search_business_unit)
     {
@@ -76,7 +117,10 @@ class BuyerPOFilter extends QueryFilters
                     ->where("status", "For Receiving")
                     ->whereNotNull("approved_at")
                     ->whereNull("cancelled_at")
-                    ->whereNull("rejected_at");
+                    ->whereNull("rejected_at")
+                    ->whereHas("approver_history", function ($query) {
+                        $query->whereNotNull("approved_at");
+                    });
             })
             ->when($status === "rejected", function ($query) use ($user_id) {
                 $query
@@ -96,11 +140,14 @@ class BuyerPOFilter extends QueryFilters
             ->when($status === "s_buyer", function ($query) {
                 $query;
             })
-            ->when($status === "pending_to_receive", function ($query) {
+            ->when($status === "pending_to_receive", function ($query) use (
+                $user_id
+            ) {
                 $query
                     ->where("status", "For Receiving")
-                    ->whereHas("order", function ($subQuery) {
+                    ->whereHas("order", function ($subQuery) use ($user_id) {
                         $subQuery
+                            ->where("buyer_id", $user_id)
                             ->where("quantity_serve", ">", 0)
                             ->whereColumn("quantity_serve", "<", "quantity");
                     });
@@ -111,10 +158,11 @@ class BuyerPOFilter extends QueryFilters
                     ->whereHas("order", function ($subQuery) {
                         $subQuery->whereColumn(
                             "quantity_serve",
-                            "=",
+                            ">=",
                             "quantity"
                         );
-                    });
+                    })
+                    ->whereHas("rr_transaction");
             });
     }
 }

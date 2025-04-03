@@ -49,6 +49,7 @@ class JOPOTransaction extends Model
         "description",
         "reason",
         "edit_remarks",
+        "approver_remarks",
         "asset",
         "sgp",
         "f1",
@@ -122,5 +123,49 @@ class JOPOTransaction extends Model
     public function log_history()
     {
         return $this->hasMany(LogHistory::class, "jo_po_id", "id");
+    }
+
+    public function account_title()
+    {
+        return $this->belongsTo(AccountTitle::class, "account_title_id", "id");
+    }
+
+    public function business_unit()
+    {
+        return $this->belongsTo(BusinessUnit::class, "business_unit_id", "id");
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class, "company_id", "id");
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class, "department_id", "id");
+    }
+
+    public function department_unit()
+    {
+        return $this->belongsTo(
+            DepartmentUnit::class,
+            "department_unit_id",
+            "id"
+        );
+    }
+
+    public function sub_unit()
+    {
+        return $this->belongsTo(SubUnit::class, "sub_unit_id", "id");
+    }
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class, "location_id", "id");
+    }
+
+    public function unit()
+    {
+        return $this->belongsTo(Units::class, "unit_id", "id");
     }
 }

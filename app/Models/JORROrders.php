@@ -45,6 +45,11 @@ class JORROrders extends Model
         return $this->belongsTo(JOPOTransaction::class, "jo_po_id", "id");
     }
 
+    public function po_transaction()
+    {
+        return $this->belongsTo(JOPOTransaction::class, "jo_po_id", "id");
+    }
+
     public function jo_transaction()
     {
         return $this->belongsTo(JobOrderTransaction::class, "jo_id", "id");

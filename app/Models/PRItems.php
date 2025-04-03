@@ -3,15 +3,19 @@
 namespace App\Models;
 
 use App\Models\POItems;
+use App\Filters\PrItemsFilters;
+use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PRItems extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Filterable;
+    protected string $default_filters = PrItemsFilters::class;
     protected $connection = "mysql";
     protected $table = "pr_items";
+
     protected $fillable = [
         "transaction_id",
         "reference_no",
@@ -23,7 +27,11 @@ class PRItems extends Model
         "purchase_order_id",
         "buyer_id",
         "buyer_name",
+        "tagged_buyer",
         "quantity",
+        "unit_price",
+        "total_price",
+        "item_stock",
         "remarks",
         "attachment",
         "assets",
@@ -67,7 +75,7 @@ class PRItems extends Model
 
     public function po_order()
     {
-        return $this->hasMany(POItems::class, "po_id", "id");
+        return $this->hasMany(POItems::class, "pr_item_id", "id");
     }
 
     public function category()

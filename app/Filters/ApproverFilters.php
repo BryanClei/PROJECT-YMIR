@@ -26,6 +26,17 @@ class ApproverFilters extends QueryFilters
                 $search_approver
             ) {
                 $query->where("name", "LIKE", "%" . $search_approver . "%");
+            })
+            ->orWhereHas("sub_unit", function ($query) use ($search_approver) {
+                $query->where("name", "LIKE", "%" . $search_approver . "%");
+            })
+            ->orWhereHas("department", function ($query) use (
+                $search_approver
+            ) {
+                $query->where("name", "LIKE", "%" . $search_approver . "%");
+            })
+            ->orWhereHas("locations", function ($query) use ($search_approver) {
+                $query->where("name", "LIKE", "%" . $search_approver . "%");
             });
     }
 }

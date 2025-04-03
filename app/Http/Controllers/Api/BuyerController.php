@@ -18,11 +18,14 @@ use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Models\RRTransaction;
 use App\Http\Requests\BDisplay;
+use App\Models\BuyerJobOrderPO;
+use App\Models\JOPOTransaction;
 use App\Functions\GlobalFunction;
 use App\Http\Requests\BPADisplay;
 use App\Http\Resources\PoResource;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\JoPoResource;
 use App\Http\Resources\PRPOResource;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\PoItemResource;
@@ -60,6 +63,7 @@ class BuyerController extends Controller
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
         PRTransactionResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
@@ -74,10 +78,18 @@ class BuyerController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_order = BuyerPO::with([
-            "order",
+            "order" => function ($query) {
+                $query->withTrashed();
+            },
             "approver_history",
             "log_history",
+            "rr_transaction",
         ])
+            ->when($status === "cancelled", function ($query) {
+                $query->onlyTrashed()->whereHas("order", function ($subQuery) {
+                    $subQuery->onlyTrashed();
+                });
+            })
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -254,11 +266,15 @@ class BuyerController extends Controller
 
         $updatedItems = [];
         $totalPriceSum = 0;
+        $description = $request["po_description"];
+        $oldDescription = $purchase_order->po_description;
         $oldSupplier = $purchase_order->supplier_name;
         $newSupplier = $request["supplier_name"];
         $oldBuyer = $purchase_order->buyer_name;
         $newBuyer = $request["buyer_name"];
         $priceIncreased = false;
+        $pricesChanged = false;
+        $supplierChanged = $oldSupplier !== $newSupplier;
 
         foreach ($order as $values) {
             $order_id = $values["id"];
@@ -270,8 +286,11 @@ class BuyerController extends Controller
                 $newTotalPrice = $poItem->quantity * $newPrice;
                 $poItemName = $poItem->item_name;
 
-                if ($newPrice > $oldPrice) {
-                    $priceIncreased = true;
+                if ($newPrice != $oldPrice) {
+                    $pricesChanged = true;
+                    if ($newPrice > $oldPrice) {
+                        $priceIncreased = true;
+                    }
                 }
 
                 $poItem->update([
@@ -301,19 +320,31 @@ class BuyerController extends Controller
             "Purchase Order ID: " .
             $id .
             " has been updated by UID: " .
-            $user_id .
-            " prices for PO items: ";
-        foreach ($updatedItems as $item) {
-            $activityDescription .= "Item ID {$item["id"]}: {$item["item_name"]} {$item["old_price"]} -> {$item["new_price"]}, ";
+            $user_id;
+
+        if ($pricesChanged) {
+            $activityDescription .= " prices for PO items: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .= "Item ID {$item["id"]}: {$item["item_name"]} {$item["old_price"]} -> {$item["new_price"]}, ";
+            }
         }
+
         $activityDescription = rtrim($activityDescription, ", ");
 
-        if ($oldSupplier !== $newSupplier) {
+        if ($supplierChanged) {
             $activityDescription .= ". Supplier changed from $oldSupplier to $newSupplier";
         }
 
         if ($oldBuyer !== $newBuyer) {
             $activityDescription .= ". Buyer changed from $oldBuyer to $newBuyer";
+        }
+
+        if ($description !== $oldDescription) {
+            $activityDescription .=
+                " with description changes from " .
+                $oldDescription .
+                " to " .
+                $description;
         }
 
         $activityDescription .= ".";
@@ -326,6 +357,7 @@ class BuyerController extends Controller
 
         $updateData = [
             "po_description" => $request["po_description"],
+            "description" => $request["po_description"],
             "total_item_price" => $totalPriceSum,
             "updated_by" => $user_id,
             "supplier_id" => $request->supplier_id,
@@ -341,7 +373,7 @@ class BuyerController extends Controller
 
         $purchase_order->update($updateData);
 
-        if ($priceIncreased) {
+        if ($priceIncreased || $supplierChanged) {
             $purchase_order->update([
                 "status" => "Pending",
                 "layer" => "1",
@@ -377,12 +409,12 @@ class BuyerController extends Controller
                     ->first();
 
                 foreach ($approvers as $index) {
-                    $existing_approver = PoHistory::where(
+                    -($existing_approver = PoHistory::where(
                         "po_id",
                         $po_approver_history->po_id
                     )
                         ->where("approver_id", $index["approver_id"])
-                        ->first();
+                        ->first());
 
                     if (!$existing_approver) {
                         PoHistory::create([
@@ -521,34 +553,22 @@ class BuyerController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $cancelled = Buyer::whereHas("order", function ($query) use ($user_id) {
-            $query->where("buyer_id", $user_id);
-        })
-            ->whereHas("po_transaction", function ($query) {
-                $query
-                    ->where("status", "Cancelled")
-                    ->whereNotNull("cancelled_at")
-                    ->whereNotNull("deleted_at");
+        $cancelled = BuyerPO::withTrashed()
+            ->where("status", "Cancelled")
+            ->whereHas("order", function ($query) use ($user_id) {
+                $query->where("buyer_id", $user_id)->withTrashed();
             })
-            ->withCount([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->where("status", "Cancelled")
-                        ->whereNotNull("cancelled_at")
-                        ->whereNotNull("deleted_at");
-                },
-            ])
-            ->get()
-            ->sum("po_transaction_count");
+            ->whereNotNull("cancelled_at")
+            ->count();
 
-        $pending_to_received = BuyerPO::whereHas("order", function (
-            $query
-        ) use ($user_id) {
-            $query
-                ->where("buyer_id", $user_id)
-                ->where("quantity_serve", ">", 0)
-                ->whereColumn("quantity_serve", "<", "quantity");
-        })->count();
+        $pending_to_received = BuyerPO::where("status", "For Receiving")
+            ->whereHas("order", function ($query) use ($user_id) {
+                $query
+                    ->where("buyer_id", $user_id)
+                    ->where("quantity_serve", ">", 0)
+                    ->whereColumn("quantity_serve", "<", "quantity");
+            })
+            ->count();
 
         $completed_rr = BuyerPO::whereHas("order", function ($query) use (
             $user_id
@@ -558,6 +578,46 @@ class BuyerController extends Controller
                 ->whereColumn("quantity_serve", "=", "quantity");
         })->count();
 
+        $jo_approval = BuyerJobOrderPO::whereHas("jo_po_orders", function (
+            $query
+        ) use ($user_id) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->where("status", "Pending")
+            ->whereNull("approved_at")
+            ->whereNull("rejected_at")
+            ->whereNull("cancelled_at")
+            ->count();
+
+        $jo_approved = BuyerJobOrderPO::whereHas("jo_po_orders", function (
+            $query
+        ) use ($user_id) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->where("status", "For Receiving")
+            ->whereNotNull("approved_at")
+            ->count();
+
+        $jo_rejected = BuyerJobOrderPO::whereHas("jo_po_orders", function (
+            $query
+        ) use ($user_id) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->where("status", "Rejected")
+            ->whereNotNull("cancelled_at")
+            ->whereNotNull("rejected_at")
+            ->count();
+
+        $jo_cancelled = BuyerJobOrderPO::whereHas("jo_po_orders", function (
+            $query
+        ) use ($user_id) {
+            $query->where("buyer_id", $user_id);
+        })
+            ->where("status", "Cancelled")
+            ->whereNotNull("rejected_at")
+            ->whereNotNull("cancelled_at")
+            ->count();
+
         $result = [
             "tagged_request" => $tagged_request,
             "for_po_approval" => $for_po_approval,
@@ -566,6 +626,10 @@ class BuyerController extends Controller
             "cancelled" => $cancelled,
             "pending_to_received" => $pending_to_received,
             "completed_rr" => $completed_rr,
+            "jo_approval" => $jo_approval,
+            "jo_approved" => $jo_approved,
+            "jo_rejected" => $jo_rejected,
+            "jo_cancelled" => $jo_cancelled,
         ];
 
         return GlobalFunction::responseFunction(
@@ -649,6 +713,7 @@ class BuyerController extends Controller
 
     public function item_unit_price(Request $request, $id)
     {
+        $user_id = $request->user_id;
         $item_code = $id;
         $item_name = $request->item_name;
         $previous_unit_price = POItems::when($item_code == 0, function (
@@ -663,6 +728,9 @@ class BuyerController extends Controller
         })
             ->when($item_code, function ($query) use ($item_code) {
                 $query->where("item_code", $item_code);
+            })
+            ->whereHas("po_transaction", function ($query) use ($user_id) {
+                $query->where("user_id", $user_id);
             })
             ->get();
 
@@ -707,6 +775,28 @@ class BuyerController extends Controller
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORER_PLACE_ORDER,
             $place_order
+        );
+    }
+
+    public function index_jo(BDisplay $request)
+    {
+        $user_id = Auth()->user()->id;
+        $status = $request->status;
+        $job_order_request = BuyerJobOrderPO::with("jo_po_orders")
+            ->orderByDesc("updated_at")
+            ->useFilters()
+            ->dynamicPaginate();
+
+        $is_empty = $job_order_request->isEmpty();
+
+        if ($is_empty) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+        JoPoResource::collection($job_order_request);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_ORDER_DISPLAY,
+            $job_order_request
         );
     }
 }

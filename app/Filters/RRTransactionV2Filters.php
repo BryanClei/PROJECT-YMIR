@@ -16,11 +16,15 @@ class RRTransactionV2Filters extends QueryFilters
         "tagging_id",
     ];
 
-    public function status($status, $date = null)
+    public function status($status)
     {
         $user_id = Auth()->user()->id;
         $this->builder
-            ->when($status === "view_all", function ($query) {})
+            ->when($status === "view_all", function ($query) {
+                $query->whereHas("po_transaction", function ($subQuery) {
+                    $subQuery->where("module_name", "Asset");
+                });
+            })
             ->when($status === "cancelled", function ($query) {
                 $query->onlyTrashed()->with([
                     "rr_orders" => function ($subQuery) {
@@ -32,10 +36,6 @@ class RRTransactionV2Filters extends QueryFilters
                 $user_id
             ) {
                 $query->where("received_by", $user_id);
-            })
-            ->when($status === "rr_today", function ($query) use ($date) {
-                $date = request("date") ?? date("Y-m-d");
-                $query->whereDate("created_at", $date);
             });
     }
 }

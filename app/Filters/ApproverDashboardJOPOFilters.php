@@ -58,6 +58,7 @@ class ApproverDashboardJOPOFilters extends QueryFilters
             ->get()
             ->pluck("layer");
         $approver_histories = JoPoHistory::where("approver_id", $user)->get();
+        $user_layer = JoPoHistory::where("approver_id", $user)->pluck("layer");
 
         $this->builder
             ->when($status == "pending", function ($query) use (
@@ -109,12 +110,11 @@ class ApproverDashboardJOPOFilters extends QueryFilters
             ) {
                 $query
                     ->whereIn("id", $po_id)
-                    ->where(function ($query) {
-                        $query
-                            ->where("status", "Approved")
-                            ->orWhere("status", "For Approval")
-                            ->orWhere("status", "For Receiving");
-                    })
+                    ->whereIn("status", [
+                        "Approved",
+                        "For Receiving",
+                        "Approved",
+                    ])
                     ->whereHas("jo_approver_history", function ($query) use (
                         $user_id
                     ) {

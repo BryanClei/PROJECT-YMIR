@@ -29,10 +29,12 @@ class JoPoOrders extends Model
         "asset",
         "asset_code",
         "helpdesk_id",
+        "buyer_id",
+        "buyer_name",
     ];
     protected $hidden = ["created_at"];
 
-    protected $casts = ["attachment" => "array"];
+    protected $casts = ["attachment" => "json"];
 
     public function transaction()
     {
@@ -55,7 +57,7 @@ class JoPoOrders extends Model
 
     public function rr_orders()
     {
-        return $this->hasMany(RROrders::class, "id", "jo_item_id");
+        return $this->hasMany(JORROrders::class, "jo_item_id", "id");
     }
 
     public function jr_orders()

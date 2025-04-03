@@ -28,6 +28,9 @@ class BadgeHelperFunctions
 
     public static function getPrCount($poId, $layer, $typeName)
     {
+        $user = Auth()->user()->id;
+
+        $approver_histories = PoHistory::where("approver_id", $user)->get();
         return POTransaction::where("type_name", $typeName)
             ->whereIn("id", $poId)
             ->whereIn("layer", $layer)
@@ -45,27 +48,19 @@ class BadgeHelperFunctions
             ->count();
     }
 
-    public static function joPoId($user)
+    public static function joPoId($approver_histories)
     {
-        return JoPoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("jo_po_id");
+        return $po_ids = $approver_histories->pluck("jo_po_id")->toArray();
     }
 
-    public static function joLayer($user)
+    public static function joLayer($approver_histories)
     {
-        return JoPoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
+        return $approver_histories->pluck("layer")->toArray();
     }
 
     public static function poJobOrderCount($jo_po_id, $jo_layer)
     {
-        return JOPOTransaction::whereHas("jo_transaction", function ($query) {
-            $query->where("status", "Approved");
-        })
-            ->where("module_name", "Job Order")
-            ->whereIn("id", $jo_po_id)
+        return JOPOTransaction::whereIn("id", $jo_po_id)
             ->whereIn("layer", $jo_layer)
             ->where(function ($query) {
                 $query
@@ -92,11 +87,10 @@ class BadgeHelperFunctions
 
             ->with([
                 "order" => function ($query) {
-                    $query->whereColumn("quantity", "<>", "quantity_serve");
+                    $query->whereColumn("quantity", ">", "quantity_serve");
                 },
             ])
-            ->where("module_name", "Inventoriables")
-            ->orWhere("module_name", "Asset")
+            ->where("module_name", "Asset")
             ->where("status", "For Receiving")
             ->whereNull("cancelled_at")
             ->whereNull("voided_at")
@@ -104,7 +98,7 @@ class BadgeHelperFunctions
                 $query->whereNotNull("approved_at");
             })
             ->whereHas("order", function ($query) {
-                $query->whereColumn("quantity", "<>", "quantity_serve");
+                $query->whereColumn("quantity", ">", "quantity_serve");
             })
             ->withoutTrashed()
             ->count();
@@ -120,9 +114,10 @@ class BadgeHelperFunctions
         )
             ->with([
                 "order" => function ($query) {
-                    $query->whereColumn("quantity", "<>", "quantity_serve");
+                    $query->whereColumn("quantity", ">", "quantity_serve");
                 },
             ])
+            ->where("module_name", "!==", "Asset")
             ->where("user_id", $user_id)
             ->where("status", "For Receiving")
             ->whereNull("cancelled_at")
@@ -131,7 +126,7 @@ class BadgeHelperFunctions
                 $query->whereNotNull("approved_at");
             })
             ->whereHas("order", function ($query) {
-                $query->whereColumn("quantity", "<>", "quantity_serve");
+                $query->whereColumn("quantity", ">", "quantity_serve");
             })
             ->count();
     }
@@ -141,7 +136,7 @@ class BadgeHelperFunctions
         return JOPOTransaction::where("module_name", "Job Order")
             ->where("status", "For Receiving")
             ->whereHas("jo_po_orders", function ($query) {
-                $query->whereColumn("quantity", "<>", "quantity_serve");
+                $query->whereColumn("quantity", ">", "quantity_serve");
             })
             ->count();
     }
@@ -149,8 +144,14 @@ class BadgeHelperFunctions
     public static function rrJobOrderCountUser($user_id)
     {
         return JOPOTransaction::where("module_name", "Job Order")
-            ->where("user_id", $user_id)
+            ->whereHas("jo_po_orders", function ($query) {
+                $query->whereColumn("quantity", ">", "quantity_serve");
+            })
+            ->whereHas("jo_transaction", function ($query) use ($user_id) {
+                $query->where("user_id", $user_id);
+            })
             ->where("status", "For Receiving")
+            ->whereNotNull("approved_at")
             ->count();
     }
 }

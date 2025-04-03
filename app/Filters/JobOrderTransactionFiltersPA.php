@@ -37,6 +37,30 @@ class JobOrderTransactionFiltersPA extends QueryFilters
         "asset",
     ];
 
+    public function search_business_unit($search_business_unit, $status = null)
+    {
+        $this->builder->where(function ($query) use ($search_business_unit) {
+            $query
+                ->where(
+                    "business_unit_name",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                )
+                ->orWhere(
+                    "business_unit_id",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                );
+        });
+
+        // Add status filter if provided
+        if ($status !== null) {
+            $this->builder->where("status", $status);
+        }
+
+        return $this->builder;
+    }
+
     public function status($status)
     {
         $this->builder
@@ -48,7 +72,10 @@ class JobOrderTransactionFiltersPA extends QueryFilters
                     ->whereHas("order", function ($query) {
                         $query->whereNull("po_at");
                     })
+                    ->where("status", "Approved")
+                    ->whereNotNull("approved_at")
                     ->whereNull("cancelled_at")
+                    ->whereNull("rejected_at")
                     ->whereNull("voided_at")
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");

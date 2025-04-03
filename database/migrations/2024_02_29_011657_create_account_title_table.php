@@ -58,7 +58,11 @@ return new class extends Migration {
                 ->references("id")
                 ->on("account_title_units")
                 ->nullable();
-
+            $table->string("credit_id");
+            $table->string("credit_name");
+            $table->string("credit_code");
+            $table->string("request_id");
+            $table->string("request_type");
             $table->timestamps();
             $table->softDeletes();
         });

@@ -27,16 +27,7 @@ class PAPOResource extends JsonResource
             "date_needed" => $this->date_needed,
             "po_number" => $this->po_number,
 
-            "user" => $this->users
-                ? [
-                    "prefix_id" => $this->users->prefix_id,
-                    "id_number" => $this->users->id_number,
-                    "first_name" => $this->users->first_name,
-                    "middle_name" => $this->users->middle_name,
-                    "last_name" => $this->users->last_name,
-                    "mobile_no" => $this->users->mobile_no,
-                ]
-                : null,
+            "user" => $this->getUserData(),
 
             "type" => [
                 "id" => $this->type_id,
@@ -74,6 +65,8 @@ class PAPOResource extends JsonResource
                 "id" => $this->supplier_id,
                 "name" => $this->supplier_name,
             ],
+            "user_tagging" => $this->user_tagging,
+            "cap_ex" => $this->cap_ex,
             "asset" => $this->asset,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
@@ -100,6 +93,44 @@ class PAPOResource extends JsonResource
             "pr_approver_history" => ApporverHistoryResource::collection(
                 $this->pr_approver_history
             ),
+            "pr_date" => $this->pr_transaction->created_at,
         ];
+    }
+
+    protected function getUserData()
+    {
+        if ($this->module_name === "Asset") {
+            if ($this->vladimir_user) {
+                return [
+                    "id" => $this->vladimir_user->id,
+                    "employee_id" => $this->vladimir_user->employee_id,
+                    "username" => $this->vladimir_user->username,
+                    "first_name" => strtoupper($this->vladimir_user->firstname),
+                    "last_name" => strtoupper($this->vladimir_user->lastname),
+                ];
+            }
+        } else {
+            if ($this->regular_user) {
+                return [
+                    "prefix_id" => $this->regular_user->prefix_id,
+                    "id_number" => $this->regular_user->id_number,
+                    "first_name" => $this->regular_user->first_name,
+                    "middle_name" => $this->regular_user->middle_name,
+                    "last_name" => $this->regular_user->last_name,
+                    "mobile_no" => $this->regular_user->mobile_no,
+                    "warehouse" => $this->when(
+                        $this->regular_user->warehouse,
+                        fn() => [
+                            "warehouse_id" => $this->regular_user->warehouse_id,
+                            "warehouse_name" =>
+                                $this->regular_user->warehouse->name,
+                            "warehouse_code" =>
+                                $this->regular_user->warehouse->code,
+                        ]
+                    ),
+                ];
+            }
+        }
+        return [];
     }
 }

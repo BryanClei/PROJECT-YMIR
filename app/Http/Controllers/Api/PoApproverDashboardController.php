@@ -35,8 +35,9 @@ class PoApproverDashboardController extends Controller
             ->get()
             ->pluck("po_id");
         $layer = PoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
+            ->pluck("layer")
+            ->toArray();
+        $status = $request->status;
 
         if (empty($po_id) || empty($layer)) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -108,6 +109,7 @@ class PoApproverDashboardController extends Controller
             ->format("Y-m-d H:i");
 
         $user = Auth()->user()->id;
+        $approver_remarks = $request->approver_remarks;
 
         $user_id = User::where("id", $user)
             ->get()
@@ -119,16 +121,50 @@ class PoApproverDashboardController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $po_transaction = POTransaction::find($id);
+        $layer = $po_transaction->layer;
+
+        if (!$po_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $reason_label = null;
+        $remarks = null;
+
+        if ($approver_remarks) {
+            $reason_label = " Reason : ";
+            $remarks = $approver_remarks;
+        }
+
         $approved_history = PoHistory::where("po_id", $id)
             ->where("approver_id", $user)
+            ->where("layer", $layer)
             ->get()
-            ->first()
-            ->update([
-                "approved_at" => $date_today,
-            ]);
+            ->first();
+
+        if (!$approved_history) {
+            return GlobalFunction::invalid(Message::INVALID_ACTION);
+        }
+
+        if ($approved_history->layer !== $po_transaction->layer) {
+            return GlobalFunction::invalid(
+                Message::PO_LAYER_APPROVER_VALIDATION
+            );
+        }
+
+        $approved_history->update([
+            "approved_at" => $date_today,
+        ]);
 
         $activityDescription =
-            "Purchase order ID: " . $id . " has been approved by UID: " . $user;
+            "Purchase order ID: " .
+            $id .
+            " has been approved by UID: " .
+            $user .
+            "" .
+            $reason_label .
+            "" .
+            $remarks;
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -138,12 +174,11 @@ class PoApproverDashboardController extends Controller
 
         $count = count($set_approver);
 
-        $po_transaction = POTransaction::find($id);
-
         if ($count == $po_transaction->layer) {
             $po_transaction->update([
                 "approved_at" => $date_today,
                 "status" => "For Receiving",
+                "remarks" => $remarks,
             ]);
             $po_collect = new PoResource($po_transaction);
             return GlobalFunction::responseFunction(
@@ -155,6 +190,7 @@ class PoApproverDashboardController extends Controller
         $po_transaction->update([
             "layer" => $po_transaction->layer + 1,
             "status" => "For Approval",
+            "remarks" => $remarks,
         ]);
 
         $po_collect = new PoResource($po_transaction);
@@ -179,6 +215,15 @@ class PoApproverDashboardController extends Controller
         if ($po_transaction->status == "For approval") {
             return GlobalFunction::invalid(Message::INVALID_ACTION);
         }
+
+        // if (
+        //     $po_transaction
+        //         ->rr_transaction()
+        //         ->whereNull("deleted_at")
+        //         ->exists()
+        // ) {
+        //     return GlobalFunction::invalid(Message::ALREADY_HAVE_RR);
+        // }
 
         $activityDescription =
             "Purchase order ID: " .
@@ -277,6 +322,7 @@ class PoApproverDashboardController extends Controller
             ->format("Y-m-d H:i");
 
         $user = Auth()->user()->id;
+        $approver_remarks = $request->approver_remarks;
 
         $user_id = User::where("id", $user)
             ->get()
@@ -288,10 +334,36 @@ class PoApproverDashboardController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
+        $jo_po_transaction = JOPOTransaction::find($id);
+        $layer = $jo_po_transaction->layer;
+
+        if (!$jo_po_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $reason_label = null;
+        $remarks = null;
+
+        if ($approver_remarks) {
+            $reason_label = " Reason : ";
+            $remarks = $approver_remarks;
+        }
+
         $approved_history = JoPoHistory::where("jo_po_id", $id)
             ->where("approver_id", $user)
+            ->where("layer", $layer)
             ->whereNull("approved_at")
             ->first();
+
+        if (!$approved_history) {
+            return GlobalFunction::invalid(Message::INVALID_ACTION);
+        }
+
+        if ($approved_history->layer !== $jo_po_transaction->layer) {
+            return GlobalFunction::invalid(
+                Message::JO_LAYER_APPROVER_VALIDATION
+            );
+        }
 
         $approved_history->update([
             "approved_at" => $date_today,
@@ -305,7 +377,11 @@ class PoApproverDashboardController extends Controller
             " has been approved by UID: " .
             $user .
             " Approver Type: " .
-            $approverType;
+            $approverType .
+            "" .
+            $reason_label .
+            "" .
+            $remarks;
 
         LogHistory::create([
             "activity" => $activityDescription,
@@ -315,12 +391,11 @@ class PoApproverDashboardController extends Controller
 
         $count = count($set_approver);
 
-        $jo_po_transaction = JOPOTransaction::find($id);
-
         if ($count == $jo_po_transaction->layer) {
             $jo_po_transaction->update([
                 "approved_at" => $date_today,
                 "status" => "For Receiving",
+                "remarks" => $remarks,
             ]);
             $po_collect = new JoPoResource($jo_po_transaction);
             return GlobalFunction::responseFunction(
@@ -332,6 +407,7 @@ class PoApproverDashboardController extends Controller
         $jo_po_transaction->update([
             "layer" => $jo_po_transaction->layer + 1,
             "status" => "For Approval",
+            "remarks" => $remarks,
         ]);
 
         $jo_po_collect = new JoPoResource($jo_po_transaction);
@@ -404,7 +480,8 @@ class PoApproverDashboardController extends Controller
 
         $purchase_request = ApproverDashboardJOPO::with(
             "jo_po_orders",
-            "jo_approver_history"
+            "jo_approver_history",
+            "jr_transaction"
         )
             ->orderByDesc("updated_at")
             ->useFilters()

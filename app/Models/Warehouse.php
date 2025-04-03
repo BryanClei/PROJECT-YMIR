@@ -20,7 +20,12 @@ class Warehouse extends Model
 
     public function warehouseAccountTitles()
     {
-        return $this->hasMany(WarehouseAccountTitles::class);
+        return $this->belongsToMany(
+            AccountTitle::class,
+            "warehouse_account_titles",
+            "warehouse_id",
+            "account_title_id"
+        );
     }
 
     public function accountTitles()

@@ -37,6 +37,30 @@ class JobOrderTransactionFilters extends QueryFilters
         "asset",
     ];
 
+    public function search_business_unit($search_business_unit, $status = null)
+    {
+        $this->builder->where(function ($query) use ($search_business_unit) {
+            $query
+                ->where(
+                    "business_unit_name",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                )
+                ->orWhere(
+                    "business_unit_id",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                );
+        });
+
+        // Add status filter if provided
+        if ($status !== null) {
+            $this->builder->where("status", $status);
+        }
+
+        return $this->builder;
+    }
+
     public function status($status)
     {
         $user_id = Auth()->user()->id;
@@ -71,7 +95,10 @@ class JobOrderTransactionFilters extends QueryFilters
                     ->where("user_id", $user_id);
             })
             ->when($status === "rejected", function ($query) use ($user_id) {
-                $query->whereNotNull("rejected_at")->where("user_id", $user_id);
+                $query
+                    ->whereNotNull("rejected_at")
+                    ->whereNull("cancelled_at")
+                    ->where("user_id", $user_id);
             })
             ->when($status === "approved", function ($query) use ($user_id) {
                 $query
@@ -100,6 +127,14 @@ class JobOrderTransactionFilters extends QueryFilters
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
                     });
+            })
+            ->when($status === "report_approved_user", function ($query) use (
+                $user_id
+            ) {
+                $query
+                    ->where("user_id", $user_id)
+                    ->where("status", "Approved")
+                    ->whereNotNull("approved_at");
             });
     }
 }

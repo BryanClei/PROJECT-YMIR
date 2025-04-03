@@ -13,12 +13,14 @@ class Expense extends Model
 {
     use Filterable, HasFactory, SoftDeletes;
     protected $connection = "mysql";
+
     protected $table = "pr_transactions";
 
     protected string $default_filters = ExpenseFilters::class;
 
     protected $fillable = [
         "pr_number",
+        "pr_year_number_id",
         "pr_description",
         "date_needed",
         "user_id",
@@ -57,11 +59,32 @@ class Expense extends Model
         "rejected_at",
         "voided_at",
         "cancelled_at",
-
         "approver_id",
     ];
 
+    // public function users()
+    // {
+    //     return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    // }
+
     public function users()
+    {
+        // Add module_name check before the relationship is built
+        return $this->module_name === "Asset"
+            ? $this->belongsTo(VladimirUser::class, "user_id", "id")
+            : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+
+        // return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    // Add a specific relationship for Vladimir users
+    public function vladimir_user()
+    {
+        return $this->belongsTo(VladimirUser::class, "user_id", "id");
+    }
+
+    // Add a specific relationship for regular users
+    public function regular_user()
     {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }

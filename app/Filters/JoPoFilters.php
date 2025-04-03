@@ -2,6 +2,8 @@
 
 namespace App\Filters;
 
+use App\Models\User;
+use App\Models\JoPoHistory;
 use Essa\APIToolKit\Filters\QueryFilters;
 
 class JoPoFilters extends QueryFilters
@@ -9,6 +11,7 @@ class JoPoFilters extends QueryFilters
     protected array $allowedFilters = [];
 
     protected array $columnSearch = [
+        "po_year_number_id",
         "jo_number",
         "po_number",
         "po_description",
@@ -41,8 +44,64 @@ class JoPoFilters extends QueryFilters
         "f2",
     ];
 
+    protected array $relationSearch = [
+        "jo_transaction" => ["jo_year_number_id"],
+    ];
+
+    protected function processSearch($search)
+    {
+        // Join the required relationships first
+        foreach ($this->relationSearch as $relation => $columns) {
+            $this->builder->leftJoin(
+                $relation,
+                "jo_transaction.jo_number",
+                "=",
+                $relation . ".jo_number"
+            );
+        }
+
+        $this->builder->where(function ($query) use ($search) {
+            // Search in main table columns
+            foreach ($this->columnSearch as $column) {
+                $query->orWhere(
+                    "jo_transaction." . $column,
+                    "like",
+                    "%{$search}%"
+                );
+            }
+
+            // Search in relationship columns
+            foreach ($this->relationSearch as $table => $columns) {
+                foreach ($columns as $column) {
+                    $query->orWhere(
+                        $table . "." . $column,
+                        "like",
+                        "%{$search}%"
+                    );
+                }
+            }
+        });
+    }
+
     public function status($status)
     {
+        $user_uid = Auth()->user()->id;
+
+        $user_id = User::where("id", $user_uid)
+            ->get()
+            ->first();
+
+        $po_id = JoPoHistory::where("approver_id", $user_uid)
+            ->get()
+            ->pluck("jo_po_id");
+        $layer = JoPoHistory::where("approver_id", $user_uid)
+            ->get()
+            ->pluck("layer");
+        $approver_histories = JoPoHistory::where(
+            "approver_id",
+            $user_uid
+        )->get();
+
         $this->builder
             ->when($status === "approved", function ($query) {
                 $query
@@ -90,6 +149,35 @@ class JoPoFilters extends QueryFilters
                             $query->whereColumn(
                                 "quantity",
                                 "<>",
+                                "quantity_serve"
+                            );
+                        },
+                    ])
+                    ->where("status", "For Receiving")
+                    ->whereNull("cancelled_at")
+                    ->whereNull("rejected_at")
+                    ->whereNull("voided_at")
+                    ->whereHas("jo_approver_history", function ($query) {
+                        $query->whereNotNull("approved_at");
+                    })
+                    ->whereHas("jo_po_orders", function ($query) {
+                        $query->whereColumn("quantity", ">", "quantity_serve");
+                    });
+            })
+            ->when($status === "for_receiving_user", function ($query) use (
+                $user_uid
+            ) {
+                $query
+                    ->whereHas("jo_transaction", function ($query) use (
+                        $user_uid
+                    ) {
+                        $query->where("user_id", $user_uid);
+                    })
+                    ->with([
+                        "jo_po_orders" => function ($query) {
+                            $query->whereColumn(
+                                "quantity",
+                                ">",
                                 "quantity_serve"
                             );
                         },

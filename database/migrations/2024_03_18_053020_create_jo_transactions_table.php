@@ -81,12 +81,7 @@ return new class extends Migration {
                 ->on("account_titles");
             $table->string("account_title_name");
 
-            $table->unsignedInteger("asset")->index();
-            $table
-                ->foreign("asset")
-                ->references("id")
-                ->on("assets");
-            $table->string("total_price");
+            $table->string("assets")->nullable();
             $table->string("module_name");
             $table->string("layer");
             $table->string("status")->nullable();
@@ -94,6 +89,7 @@ return new class extends Migration {
             $table->string("reason")->nullable();
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();
+            $table->string("direct_po")->nullable();
             $table->string("rush")->nullable();
             $table->string("outside_labor")->nullable();
             $table->string("cap_ex")->nullable();

@@ -30,7 +30,7 @@ class SubUnitController extends Controller
             ->dynamicPaginate();
 
         $is_empty = $subunit->isEmpty();
-
+ 
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }

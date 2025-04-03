@@ -40,6 +40,8 @@ return new class extends Migration {
             $table->string("asset")->nullable();
             $table->string("asset_code")->nullable();
             $table->string("helpdesk_id")->nullable();
+            $table->string("buyer_id")->nullable();
+            $table->string("buyer_name")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Carbon\Carbon;
+use App\Models\Items;
 use App\Models\POItems;
 use App\Models\RROrders;
 use App\Response\Message;
@@ -11,6 +12,7 @@ use App\Models\POTransaction;
 use App\Models\PRTransaction;
 use App\Models\RRTransaction;
 use App\Functions\GlobalFunction;
+use App\Models\AllowablePercentage;
 
 class RRHelperFunctions
 {
@@ -34,11 +36,71 @@ class RRHelperFunctions
             ->toArray();
     }
 
+    // public static function validateQuantities($orders, $po_items)
+    // {
+    //     foreach ($orders as $order) {
+    //         $item_id = $order["item_id"];
+
+    //         if (!isset($po_items[$item_id])) {
+    //             return GlobalFunction::invalid(Message::ITEM_NOT_FOUND);
+    //         }
+
+    //         $item = $po_items[$item_id];
+    //         $quantity_serve = $order["quantity_serve"];
+    //         $remaining = $item["quantity"] - $item["quantity_serve"];
+
+    //         $item_allowable = Items::where("code", $item["item_code"])->first();
+    //         $allowable = AllowablePercentage::get()->first();
+
+    //         if ($item_allowable->allowable === 0) {
+    //             if (
+    //                 $item["quantity_serve"] <= 0 &&
+    //                 $item["quantity"] < $quantity_serve
+    //             ) {
+    //                 return GlobalFunction::invalid(
+    //                     Message::QUANTITY_VALIDATION
+    //                 );
+    //             }
+
+    //             if ($item["quantity"] === $item["quantity_serve"]) {
+    //                 return GlobalFunction::invalid(
+    //                     Message::QUANTITY_VALIDATION
+    //                 );
+    //             }
+
+    //             if ($remaining < $quantity_serve) {
+    //                 return GlobalFunction::invalid(
+    //                     Message::QUANTITY_VALIDATION
+    //                 );
+    //             }
+    //         } else {
+    //             $allowable_percentage = $allowable->value;
+
+    //             $percent = "." . $allowable_percentage;
+
+    //             $max_allowable = $remaining * $percent;
+
+    //             $total = $remaining + $max_allowable;
+
+    //             if ($order["quantity_serve"] > $total) {
+    //                 return GlobalFunction::invalid(
+    //                     Message::MAX_QUANTITY_VALIDATION
+    //                 );
+    //             }
+    //         }
+    //     }
+
+    //     return true;
+    // }
+
     public static function validateQuantities($orders, $po_items)
     {
+        $allowable = AllowablePercentage::first();
+
         foreach ($orders as $order) {
             $item_id = $order["item_id"];
 
+            // Check if item exists in po_items
             if (!isset($po_items[$item_id])) {
                 return GlobalFunction::invalid(Message::ITEM_NOT_FOUND);
             }
@@ -47,19 +109,75 @@ class RRHelperFunctions
             $quantity_serve = $order["quantity_serve"];
             $remaining = $item["quantity"] - $item["quantity_serve"];
 
-            if (
-                $item["quantity_serve"] <= 0 &&
-                $item["quantity"] < $quantity_serve
-            ) {
-                return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
+            // Handle case where item_code might be null (for Assets)
+            $item_allowable = null;
+            if (!empty($item["item_code"])) {
+                $item_allowable = Items::where(
+                    "code",
+                    $item["item_code"]
+                )->first();
             }
 
-            if ($item["quantity"] === $item["quantity_serve"]) {
-                return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
+            // If item is an Asset (no item_code) or item not found in Items table
+            if ($item_allowable === null) {
+                // Basic quantity validation for Assets
+                if (
+                    $item["quantity_serve"] <= 0 &&
+                    $item["quantity"] < $quantity_serve
+                ) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+
+                if ($item["quantity"] === $item["quantity_serve"]) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+
+                if ($remaining < $quantity_serve) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+
+                continue; // Skip allowable percentage check for Assets
             }
 
-            if ($remaining < $quantity_serve) {
-                return GlobalFunction::invalid(Message::QUANTITY_VALIDATION);
+            // Regular item validation with allowable percentage
+            if ($item_allowable->allowable === 0) {
+                if (
+                    $item["quantity_serve"] <= 0 &&
+                    $item["quantity"] < $quantity_serve
+                ) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+
+                if ($item["quantity"] === $item["quantity_serve"]) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+
+                if ($remaining < $quantity_serve) {
+                    return GlobalFunction::invalid(
+                        Message::QUANTITY_VALIDATION
+                    );
+                }
+            } else {
+                $allowable_percentage = $allowable->value;
+                $percent = "." . $allowable_percentage;
+                $max_allowable = $remaining * $percent;
+
+                $total = $remaining + $max_allowable;
+                if ($order["quantity_serve"] > $total) {
+                    return GlobalFunction::invalid(
+                        Message::MAX_QUANTITY_VALIDATION
+                    );
+                }
             }
         }
 

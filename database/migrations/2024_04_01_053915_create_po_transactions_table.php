@@ -84,21 +84,25 @@ return new class extends Migration {
             $table
                 ->foreign("supplier_id")
                 ->references("id")
-                ->on("suppliers");
-            $table->string("supplier_name");
+                ->on("suppliers")
+                ->nullable();
+            $table->string("supplier_name")->nullable();
             $table->string("module_name");
-            $table->string("total_item_price")->nullable();
+            $table->string("total_item_price");
             $table->string("layer");
+            $table->string("cap_ex")->nullable();
             $table->string("status")->nullable();
             $table->string("description")->nullable();
             $table->string("reason")->nullable();
             $table->string("edit_remarks")->nullable();
+            $table->longText("approver_remarks")->nullable();
             $table->string("asset")->nullable();
             $table->string("asset_code")->nullable();
             $table->string("sgp")->nullable();
             $table->string("f1")->nullable();
             $table->string("f2")->nullable();
             $table->string("rush")->nullable();
+            $table->string("user_tagging")->nullable();
             $table->string("place_order")->nullable();
             $table->timestamp("approved_at")->nullable();
             $table->timestamp("rejected_at")->nullable();

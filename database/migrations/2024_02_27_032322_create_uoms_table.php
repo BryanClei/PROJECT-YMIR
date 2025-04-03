@@ -16,7 +16,7 @@ return new class extends Migration {
             $table->increments("id");
             $table->string("code")->unique();
             $table->string("name");
-            $table->string("is_integer");
+            $table->tinyInteger("is_integer");
             $table->timestamps();
             $table->softDeletes();
         });

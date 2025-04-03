@@ -29,8 +29,10 @@ use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\PoItemResource;
+use App\Http\Requests\PO\UpdateRequest;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
+use App\Http\Requests\PO\ValidationRequest;
 use App\Models\JobOrderPurchaseOrderApprovers;
 
 class PoController extends Controller
@@ -103,13 +105,19 @@ class PoController extends Controller
         );
     }
 
-    public function store(Request $request)
+    public function store(ValidationRequest $request)
     {
         $user_id = Auth()->user()->id;
 
         $date_today = Carbon::now()
             ->timeZone("Asia/Manila")
             ->format("Y-m-d H:i");
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $orders = $request->order;
 
@@ -212,7 +220,9 @@ class PoController extends Controller
             "f2" => $request->f2,
             "rush" => $request->rush,
             "layer" => "1",
+            "cap_ex" => $request->cap_ex,
             "description" => $request->po_description,
+            "user_tagging" => $user_tagged,
         ]);
         $purchase_order->save();
 
@@ -243,6 +253,7 @@ class PoController extends Controller
                 "uom_id" => $request["order"][$index]["uom_id"],
                 "supplier_id" => $request["order"][$index]["supplier_id"],
                 "price" => $request["order"][$index]["price"],
+                // "item_stock" => $request["order"][$index]["item_stock"],
                 "quantity" => $request["order"][$index]["quantity"],
                 "total_price" =>
                     $request["order"][$index]["price"] *
@@ -278,18 +289,18 @@ class PoController extends Controller
             "action_by" => $user_id,
         ]);
 
-        $purchase_items = POItems::where("po_id", $purchase_order->id)
-            ->get()
-            ->pluck("total_price")
-            ->toArray();
+        // $purchase_items = POItems::where("po_id", $purchase_order->id)
+        //     ->get()
+        //     ->pluck("total_price")
+        //     ->toArray();
 
-        $sum = array_sum($purchase_items);
+        // $sum = array_sum($purchase_items);
 
-        $approvers = PoApprovers::where("price_range", "<=", $sum)
-            ->where("po_settings_id", $po_settings->id)
-            ->get();
+        // $approvers = PoApprovers::where("price_range", "<=", $sum)
+        //     ->where("po_settings_id", $po_settings->id)
+        //     ->get();
 
-        foreach ($approvers as $index) {
+        foreach ($check_price_approvers as $index) {
             PoHistory::create([
                 "po_id" => $purchase_order->id,
                 "approver_id" => $index["approver_id"],
@@ -427,6 +438,8 @@ class PoController extends Controller
                 "asset" => $request["order"][$index]["asset"],
                 "asset_code" => $request["order"][$index]["asset_code"],
                 "helpdesk_id" => $request["order"][$index]["helpdesk_id"],
+                "buyer_id" => $request["order"][$index]["buyer_id"],
+                "buyer_name" => $request["order"][$index]["buyer_name"],
             ]);
         }
 
@@ -471,6 +484,22 @@ class PoController extends Controller
                         "new_total_price" => $newTotalPrice,
                     ];
                 }
+
+                $oldBuyerName = $originalItem["buyer_name"];
+                $oldBuyerId = $originalItem["buyer_id"];
+                $newBuyerName = $values["buyer_name"];
+                $newBuyerId = $values["buyer_id"];
+
+                if (
+                    $oldBuyerName !== $newBuyerName ||
+                    $oldBuyerId !== $newBuyerId
+                ) {
+                    if ($oldBuyerName === $newBuyerName) {
+                        $buyerTaggingDetails[] = "Item ID {$values["id"]}: Buyer tagged as {$newBuyerName} (ID: {$newBuyerId})";
+                    } else {
+                        $buyerChangeDetails[] = "Item ID {$values["id"]}: Buyer reassigned from {$oldBuyerName} (ID: {$oldBuyerId}) to {$newBuyerName} (ID: {$newBuyerId})";
+                    }
+                }
             }
         }
 
@@ -489,6 +518,16 @@ class PoController extends Controller
                     "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
             }
             $activityDescription = rtrim($activityDescription, ", ");
+        }
+
+        if (!empty($buyerTaggingDetails)) {
+            $activityDescription .=
+                ". Buyer Tagging: " . implode(", ", $buyerTaggingDetails);
+        }
+
+        if (!empty($buyerChangeDetails)) {
+            $activityDescription .=
+                ". Buyer Changes: " . implode(", ", $buyerChangeDetails);
         }
 
         LogHistory::create([
@@ -514,7 +553,7 @@ class PoController extends Controller
         return GlobalFunction::save(Message::JOB_ORDER_SAVE, $jo_collect);
     }
 
-    public function update(Request $request, $id)
+    public function update(UpdateRequest $request, $id)
     {
         $user_id = Auth()->user()->id;
         $purchase_order = POTransaction::find($id);
@@ -524,6 +563,12 @@ class PoController extends Controller
         if (!$not_found) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $orders = $request->order;
 
@@ -557,7 +602,9 @@ class PoController extends Controller
             "f2" => $request->f2,
             "rush" => $request->rush,
             "layer" => "1",
+            "cap_ex" => $request->cap_ex,
             "description" => $request->description,
+            "user_tagging" => $user_tagged,
         ]);
 
         $activityDescription =
@@ -614,6 +661,7 @@ class PoController extends Controller
                     "uom_id" => $values["uom_id"],
                     "supplier_id" => $values["supplier_id"],
                     "price" => $values["price"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
                     "quantity_serve" => $values["quantity_serve"],
                     "total_price" => $values["total_price"],
@@ -704,6 +752,7 @@ class PoController extends Controller
                     "uom_id" => $values["uom_id"],
                     "supplier_id" => $values["supplier_id"],
                     "price" => $values["price"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
                     "quantity_serve" => $values["quantity_serve"],
                     "total_price" => $newTotalPrice,
@@ -761,13 +810,13 @@ class PoController extends Controller
                     ]);
                 }
             }
-        }
-
-        foreach ($po_approvers as $po_approver) {
-            $po_approver->update([
-                "approved_at" => null,
-                "rejected_at" => null,
-            ]);
+        } else {
+            foreach ($po_approvers as $po_approver) {
+                $po_approver->update([
+                    "approved_at" => null,
+                    "rejected_at" => null,
+                ]);
+            }
         }
 
         $po_collect = new PoResource($purchase_order);
@@ -855,41 +904,36 @@ class PoController extends Controller
         $charging_po_approvers =
             $requestor_purchase_order_setting_id->id !==
             $charging_purchase_order_setting_id->id
-                ? JobOrderApprovers::where(
-                    "job_order_id",
+                ? JobOrderPurchaseOrderApprovers::where(
+                    "jo_purchase_order_id",
                     $charging_purchase_order_setting_id->id
                 )
                     ->where("base_price", "<=", $sumOfTotalPrices)
                     ->get()
                 : collect([]);
 
+        JoPoHistory::where("jo_po_id", $id)->delete();
+
         $layer = 1;
+
         foreach ($requestor_po_approvers as $approver) {
-            JoPoHistory::updateOrCreate(
-                [
-                    "jo_po_id" => $id,
-                    "approver_id" => $approver->approver_id,
-                ],
-                [
-                    "approver_name" => $approver->approver_name,
-                    "layer" => $layer++,
-                    "approved_at" => null,
-                ]
-            );
+            JoPoHistory::create([
+                "jo_po_id" => $id,
+                "approver_id" => $approver->approver_id,
+                "approver_name" => $approver->approver_name,
+                "layer" => $layer++,
+                "approved_at" => null,
+            ]);
         }
 
         foreach ($charging_po_approvers as $approver) {
-            JoPoHistory::updateOrCreate(
-                [
-                    "jo_po_id" => $id,
-                    "approver_id" => $approver->approver_id,
-                ],
-                [
-                    "approver_name" => $approver->approver_name,
-                    "layer" => $layer++,
-                    "approved_at" => null,
-                ]
-            );
+            JoPoHistory::create([
+                "jo_po_id" => $id,
+                "approver_id" => $approver->approver_id,
+                "approver_name" => $approver->approver_name,
+                "layer" => $layer++,
+                "approved_at" => null,
+            ]);
         }
 
         foreach ($po_history as $pr) {
@@ -906,7 +950,6 @@ class PoController extends Controller
             "layer" => "1",
         ]);
 
-        // Track price changes for logging
         $updatedItems = [];
         foreach ($orders as $values) {
             $order_id = $values["id"];
@@ -937,7 +980,6 @@ class PoController extends Controller
             }
         }
 
-        // Create detailed activity description
         $activityDescription =
             "Job order purchase order ID: " .
             $id .
@@ -976,20 +1018,42 @@ class PoController extends Controller
             ->get()
             ->first();
 
-        if ($no_rr) {
-            $po_cancel_order = $po_cancel
-                ->order()
-                ->pluck("pr_item_id")
-                ->toArray();
+        // if (
+        //     $po_cancel
+        //         ->rr_transaction()
+        //         ->whereNull("deleted_at")
+        //         ->exists()
+        // ) {
+        //     return GlobalFunction::invalid(Message::ALREADY_HAVE_RR);
+        // }
 
-            $pr_items = PRItems::whereIn("id", $po_cancel_order)->update([
-                "buyer_id" => null,
-                "buyer_name" => null,
-                "supplier_id" => null,
-                "po_at" => null,
-                "purchase_order_id" => null,
-            ]);
-        }
+        // if ($no_rr) {
+        //     $po_cancel_order = $po_cancel
+        //         ->order()
+        //         ->pluck("pr_item_id")
+        //         ->toArray();
+
+        //     $pr_items = PRItems::whereIn("id", $po_cancel_order)->update([
+        //         "buyer_id" => null,
+        //         "buyer_name" => null,
+        //         "supplier_id" => null,
+        //         "po_at" => null,
+        //         "purchase_order_id" => null,
+        //     ]);
+        // }
+
+        $po_cancel_order = $po_cancel
+            ->order()
+            ->pluck("pr_item_id")
+            ->toArray();
+
+        $pr_items = PRItems::whereIn("id", $po_cancel_order)->update([
+            "buyer_id" => null,
+            "buyer_name" => null,
+            "supplier_id" => null,
+            "po_at" => null,
+            "purchase_order_id" => null,
+        ]);
 
         $po_cancel->update([
             "reason" => $request->reason,
@@ -1040,6 +1104,20 @@ class PoController extends Controller
 
         if (!$po_cancel) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $direct_jo = $po_cancel->direct_po;
+
+        if ($direct_jo) {
+            $jr_transaction = JobOrderTransaction::where(
+                "id",
+                $po_cancel->jo_number
+            )->first();
+
+            $jr_transaction->update([
+                "status" => "Return",
+                "reason" => $reason,
+            ]);
         }
 
         if ($no_rr) {
@@ -1097,11 +1175,45 @@ class PoController extends Controller
     {
         $user = Auth()->user()->id;
 
+        $approver_histories = JoPoHistory::where("approver_id", $user)->get();
+
         $po_id = BadgeHelperFunctions::poId($user);
         $layer = BadgeHelperFunctions::layer($user);
 
-        $jo_po_id = BadgeHelperFunctions::joPoId($user);
-        $jo_layer = BadgeHelperFunctions::joLayer($user);
+        // $jo_po_id = BadgeHelperFunctions::joPoId($approver_histories);
+        // $jo_layer = BadgeHelperFunctions::joLayer($approver_histories);
+
+        // Get all JO PO IDs and their corresponding layers for the user
+        $userLayers = JoPoHistory::where("approver_id", $user)
+            ->pluck("layer", "jo_po_id") // JO PO ID => Layer assigned to the user
+            ->toArray();
+
+        $job_order_count = JOPOTransaction::whereHas(
+            "jo_approver_history",
+            function ($query) use ($user, $userLayers) {
+                $query
+                    ->whereNull("approved_at")
+                    ->where("approver_id", $user)
+                    ->whereIn("jo_po_id", array_keys($userLayers))
+                    ->whereIn("layer", array_values($userLayers));
+            }
+        )
+            ->where(function ($query) use ($userLayers) {
+                foreach ($userLayers as $joPoId => $layer) {
+                    $query->orWhere(function ($subQuery) use ($joPoId, $layer) {
+                        $subQuery->where("id", $joPoId)->where("layer", $layer);
+                    });
+                }
+            })
+            ->where(function ($query) {
+                $query
+                    ->where("status", "Pending")
+                    ->orWhere("status", "For Approval");
+            })
+            ->whereNull("voided_at")
+            ->whereNull("cancelled_at")
+            ->whereNull("rejected_at")
+            ->count();
 
         $result = [
             "Inventoriables" => BadgeHelperFunctions::getPrCount(
@@ -1119,10 +1231,11 @@ class PoController extends Controller
                 $layer,
                 "assets"
             ),
-            "Job Order" => BadgeHelperFunctions::poJobOrderCount(
-                $jo_po_id,
-                $jo_layer
-            ),
+            "Job Order" => $job_order_count,
+            // "Job Order" => BadgeHelperFunctions::poJobOrderCount(
+            //     $jo_po_id,
+            //     $jo_layer
+            // ),
         ];
 
         return GlobalFunction::responseFunction(

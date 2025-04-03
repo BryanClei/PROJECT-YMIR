@@ -23,6 +23,11 @@ class AccountTitle extends Model
         "financial_statement_id",
         "normal_balance_id",
         "account_title_unit_id",
+        "credit_id",
+        "credit_name",
+        "credit_code",
+        "request_id",
+        "request_type",
     ];
 
     protected $hidden = ["created_at"];
@@ -89,5 +94,15 @@ class AccountTitle extends Model
         )
             ->withPivot("transaction_type")
             ->withTimestamps();
+    }
+
+    public function credit()
+    {
+        return $this->belongsTo(Credit::class, "credit_id", "id");
+    }
+
+    public function request_type()
+    {
+        return $this->belongsTo(Type::class, "request_id", "id");
     }
 }

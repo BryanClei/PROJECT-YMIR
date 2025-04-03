@@ -85,8 +85,10 @@ return new class extends Migration {
             $table
                 ->foreign("supplier_id")
                 ->references("id")
-                ->on("suppliers");
-            $table->string("supplier_name");
+                ->on("suppliers")
+                ->nullable();
+            $table->string("total_item_price")->nullable();
+            $table->string("supplier_name")->nullable();
             $table->string("module_name");
             $table->string("layer");
             $table->string("status")->nullable();
@@ -97,6 +99,7 @@ return new class extends Migration {
             $table->string("sgp")->nullable();
             $table->string("f1")->nullable();
             $table->string("f2")->nullable();
+            $table->string("direct_po")->nullable();
             $table->string("rush")->nullable();
             $table->string("outside_labor")->nullable();
             $table->string("cap_ex")->nullable();

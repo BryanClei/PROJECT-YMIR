@@ -17,6 +17,16 @@ class RRSyncDisplay extends JsonResource
         return [
             "rr_year_number_id" => $this->rr_year_number_id,
             "rr_number" => $this->id,
+            "causer" =>
+                $this->user->prefix_id .
+                "-" .
+                $this->user->id_number .
+                " " .
+                $this->user->first_name .
+                " " .
+                $this->user->middle_name .
+                " " .
+                $this->user->last_name,
             "orders" => collect($this->rr_orders)->map(
                 fn($order) => [
                     "transaction_no" =>
@@ -55,6 +65,10 @@ class RRSyncDisplay extends JsonResource
                         "rr_date" => $order["rr_date"],
                         "sync" => $order["sync"],
                         "remarks" => $order["order"]["remarks"],
+                        "initial_credit_id" =>
+                            $order["order"]["po_transaction"]["account_title"][
+                                "credit_id"
+                            ],
                     ],
                 ]
             ),

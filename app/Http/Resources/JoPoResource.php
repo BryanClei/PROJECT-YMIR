@@ -84,13 +84,15 @@ class JoPoResource extends JsonResource
             "voided_at" => $this->voided_at,
             "cancelled_at" => $this->cancelled_at,
             "description" => $this->description,
+            "pr_date" => $this->jo_transaction->created_at,
             "reason" => $this->reason,
             "created_at" => $this->created_at,
             "order_jo_transaction_id" => $this->id,
             "jo_po_orders" => JoPoOrderResource::collection(
                 $this->jo_po_orders
             ),
-            "jo_rr_transaction" => $this->jo_rr_transaction,
+            // "jo_rr_transaction" =>
+            //     $this->jo_po_orders->rr_orders->jo_rr_transaction,
             "jo_po_approver_history" => JobOrderHistoryResource::collection(
                 $this->jo_approver_history
             ),

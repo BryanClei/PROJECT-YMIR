@@ -20,22 +20,18 @@ class WarehouseResource extends JsonResource
             "code" => $this->code,
             "url" => $this->url,
             "token" => $this->token,
-            "warehouse_account_titles" => $this->whenLoaded(
+            "account_titles" => $this->whenLoaded(
                 "warehouseAccountTitles",
                 function () {
-                    return $this->warehouseAccountTitles->map(function ($wat) {
-                        return [
-                            "id" => $wat->id,
-                            "account_title" => [
-                                "id" => $wat->accountTitle->id,
-                                "name" => $wat->accountTitle->name,
-                            ],
-                            "transaction_type" => $wat->transaction_type,
-                            "created_at" => $wat->created_at,
-                            "updated_at" => $wat->updated_at,
-                        ];
-                    });
-                }
+                    return $this->warehouseAccountTitles->map->only([
+                        "id",
+                        "name",
+                        "code",
+                        "credit_name",
+                        "credit_code",
+                    ]);
+                },
+                []
             ),
             "created_at" => $this->created_at,
             "updated_at" => $this->updated_at,

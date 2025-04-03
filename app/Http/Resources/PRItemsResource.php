@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Carbon\Carbon;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PRItemsResource extends JsonResource
@@ -14,6 +15,15 @@ class PRItemsResource extends JsonResource
      */
     public function toArray($request)
     {
+        $tagAging = null;
+        if ($this->tagged_buyer) {
+            $currentTime = Carbon::now()->timezone("Asia/Manila");
+            $taggedTime = Carbon::parse($this->tagged_buyer)->timezone(
+                "Asia/Manila"
+            );
+            $tagAging = $currentTime->diffInDays($taggedTime);
+        }
+
         return [
             // "transaction_id" => $this->transaction_id,
             // "item_code" => $this->item_code,
@@ -22,7 +32,7 @@ class PRItemsResource extends JsonResource
             "reference_no" => $this->reference_no ?? null,
             "items" => new ItemResource($this->item),
             "item" => [
-                "id" => $this->item_id,
+                "id" => $this->id,
                 "name" => $this->item_name,
                 "code" => $this->item_code,
             ],
@@ -31,8 +41,12 @@ class PRItemsResource extends JsonResource
             "purchase_order_id" => $this->purchase_order_id,
             "buyer_id" => $this->buyer_id,
             "buyer_name" => $this->buyer_name,
+            "tagged_buyer" => $this->tagged_buyer,
+            "tag_aging" => $tagAging,
             "supplier_id" => $this->supplier_id,
             "quantity" => $this->quantity,
+            "unit_price" => $this->unit_price,
+            "total_price" => $this->total_price,
             "remarks" => $this->remarks,
             "attachment" => is_array($this->attachment)
                 ? $this->attachment

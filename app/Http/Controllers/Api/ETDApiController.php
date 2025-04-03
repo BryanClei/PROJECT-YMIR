@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\POItems;
+use App\Models\RROrders;
 use App\Models\Warehouse;
 use App\Response\Message;
 use Illuminate\Http\Request;
@@ -11,6 +12,7 @@ use App\Models\PRTransaction;
 use App\Models\RRTransaction;
 use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Etd\SyncRequest;
 use App\Http\Resources\ETDApiResource;
 
 class ETDApiController extends Controller
@@ -33,12 +35,17 @@ class ETDApiController extends Controller
         $w_id = $warehouse->id;
 
         $rr_transactions = RRTransaction::with([
-            "pr_transaction.order",
-            "po_transaction.order",
-            "rr_orders",
+            "rr_orders.order.uom",
+            "rr_orders.pr_transaction",
+            "rr_orders.po_transaction",
         ])
             ->whereHas("pr_transaction.order", function ($query) use ($w_id) {
-                $query->where("warehouse_id", $w_id);
+                $query
+                    ->where("warehouse_id", $w_id)
+                    ->where("module_name", "Inventoriables");
+            })
+            ->whereHas("rr_orders", function ($query) {
+                $query->where("etd_sync", 0);
             })
             ->when($from_date || $to_date, function ($query) use (
                 $from_date,
@@ -61,50 +68,32 @@ class ETDApiController extends Controller
         return $rr_transactions;
     }
 
-    // public function index(Request $request)
-    // {
-    //     $warehouse_name = $request->system_name;
-    //     $from = $request->from;
-    //     $to = $request->to;
+    public function etd_sync(SyncRequest $request)
+    {
+        $data = $request->all();
+        $results = [];
+        $sync = 1;
 
-    //     $warehouse = Warehouse::where("name", $warehouse_name)
-    //         ->get()
-    //         ->first();
+        foreach ($data as $item) {
+            if (isset($item["item_id"])) {
+                foreach ($item["item_id"] as $subItem) {
+                    $rr_order_id = $subItem["id"];
+                    $order = RROrders::where("id", $rr_order_id)->first();
 
-    //     if (!$warehouse) {
-    //         return GlobalFunction::notFound(
-    //             " Warehouse or " . Message::NOT_FOUND
-    //         );
-    //     }
-    //     $w_id = $warehouse->id;
+                    $order->update([
+                        "etd_sync" => $sync,
+                    ]);
 
-    //     $data = POItems::with([
-    //         "po_transaction",
-    //         "po_transaction.pr_transaction",
-    //     ])
-    //         ->whereHas("po_transaction", function ($query) use (
-    //             $w_id,
-    //             $from,
-    //             $to
-    //         ) {
-    //             $query
-    //                 ->where("type_name", "Inventoriable")
-    //                 ->where("status", "For Receiving")
-    //                 ->where("warehouse_id", $w_id)
-    //                 ->whereNotNull("approved_at")
-    //                 ->when($from, function ($query) use ($from) {
-    //                     return $query->whereDate("approved_at", ">=", $from);
-    //                 })
-    //                 ->when($to, function ($query) use ($to) {
-    //                     return $query->whereDate("approved_at", "<=", $to);
-    //                 });
-    //         })
-    //         ->get();
+                    if ($order) {
+                        $results[] = $order;
+                    }
+                }
+            }
+        }
 
-    //     if ($data->isEmpty()) {
-    //         return GlobalFunction::notFound(Message::NOT_FOUND);
-    //     }
-
-    //     return ETDApiResource::collection($data);
-    // }
+        return GlobalFunction::responseFunction(
+            Message::RR_ETD_ITEMS,
+            $results
+        );
+    }
 }

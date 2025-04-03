@@ -32,6 +32,7 @@ class RROrders extends Model
         "attachment",
         "late_attachment",
         "sync",
+        "etd_sync",
         "f_tagged",
     ];
 
@@ -49,12 +50,16 @@ class RROrders extends Model
 
     public function order()
     {
-        return $this->belongsTo(POItems::class, "item_id", "id");
+        return $this->belongsTo(POItems::class, "item_id", "id")->withTrashed();
     }
 
     public function po_transaction()
     {
-        return $this->belongsTo(POTransaction::class, "po_id", "id");
+        return $this->belongsTo(
+            POTransaction::class,
+            "po_id",
+            "id"
+        )->withTrashed();
     }
 
     public function pr_transaction()

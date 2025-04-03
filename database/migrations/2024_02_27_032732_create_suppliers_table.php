@@ -18,7 +18,7 @@ return new class extends Migration {
             $table->string("code");
             $table->string("type")->nullable();
             $table->double("term");
-            $table->string("address_1");
+            $table->string("address_1")->nullable();
             $table->string("address_2")->nullable();
             $table->timestamps();
             $table->softDeletes();

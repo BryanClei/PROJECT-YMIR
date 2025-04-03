@@ -42,26 +42,21 @@ class ApproverDashboardFilters extends QueryFilters
     {
         $user = Auth()->user()->id;
 
-        $user_id = User::where("id", $user)
-            ->get()
-            ->first();
+        // Fetch all PO histories for the current user
+        $approver_histories = PoHistory::where("approver_id", $user)->get();
 
-        $po_id = PoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("po_id");
-        $layer = PoHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
+        // Extract unique PO IDs and layers
+        $po_ids = $approver_histories->pluck("po_id")->unique();
+        $layers = $approver_histories->pluck("layer")->unique();
 
         $this->builder
             ->when($status == "pending", function ($query) use (
-                $po_id,
-                $layer
+                $po_ids,
+                $layers
             ) {
                 $query
-
-                    ->whereIn("id", $po_id)
-                    ->whereIn("layer", $layer)
+                    ->whereIn("id", $po_ids)
+                    ->whereIn("layer", $layers)
                     ->where(function ($query) {
                         $query
                             ->where("status", "Pending")
@@ -75,30 +70,109 @@ class ApproverDashboardFilters extends QueryFilters
                     });
             })
             ->when($status == "rejected", function ($query) use (
-                $po_id,
-                $layer
+                $po_ids,
+                $layers
             ) {
                 $query
-                    ->whereIn("id", $po_id)
-                    ->whereIn("layer", $layer)
+                    ->whereIn("id", $po_ids)
+                    ->whereIn("layer", $layers)
                     ->whereNull("voided_at")
                     ->whereNotNull("rejected_at");
             })
-
             ->when($status == "approved", function ($query) use (
-                $po_id,
-                $layer,
-                $user_id
+                $po_ids,
+                $user
             ) {
                 $query
-                    ->whereIn("id", $po_id)
+                    ->whereIn("id", $po_ids)
                     ->whereHas("approver_history", function ($query) use (
-                        $user_id
+                        $user
                     ) {
                         $query
-                            ->whereIn("approver_id", $user_id)
+                            ->where("approver_id", $user)
                             ->whereNotNull("approved_at");
                     });
             });
     }
+
+    // public function status($status)
+    // {
+    //     $user = Auth()->user()->id;
+
+    //     $user_id = User::where("id", $user)
+    //         ->get()
+    //         ->first();
+
+    //     $po_id = PoHistory::where("approver_id", $user_id->id)
+    //         ->get()
+    //         ->pluck("po_id");
+    //     $layer = PoHistory::where("approver_id", $user_id->id)
+    //         ->get()
+    //         ->pluck("layer");
+    //     $approver_histories = PoHistory::where("approver_id", $user)->get();
+
+    //     $this->builder
+    //         ->when($status == "pending", function ($query) use (
+    //             $po_id,
+    //             $layer,
+    //             $approver_histories
+    //         ) {
+    //             $query
+    //                 ->where(function ($query) use ($approver_histories) {
+    //                     foreach ($approver_histories as $history) {
+    //                         $query->orWhere(function ($subQuery) use (
+    //                             $history
+    //                         ) {
+    //                             $subQuery
+    //                                 ->where("id", $history->po_id)
+    //                                 ->where("layer", $history->layer)
+    //                                 ->whereHas("approver_history", function (
+    //                                     $historyQuery
+    //                                 ) use ($history) {
+    //                                     $historyQuery
+    //                                         ->where("layer", $history->layer)
+    //                                         ->whereNull("approved_at");
+    //                                 });
+    //                         });
+    //                     }
+    //                 })
+    //                 ->where(function ($query) {
+    //                     $query
+    //                         ->where("status", "Pending")
+    //                         ->orWhere("status", "For Approval");
+    //                 })
+    //                 ->whereNull("voided_at")
+    //                 ->whereNull("cancelled_at")
+    //                 ->whereNull("rejected_at")
+    //                 ->whereHas("approver_history", function ($query) {
+    //                     $query->whereNull("approved_at");
+    //                 });
+    //         })
+    //         ->when($status == "rejected", function ($query) use (
+    //             $po_id,
+    //             $layer
+    //         ) {
+    //             $query
+    //                 ->whereIn("id", $po_id)
+    //                 ->whereIn("layer", $layer)
+    //                 ->whereNull("voided_at")
+    //                 ->whereNotNull("rejected_at");
+    //         })
+
+    //         ->when($status == "approved", function ($query) use (
+    //             $po_id,
+    //             $layer,
+    //             $user_id
+    //         ) {
+    //             $query
+    //                 ->whereIn("id", $po_id)
+    //                 ->whereHas("approver_history", function ($query) use (
+    //                     $user_id
+    //                 ) {
+    //                     $query
+    //                         ->whereIn("approver_id", $user_id)
+    //                         ->whereNotNull("approved_at");
+    //                 });
+    //         });
+    // }
 }

@@ -27,11 +27,29 @@ class UpdatePriceRequest extends FormRequest
         return [
             "po_id" => "required|exists:po_transactions,id,deleted_at,NULL",
             // "edit_remarks" => "required",
-            "orders" => "required|array",
-            "orders.*.id" => "required|exists:po_orders,id,deleted_at,NULL",
+            // "orders" => "required|array",
+            // "orders.*.id" => "required|exists:po_orders,id,deleted_at,NULL",
+            // "orders.*.price" => "required, min:0.01"
+            "orders" => ["required", "array", "min:1"],
+            "orders.*.price" => ["required", "numeric", "min:0.01"],
+            "orders.*.total_price" => ["required", "numeric", "min:0.01"],
             // "orders.*.id" =>
             //     "required|exists:po_orders,id,deleted_at,NULL,buyer_id," .
             //     $user_id,
+        ];
+    }
+
+    public function attribute()
+    {
+        return [
+            "orders.*.price" => "price",
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            "orders.*.price.min" => "The items price must be at least 0.01.",
         ];
     }
 }

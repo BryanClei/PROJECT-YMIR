@@ -20,7 +20,6 @@ class SubUnitSaveResource extends JsonResource
             "code" => $this->code,
             "updated_at" => $this->updated_at,
             "deleted_at" => $this->deleted_at,
-
             "department units" => [
                 "id" => $this->department_unit->id,
                 "name" => $this->department_unit->name,

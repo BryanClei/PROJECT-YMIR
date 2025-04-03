@@ -39,7 +39,7 @@ class StoreRequest extends FormRequest
             "sub_unit_id" => "exists:sub_units,id,deleted_at,NULL",
             "location_id" => "exists:locations,id,deleted_at,NULL",
             "account_title_id" => "exists:account_titles,id,deleted_at,NULL",
-            "supplier_id" => "exists:suppliers,id,deleted_at,NULL",
+            // "supplier_id" => "exists:suppliers,id,deleted_at,NULL",
 
             "order.*.uom_id" => "exists:uoms,id,deleted_at,NULL",
             "order.*.item_name" => "required",
@@ -72,5 +72,13 @@ class StoreRequest extends FormRequest
                 $validator->errors()->add("message", "No approvers yet.");
             }
         });
+    }
+
+    public function messages()
+    {
+        return [
+            "order.*.pr_item_id.exists" =>
+                "The selected item already has a PO.",
+        ];
     }
 }

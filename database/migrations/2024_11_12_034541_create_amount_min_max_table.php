@@ -15,7 +15,7 @@ return new class extends Migration {
         Schema::create("amount_min_max", function (Blueprint $table) {
             $table->increments("id");
             $table->integer("amount_min");
-            $table->integer("amount_max");
+            $table->integer("amount_max")->nullable();
             $table->timestamps();
         });
     }

@@ -56,6 +56,15 @@ class AccountTitleResource extends JsonResource
                 "updated_at" => $this->account_title_unit->updated_at,
                 "deleted_at" => $this->account_title_unit->deleted_at,
             ],
+            "credit" => [
+                "id" => $this->credit_id,
+                "name" => $this->credit_name,
+                "code" => $this->credit_code,
+            ],
+            "request" => [
+                "id" => $this->request_id,
+                "name" => $this->request_type,
+            ],
         ];
     }
 }

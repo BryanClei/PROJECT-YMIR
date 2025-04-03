@@ -38,6 +38,7 @@ class PoApproversController extends Controller
             $po_setting
         );
     }
+    
     public function store(StoreRequest $request)
     {
         $approver = new POSettings([

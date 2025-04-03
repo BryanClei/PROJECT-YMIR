@@ -25,6 +25,7 @@ class POItems extends Model
         "supplier_id",
         "uom_id",
         "price",
+        "item_stock",
         "quantity",
         "quantity_serve",
         "total_price",
@@ -58,7 +59,7 @@ class POItems extends Model
 
     public function items()
     {
-        return $this->belongsTo(Items::class, "item_id", "id");
+        return $this->belongsTo(Items::class, "item_code", "code");
     }
 
     public function po_transaction()
@@ -78,6 +79,11 @@ class POItems extends Model
 
     public function rr_orders()
     {
-        return $this->hasMany(RROrders::class, "po_id", "id");
+        return $this->hasMany(RROrders::class, "item_id", "id");
+    }
+
+    public function small_tools()
+    {
+        return $this->hasMany(SmallTools::class, "id", "item_id");
     }
 }

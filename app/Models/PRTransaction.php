@@ -48,10 +48,12 @@ class PRTransaction extends Model
         "status",
         "asset_code",
         "layer",
+        "cap_ex",
         "description",
         "helpdesk_id",
         "reason",
         "edit_remarks",
+        "approver_remarks",
         "asset",
         "sgp",
         "f1",
@@ -60,6 +62,7 @@ class PRTransaction extends Model
         "place_order",
         "for_po_only",
         "for_po_only_id",
+        "user_tagging",
         "vrid",
         "for_marketing",
         "approved_at",
@@ -75,6 +78,8 @@ class PRTransaction extends Model
         return $this->module_name === "Asset"
             ? $this->belongsTo(VladimirUser::class, "user_id", "id")
             : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+
+        // return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
 
     // Add a specific relationship for Vladimir users

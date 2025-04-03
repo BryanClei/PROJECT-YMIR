@@ -25,8 +25,7 @@ return new class extends Migration {
                 ->references("id")
                 ->on("users");
             $table->string("approver_name");
-            $table->string("from_price");
-            $table->string("to_price");
+            $table->string("price_range");
             $table->string("layer");
             $table->timestamps();
         });

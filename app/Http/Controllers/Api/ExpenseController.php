@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use Carbon\Carbon;
 use App\Models\Expense;
 use App\Models\PRItems;
+use App\Models\PrDrafts;
 use App\Models\PrHistory;
 use App\Response\Message;
 use App\Models\LogHistory;
@@ -25,7 +26,7 @@ class ExpenseController extends Controller
     {
         $user_id = Auth()->user()->id;
         $status = $request->status;
-        $purchase_request = Expense::with([
+         $purchase_request = Expense::with([
             "order",
             "approver_history",
             "log_history" => function ($query) {
@@ -34,6 +35,7 @@ class ExpenseController extends Controller
             "po_transaction.order",
             "po_transaction.approver_history",
         ])
+            ->where("user_id", $user_id)
             ->where("module_name", "Expense")
             ->orderBy("rush", "desc")
             ->orderBy("updated_at", "desc")
@@ -57,6 +59,8 @@ class ExpenseController extends Controller
     public function store(StoreRequest $request)
     {
         $user_id = Auth()->user()->id;
+
+        $pr_draft = $request->pr_draft_id ? $request->pr_draft_id : null;
 
         if ($request->boolean("for_po_only")) {
             $for_po_id = $user_id;
@@ -87,6 +91,12 @@ class ExpenseController extends Controller
         } else {
             $new_number = 1;
         }
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $rush = $request->boolean("rush")
             ? Carbon::now()
@@ -133,8 +143,12 @@ class ExpenseController extends Controller
             "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
             "for_marketing" => $request->boolean("for_marketing") ?? null,
             "layer" => "1",
+            "cap_ex" => $request->cap_ex,
+            "supplier_name" => $request->supplier_name,
+            "supplier_id" => $request->supplier_id,
         ]);
         $purchase_request->save();
 
@@ -156,7 +170,10 @@ class ExpenseController extends Controller
                 "item_code" => $request["order"][$index]["item_code"],
                 "item_name" => $request["order"][$index]["item_name"],
                 "uom_id" => $request["order"][$index]["uom_id"],
+                // "item_stock" => $request["order"][$index]["item_stock"],
                 "quantity" => $request["order"][$index]["quantity"],
+                "unit_price" => $request["order"][$index]["unit_price"],
+                "total_price" => $request["order"][$index]["total_price"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => json_encode($filenames),
                 "warehouse_id" => $request["order"][$index]["warehouse_id"],
@@ -180,8 +197,17 @@ class ExpenseController extends Controller
             "approver_settings_id",
             $approver_settings->id
         )->get();
+        
         if ($approvers->isEmpty()) {
             return GlobalFunction::save(Message::NO_APPROVERS);
+        }
+
+        if ($pr_draft) {
+            $draft = PrDrafts::find($pr_draft);
+
+            $draft->update([
+                "status" => "Submitted",
+            ]);
         }
 
         $activityDescription =
@@ -215,7 +241,10 @@ class ExpenseController extends Controller
 
     public function update(StoreRequest $request, $id)
     {
-        $purchase_request = PRTransaction::find($id);
+        $purchase_request = PRTransaction::with(
+            "order",
+            "approver_history"
+        )->find($id);
         $not_found = PRTransaction::where("id", $id)->exists();
 
         if (!$not_found) {
@@ -225,6 +254,8 @@ class ExpenseController extends Controller
         $user_id = Auth()->user()->id;
 
         $orders = $request->order;
+        $newTotalQuantity = array_sum(array_column($orders, "quantity"));
+        $oldTotalQuantity = $purchase_request->order->sum("quantity");
 
         if ($request->boolean("for_po_only")) {
             $for_po_id = $user_id;
@@ -236,11 +267,56 @@ class ExpenseController extends Controller
             $date_today = null;
         }
 
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $rush = $request->boolean("rush")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i")
             : null;
+
+        $approver_settings = ApproverSettings::where(
+            "company_id",
+            $purchase_request->company_id
+        )
+            ->where("business_unit_id", $purchase_request->business_unit_id)
+            ->where("department_id", $purchase_request->department_id)
+            ->where("department_unit_id", $purchase_request->department_unit_id)
+            ->where("sub_unit_id", $purchase_request->sub_unit_id)
+            ->where("location_id", $purchase_request->location_id)
+            ->whereHas("set_approver")
+            ->get()
+            ->first();
+
+        $approvers = SetApprover::where(
+            "approver_settings_id",
+            $approver_settings->id
+        )->get();
+        if ($approvers->isEmpty()) {
+            return GlobalFunction::save(Message::NO_APPROVERS);
+        }
+
+        if ($newTotalQuantity !== $oldTotalQuantity) {
+            $purchase_request->approver_history()->delete();
+
+            foreach ($approvers as $index) {
+                PrHistory::create([
+                    "pr_id" => $purchase_request->id,
+                    "approver_id" => $index["approver_id"],
+                    "approver_name" => $index["approver_name"],
+                    "layer" => $index["layer"],
+                ]);
+            }
+
+            $purchase_request->update([
+                "layer" => 1,
+                "status" => "Pending",
+            ]);
+        }
 
         $purchase_request->update([
             "pr_number" => $request["pr_number"],
@@ -275,7 +351,9 @@ class ExpenseController extends Controller
             "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
             "for_marketing" => $request->boolean("for_marketing") ?? null,
+            "cap_ex" => $request->cap_ex,
         ]);
 
         $newOrders = collect($orders)
@@ -315,7 +393,10 @@ class ExpenseController extends Controller
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "unit_price" => $values["unit_price"],
+                    "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "category_id" => $values["category_id"],
@@ -371,6 +452,12 @@ class ExpenseController extends Controller
 
         $orders = $request->order;
 
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
         $rush = $request->boolean("rush")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
@@ -414,6 +501,7 @@ class ExpenseController extends Controller
             "f2" => $request["f2"],
             "rush" => $rush,
             "layer" => "1",
+            "user_tagging" => $user_tagged,
         ]);
 
         $newOrders = collect($orders)
@@ -453,7 +541,10 @@ class ExpenseController extends Controller
                     "item_name" => $values["item_name"],
                     "category_id" => $values["category_id"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "unit_price" => $values["unit_price"],
+                    "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "warehouse_id" => $values["warehouse_id"],

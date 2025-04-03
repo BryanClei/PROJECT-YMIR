@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use Carbon\Carbon;
+use App\Models\JobItems;
 use App\Response\Message;
 use App\Models\JoPoOrders;
 use App\Models\JORROrders;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Http\Resources\JORRResource;
+use App\Http\Requests\JORRTodayDisplay;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\JORROrderResource;
 use App\Http\Requests\JoRROrder\StoreRequest;
@@ -29,12 +31,17 @@ class JORRTransactionController extends Controller
 {
     public function index(JODisplay $request)
     {
-        $display = JORRTransaction::with(
-            "rr_orders",
-            "jo_po_transactions",
+        $display = JORRTransaction::with([
+            "rr_orders" => function ($query) {
+                $query->withTrashed();
+            },
+            "jo_po_transactions" => function ($query) {
+                $query->withTrashed();
+            },
             "jr_order",
-            "log_history"
-        )
+            "log_history",
+        ])
+            ->orderByDesc("created_at")
             ->withTrashed()
             ->useFilters()
             ->dynamicPaginate();
@@ -79,7 +86,7 @@ class JORRTransactionController extends Controller
             "jo_approver_history",
             "jo_transaction.users"
         )
-            ->orderByDesc("updated_at")
+            ->orderByDesc("created_at")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -167,17 +174,19 @@ class JORRTransactionController extends Controller
 
         $current_year = date("Y");
         $latest_rr = JORRTransaction::withTrashed()
-            ->where("jo_rr_year_number_id", "like", $current_year . "-RR-%")
+            ->where("jo_rr_year_number_id", "like", $current_year . "-JR-RR-%")
             ->orderByRaw(
-                "CAST(SUBSTRING_INDEX(jo_rr_year_number_id, '-', -1) AS UNSIGNED) DESC"
+                "CAST(SUBSTRING_INDEX(jo_rr_year_number_id, 'RR-', -1) AS UNSIGNED) DESC"
             )
             ->first();
 
         $new_number = $latest_rr
-            ? (int) explode("-", $latest_rr->jo_rr_year_number_id)[2] + 1
+            ? (int) explode("-", $latest_rr->jo_rr_year_number_id)[3] + 1
             : 1;
         $jo_rr_year_number_id =
-            $current_year . "-RR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
+            $current_year .
+            "-JR-RR-" .
+            str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $date_today = Carbon::now()
             ->timeZone("Asia/Manila")
@@ -443,10 +452,10 @@ class JORRTransactionController extends Controller
         foreach ($rr_transaction->rr_orders as $rr_order) {
             $po_item = $po_items->where("id", $rr_order->jo_item_id)->first();
 
-            // if ($po_item) {
-            //     $po_item->quantity_serve -= $rr_order->quantity_receive;
-            //     $po_item->save();
-            // }
+            if ($po_item) {
+                $po_item->quantity_serve -= $rr_order->quantity_receive;
+                $po_item->save();
+            }
 
             $rr_order->delete();
         }
@@ -492,7 +501,33 @@ class JORRTransactionController extends Controller
 
     public function report_jo_rr()
     {
-        $display = JORROrders::with("jo_rr_transaction", "jo_po_transaction")
+        $display = JORROrders::with([
+            "order",
+            "order.uom",
+            "jo_rr_transaction",
+            "jo_po_transaction" => function ($query) {
+                $query->withTrashed();
+            },
+            "jo_po_transaction.jo_transaction" => function ($query) {
+                $query->withTrashed();
+            },
+            "jo_po_transaction.supplier",
+            "jo_po_transaction.jo_transaction.users",
+            "jo_po_transaction.jo_transaction.approver_history",
+            "jo_po_transaction.company",
+            "jo_po_transaction.department",
+            "jo_po_transaction.department_unit",
+            "jo_po_transaction.sub_unit",
+            "jo_po_transaction.location",
+            "jo_po_transaction.account_title",
+            "jo_po_transaction.account_title.account_type",
+            "jo_po_transaction.account_title.account_group",
+            "jo_po_transaction.account_title.account_sub_group",
+            "jo_po_transaction.account_title.financial_statement",
+            "jo_po_transaction.jo_approver_history" => function ($query) {
+                $query->with("user");
+            },
+        ])
             ->useFilters()
             ->dynamicPaginate();
 
@@ -500,7 +535,25 @@ class JORRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        JORROrderResource::collection($display);
+        foreach ($display as $item) {
+            if (isset($item->jo_po_transaction->jo_approver_history)) {
+                foreach (
+                    $item->jo_po_transaction->jo_approver_history
+                    as $history
+                ) {
+                    if (
+                        isset($history->user) &&
+                        $history->user->position === "CEO" &&
+                        $history->user->position === "CHIEF EXECUTIVE OFFICER"
+                    ) {
+                        $history->approver_type = "CEO";
+                    } elseif ($history->approver_name === "ROBERT LO") {
+                        $history->approver_type = "CEO";
+                    }
+                }
+            }
+        }
+
         return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
     }
 
@@ -524,12 +577,13 @@ class JORRTransactionController extends Controller
         );
     }
 
-    public function report_jo_po()
+    public function report_jo_po(Request $request)
     {
         $jo_order = JoPoOrders::with(
             "uom",
             "jr_orders",
             "jo_po_transaction.users",
+            "jo_po_transaction.jo_approver_history",
             "jo_po_transaction.jo_transaction",
             "jo_po_transaction.jo_rr_transaction.rr_orders"
         )
@@ -577,5 +631,84 @@ class JORRTransactionController extends Controller
 
         JORRResource::collection($display);
         return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
+    }
+
+    public function jo_rr_today(JORRTodayDisplay $request)
+    {
+        $status = $request->status;
+        $supplier = $request->supplier;
+        $date_today = Carbon::now()->timeZone("Asia/Manila");
+
+        $rr_transaction = JORRTransaction::with("rr_orders")
+            ->when($status === "rr_today", function ($query) use (
+                $supplier,
+                $date_today
+            ) {
+                $query
+                    ->whereHas("rr_orders.jo_po_transaction", function (
+                        $query
+                    ) use ($supplier, $date_today) {
+                        $query->where("supplier_id", $supplier);
+                    })
+                    ->whereDate("created_at", $date_today);
+            })
+            ->useFilters()
+            ->dynamicPaginate();
+
+        if ($rr_transaction->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        JORRResource::collection($rr_transaction);
+
+        return GlobalFunction::responseFunction(
+            Message::RR_DISPLAY,
+            $rr_transaction
+        );
+    }
+
+    public function report_jr(PRViewRequest $request)
+    {
+        $status = $request->status;
+
+        $jr_orders = JobItems::with(
+            "jo_po_orders.jo_po_transaction",
+            "jo_po_orders.rr_orders.jo_rr_transaction",
+            "uom",
+            "transaction.approver_history",
+            "transaction.users"
+        )
+            ->orderBy("updated_at", "desc")
+            ->useFilters()
+            ->dynamicPaginate();
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $jr_orders
+        );
+
+        // $job_order_request = JobOrderTransaction::with(
+        //     "order.uom",
+        //     "order.assets",
+        //     "approver_history",
+        //     "log_history.users",
+        //     "jo_po_transaction",
+        //     "jo_po_transaction.jo_approver_history",
+        //     "jo_po_transaction.jo_po_orders.rr_orders.jo_rr_transaction"
+        // )
+        //     ->orderBy("rush", "desc")
+        //     ->orderBy("updated_at", "desc")
+        //     ->useFilters()
+        //     ->dynamicPaginate();
+
+        // if ($job_order_request->isEmpty()) {
+        //     return GlobalFunction::notFound(Message::NOT_FOUND);
+        // }
+        // JobOrderResource::collection($job_order_request);
+
+        // return GlobalFunction::responseFunction(
+        //     Message::PURCHASE_REQUEST_DISPLAY,
+        //     $job_order_request
+        // );
     }
 }

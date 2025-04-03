@@ -45,6 +45,8 @@ class Message
     const SMALL_TOOLS_SAVE = "Small tools save successfully.";
     const MIN_MAX_SET = "Job order min and max successfully set.";
     const MIN_SET = "Job order min successfully set.";
+    const CREDIT_SAVE = "Credit successfully created.";
+    const PURCHASE_REQUEST_DRAFT_SAVE = "Draft successfully save.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -83,6 +85,8 @@ class Message
     const DISPLAY_ALLOWABLE = "Allowable percentage display successfully.";
     const SMALL_TOOLS_DISPLAY = "Small tools display successfully.";
     const MIN_MAX_DISPLAY = "Job order min and max display successfully.";
+    const CREDIT_DISPLAY = "Credit display successfully.";
+    const PURCHASE_REQUEST_DRAFT_DISPLAY = "Draft display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -127,8 +131,11 @@ class Message
     const SMALL_TOOLS_UPDATE = "Small tools update successfully.";
     const MIN_MAX_UPDATE = "Job order min and max update successfully.";
     const PURCHASE_REQUEST_AND_ORDER_UPDATE = "Purchase request and purchase order updated successfully.";
+    const CREDIT_UPDATE = "Credit updated successfully.";
+    const PURCHASE_REQUEST_DRAFT_UPDATE = "Purchase request draft update successfully.";
 
     const RR_TAGGED_FISTO = "RR orders tagged successfully.";
+    const RR_ETD_ITEMS = "RR orders sync successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";
@@ -147,6 +154,7 @@ class Message
     const MIN_ERROR = "Only one record is allowed.";
     const NO_ITEM_FOUND = "No item found to tag.";
     const NO_MIN_MAX = "Invalid setup please contact support.";
+    const NO_DATA_FOUND = "No data found.";
     //VALIDATION
     const SINGLE_VALIDATION = "Data has been validated.";
     const INVALID_ACTION = "Invalid action.";
@@ -159,6 +167,9 @@ class Message
     const IN_USE_SUB_UNIT = "This sub unit is in used.";
     const IN_USE_BUSINESS_UNIT = "This business unit is in used.";
     const QUANTITY_VALIDATION = "The received item cannot be more than the quantity.";
+    const MAX_QUANTITY_VALIDATION = "The received item cannot be more than the allowable quantity.";
+    const ALREADY_HAVE_PO = "This purchase request cannot be cancelled because it has active purchase order.";
+    const ALREADY_HAVE_RR = "This purchase order cannot be cancelled because it has been received.";
 
     const NO_APPROVERS = "No approvers yet.";
     const NO_APPROVERS_SETTINGS_YET = "No approvers settings yet.";
@@ -186,9 +197,17 @@ class Message
     const JOB_ORDER_SAVE = "Job order successfully save.";
     const JO_CANCELLED = "Job order has been rejected.";
 
+    const JR_LAYER_APPROVER_VALIDATION = "You're not the current approver for this jr transaction.";
+    const JO_LAYER_APPROVER_VALIDATION = "You're not the current approver for this jo transaction.";
+
+    const PR_LAYER_APPROVER_VALIDATION = "You're not the current approver for this pr transaction.";
+    const PO_LAYER_APPROVER_VALIDATION = "You're not the current approver for this po transaction.";
+
     //Jr Jo Response
     const PURCHASE_REQUEST_AND_ORDER_SAVE = "Job Request and Job Order save successfully.";
     const JR_AND_JO_CANCELLED_REMAINING_ITEMS = "Job Request and Job Order have been cancelled for the remaining items.";
     const JOB_REQUEST_AND_ORDER_UPDATE = "Job request and job order successfully updated.";
     const JR_AND_JO_CANCELLED = "Job Request and Job Order have been cancelled.";
+
+    const VOIDED_FISTO_RR = "";
 }

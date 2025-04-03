@@ -27,8 +27,8 @@ return new class extends Migration {
                 ->references("id")
                 ->on("po_transactions");
 
-            $table->string("item_id");
-            $table->string("item_code");
+            $table->string("item_id")->nullable();
+            $table->string("item_code")->nullable();
             $table->string("item_name");
 
             $table->unsignedInteger("uom_id")->index();
@@ -41,14 +41,16 @@ return new class extends Migration {
             $table
                 ->foreign("supplier_id")
                 ->references("id")
-                ->on("suppliers");
-            $table->string("attachment")->nullable;
+                ->on("suppliers")
+                ->nullable();
+            $table->string("attachment")->nullable();
             $table->string("buyer_id")->nullable();
             $table->string("buyer_name")->nullable();
-            $table->dobule("price");
+            $table->double("price");
+            $table->double("item_stock")->nullable();
             $table->double("quantity");
             $table->double("quantity_serve")->nullable();
-            $table->dobule("total_price");
+            $table->double("total_price");
             $table->string("remarks")->nullable();
             $table->integer("warehouse_id")->nullable();
             $table->integer("category_id")->nullable();

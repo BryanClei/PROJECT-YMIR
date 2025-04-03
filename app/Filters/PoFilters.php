@@ -51,6 +51,7 @@ class PoFilters extends QueryFilters
         "sgp",
         "f1",
         "f2",
+        "supplier_name",
     ];
 
     public function status($status)
@@ -59,7 +60,10 @@ class PoFilters extends QueryFilters
 
         $this->builder
             ->when($status === "pending", function ($query) use ($user_id) {
-                $query->where("user_id", $user_id)->where("status", "Pending");
+                $query
+                    ->where("user_id", $user_id)
+                    ->where("status", "Pending")
+                    ->where("module_name", "!=", "Asset");
             })
             ->when($status === "cancelled", function ($query) use ($user_id) {
                 $query
@@ -94,48 +98,27 @@ class PoFilters extends QueryFilters
             })
             ->when($status === "for_receiving", function ($query) {
                 $query
-                    // ->with([
-                    //     "order" => function ($query) {
-                    //         $query->whereColumn(
-                    //             "quantity",
-                    //             "<>",
-                    //             "quantity_serve"
-                    //         );
-                    //     },
-                    // ])
-                    // ->where("module_name", "Inventoriables")
-                    // ->orWhere("module_name", "Asset")
-                    // ->where("status", "For Receiving")
-                    // ->whereNull("cancelled_at")
-                    // ->whereNull("voided_at")
-                    // ->whereHas("approver_history", function ($query) {
-                    //     $query->whereNotNull("approved_at");
-                    // })
-                    // ->whereHas("order", function ($query) {
-                    //     $query->whereColumn("quantity", "<>", "quantity_serve");
-                    // })
-                    // ->withoutTrashed()
-
-                    ->where("module_name", "Inventoriables")
-                    ->orWhere("module_name", "Asset")
+                    ->where("module_name", "Asset")
+                    ->whereHas("order", function ($query) {
+                        $query->whereColumn("quantity", ">", "quantity_serve");
+                    })
                     ->with([
                         "order" => function ($query) {
                             $query->whereColumn(
                                 "quantity",
-                                "<>",
+                                ">",
                                 "quantity_serve"
                             );
                         },
                     ])
                     ->where("status", "For Receiving")
+                    ->whereNotNull("approved_at")
                     ->whereNull("cancelled_at")
                     ->whereNull("voided_at")
                     ->whereHas("approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
                     })
-                    ->whereHas("order", function ($query) {
-                        $query->whereColumn("quantity", "<>", "quantity_serve");
-                    })
+
                     ->withoutTrashed();
             })
             ->when($status === "for_receiving_user", function ($query) use (
@@ -146,7 +129,7 @@ class PoFilters extends QueryFilters
                         "order" => function ($query) {
                             $query->whereColumn(
                                 "quantity",
-                                "<>",
+                                ">",
                                 "quantity_serve"
                             );
                         },
@@ -159,7 +142,7 @@ class PoFilters extends QueryFilters
                         $query->whereNotNull("approved_at");
                     })
                     ->whereHas("order", function ($query) {
-                        $query->whereColumn("quantity", "<>", "quantity_serve");
+                        $query->whereColumn("quantity", ">", "quantity_serve");
                     });
             })
             ->when($status === "reports_po", function ($query) {

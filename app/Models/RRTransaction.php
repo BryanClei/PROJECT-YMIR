@@ -48,10 +48,10 @@ class RRTransaction extends Model
 
     public function po_transaction()
     {
-        return $this->belongsTo(
+        return $this->hasMany(
             POTransaction::class,
-            "po_id",
-            "po_number"
+            "po_number",
+            "po_id"
         )->withTrashed();
     }
 

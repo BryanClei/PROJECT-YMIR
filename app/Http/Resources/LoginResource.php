@@ -61,6 +61,8 @@ class LoginResource extends JsonResource
                 "id" => $this->warehouse->id,
                 "name" => $this->warehouse->name,
                 "code" => $this->warehouse->code,
+                "account_titles" =>
+                    $this->warehouse->warehouseAccountTitles ?? null,
             ],
             "username" => $this->username,
             "updated_at" => $this->updated_at,

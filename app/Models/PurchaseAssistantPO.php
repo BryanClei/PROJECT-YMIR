@@ -45,14 +45,17 @@ class PurchaseAssistantPO extends Model
         "total_item_price",
         "status",
         "layer",
+        "cap_ex",
         "description",
         "reason",
         "edit_remarks",
+        "approver_remarks",
         "asset",
         "sgp",
         "f1",
         "f2",
         "rush",
+        "user_tagging",
         "place_order",
         "approved_at",
         "rejected_at",
@@ -62,7 +65,29 @@ class PurchaseAssistantPO extends Model
         "approver_id",
     ];
 
+    // public function users()
+    // {
+    //     return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    // }
+
     public function users()
+    {
+        // Add module_name check before the relationship is built
+        return $this->module_name === "Asset"
+            ? $this->belongsTo(VladimirUser::class, "user_id", "id")
+            : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+
+        // return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    // Add a specific relationship for Vladimir users
+    public function vladimir_user()
+    {
+        return $this->belongsTo(VladimirUser::class, "user_id", "id");
+    }
+
+    // Add a specific relationship for regular users
+    public function regular_user()
     {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
@@ -94,11 +119,11 @@ class PurchaseAssistantPO extends Model
 
     public function pr_transaction()
     {
-        return $this->belongsTo(PRTransaction::class, "pr_number", "id");
+        return $this->belongsTo(PRTransaction::class, "pr_number", "pr_number");
     }
 
     public function pr_approver_history()
     {
-        return $this->hasMany(PrHistory::class, "id", "pr_number");
+        return $this->hasMany(PrHistory::class, "pr_id", "pr_number");
     }
 }

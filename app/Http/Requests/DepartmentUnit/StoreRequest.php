@@ -30,8 +30,11 @@ class StoreRequest extends FormRequest
                 "string",
                 $this->route()->units_department
                     ? "unique:department_units,code," .
-                        $this->route()->units_department
-                    : "unique:department_units,code",
+                        $this->route()->units_department .
+                        ",id,department_id," .
+                        $this->input("department_id")
+                    : "unique:department_units,code,NULL,id,department_id," .
+                        $this->input("department_id"),
             ],
             "department_id" => [
                 "required",

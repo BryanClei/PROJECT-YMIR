@@ -19,4 +19,9 @@ class JoPoHistory extends Model
         "rejected_at",
         "layer",
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, "approver_id", "id");
+    }
 }

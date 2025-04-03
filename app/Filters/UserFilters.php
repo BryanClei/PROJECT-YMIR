@@ -49,7 +49,11 @@ class UserFilters extends QueryFilters
     {
         $this->builder->when($buyer == "active", function ($query) {
             $query->whereHas("role", function ($query) {
-                $query->where("name", "Buyer");
+                $query->whereIn("name", [
+                    "Buyer",
+                    "Buyer with Admin Reports",
+                    "PR/PO Approver / Buyer",
+                ]);
             });
         });
     }

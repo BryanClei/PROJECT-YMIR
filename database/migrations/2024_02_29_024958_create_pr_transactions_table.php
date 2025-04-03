@@ -67,31 +67,30 @@ return new class extends Migration {
                 ->references("id")
                 ->on("locations");
             $table->string("location_name");
-
             $table->unsignedInteger("sub_unit_id")->index();
             $table
                 ->foreign("sub_unit_id")
                 ->references("id")
                 ->on("sub_units");
             $table->string("sub_unit_name");
-
             $table->unsignedInteger("account_title_id")->index();
             $table
                 ->foreign("account_title_id")
                 ->references("id")
                 ->on("account_titles");
             $table->string("account_title_name");
-
             $table->string("supplier_id")->nullable();
             $table->string("supplier_name")->nullable();
             $table->string("module_name");
             $table->string("layer");
+            $table->string("cap_ex")->nullable();
             $table->string("status")->nullable();
             $table->string("asset_code")->nullable();
             $table->string("transaction_number")->nullable();
             $table->string("description")->nullable();
             $table->string("reason")->nullable();
             $table->string("edit_remarks")->nullable();
+            $table->longText("approver_remarks")->nullable();
             $table->string("asset")->nullable();
             $table->string("sgp")->nullable();
             $table->string("f1")->nullable();
@@ -100,6 +99,7 @@ return new class extends Migration {
             $table->string("place_order")->nullable();
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();
+            $table->string("user_tagging")->nullable();
             $table->string("vrid")->nullable();
             $table->string("for_marketing")->nullable();
             $table->string("helpdesk_id")->nullable();

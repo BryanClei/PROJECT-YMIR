@@ -56,6 +56,8 @@ class ApproverDashboardJOPO extends Model
         "approver_id",
     ];
 
+    protected $casts = ["array"];
+
     public function users()
     {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();

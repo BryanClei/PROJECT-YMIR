@@ -28,4 +28,11 @@ class AccountTitleFilters extends QueryFilters
             $this->builder->where("account_type_id", $accountTypeId);
         }
     }
+
+    public function request_type($request_type)
+    {
+        $type = $request_type;
+
+        $this->builder->where("request_type", "LIKE", "%" . $type . "%");
+    }
 }

@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Models\User;
 use App\Models\JobItems;
 use App\Models\JobOrder;
+use App\Models\JrDrafts;
 use App\Response\Message;
 use App\Models\JobHistory;
 use App\Models\JoPoOrders;
@@ -35,6 +36,8 @@ class JobOrderTransactionController extends Controller
 {
     public function index(PRViewRequest $request)
     {
+        $user_id = Auth()->user()->id;
+
         $status = $request->status;
         $job_order_request = JobOrderTransaction::with(
             "order.uom",
@@ -42,8 +45,10 @@ class JobOrderTransactionController extends Controller
             "approver_history",
             "log_history.users",
             "jo_po_transaction",
-            "jo_po_transaction.jo_approver_history"
+            "jo_po_transaction.jo_approver_history",
+            "jo_po_transaction.jo_po_orders.rr_orders.jo_rr_transaction"
         )
+            ->where("user_id", $user_id)
             ->orderBy("rush", "desc")
             ->orderBy("updated_at", "desc")
             ->useFilters()
@@ -99,6 +104,7 @@ class JobOrderTransactionController extends Controller
         }
 
         $direct_po = $sumOfTotalPrices <= $amount_min_max->amount_min;
+        $pr_draft = $request->jr_draft_id ? $request->jr_draft_id : null;
 
         if ($direct_po) {
             $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
@@ -110,6 +116,12 @@ class JobOrderTransactionController extends Controller
                 $requestor_location_id
             );
 
+            if (!$requestor_setting_id) {
+                return GlobalFunction::invalid(
+                    Message::NO_APPROVERS_SETTINGS_YET
+                );
+            }
+
             $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
                 $request->company_id,
                 $request->business_unit_id,
@@ -118,6 +130,12 @@ class JobOrderTransactionController extends Controller
                 $request->sub_unit_id,
                 $request->location_id
             );
+
+            if (!$charging_setting_id) {
+                return GlobalFunction::invalid(
+                    Message::NO_APPROVERS_SETTINGS_YET
+                );
+            }
 
             $requestor_approvers = JobOrderApprovers::where(
                 "job_order_id",
@@ -361,6 +379,14 @@ class JobOrderTransactionController extends Controller
                 }
             }
 
+            if ($pr_draft) {
+                $draft = JrDrafts::find($pr_draft);
+
+                $draft->update([
+                    "status" => "Submitted",
+                ]);
+            }
+
             LogHistory::create([
                 "activity" =>
                     "Job order purchase order ID: " .
@@ -379,14 +405,31 @@ class JobOrderTransactionController extends Controller
                 ]
             );
         } else {
-            $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                $request->company_id,
-                $request->business_unit_id,
-                $request->department_id,
-                $request->department_unit_id,
-                $request->sub_unit_id,
-                $request->location_id
-            );
+            // $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
+            //     $request->company_id,
+            //     $request->business_unit_id,
+            //     $request->department_id,
+            //     $request->department_unit_id,
+            //     $request->sub_unit_id,
+            //     $request->location_id
+            // );
+
+            $charging_setting_id = JobOrder::where(
+                "company_id",
+                $request->company_id
+            )
+                ->where("business_unit_id", $request->business_unit_id)
+                ->where("department_id", $request->department_id)
+                ->where("department_unit_id", $request->department_unit_id)
+                ->where("sub_unit_id", $request->sub_unit_id)
+                ->where("location_id", $request->location_id)
+                ->first();
+
+            if (!$charging_setting_id) {
+                return GlobalFunction::invalid(
+                    Message::NO_APPROVERS_SETTINGS_YET
+                );
+            }
 
             $charging_approvers = JobOrderApprovers::where(
                 "job_order_id",
@@ -396,7 +439,7 @@ class JobOrderTransactionController extends Controller
                 ->get();
 
             if (!$charging_approvers) {
-                return GlobalFunction::notFound(
+                return GlobalFunction::invalid(
                     Message::NO_APPROVERS_SETTINGS_YET
                 );
             }
@@ -520,6 +563,14 @@ class JobOrderTransactionController extends Controller
                 ]);
             }
 
+            if ($pr_draft) {
+                $draft = JrDrafts::find($pr_draft);
+
+                $draft->update([
+                    "status" => "Submitted",
+                ]);
+            }
+
             LogHistory::create([
                 "activity" =>
                     "Job order purchase request ID: " .
@@ -579,21 +630,27 @@ class JobOrderTransactionController extends Controller
         $is_price_increased = $newTotalPrice > $currentTotalPrice;
         $is_price_decreased = $newTotalPrice < $currentTotalPrice;
 
-        $was_direct = $current_jr->outside_labor;
-        if (!$was_direct) {
+        if ($request->outside_labor == "pms") {
             $was_direct = $currentTotalPrice <= $amount_min_max->amount_min;
-        }
 
-        $will_be_direct = $request->outside_labor;
-        if (!$will_be_direct) {
             $will_be_direct = $newTotalPrice <= $amount_min_max->amount_min;
-        }
+        } else {
+            $was_direct = $current_jr->outside_labor;
+            if (!$was_direct) {
+                $was_direct = $currentTotalPrice <= $amount_min_max->amount_min;
+            }
 
-        if (
-            !$request->outside_labor &&
-            $newTotalPrice > $amount_min_max->amount_min
-        ) {
-            $will_be_direct = false;
+            $will_be_direct = $request->outside_labor;
+            if (!$will_be_direct) {
+                $will_be_direct = $newTotalPrice <= $amount_min_max->amount_min;
+            }
+
+            if (
+                !$request->outside_labor &&
+                $newTotalPrice > $amount_min_max->amount_min
+            ) {
+                $will_be_direct = false;
+            }
         }
 
         $common_data = [
@@ -629,6 +686,34 @@ class JobOrderTransactionController extends Controller
 
         if ($was_direct) {
             if (!$will_be_direct) {
+                $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
+                    $request->company_id,
+                    $request->business_unit_id,
+                    $request->department_id,
+                    $request->department_unit_id,
+                    $request->sub_unit_id,
+                    $request->location_id
+                );
+
+                if (!$charging_setting_id) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
+
+                $charging_approvers = JobOrderApprovers::where(
+                    "job_order_id",
+                    $charging_setting_id->id
+                )
+                    ->latest()
+                    ->get();
+
+                if (!$charging_approvers) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
+
                 $current_jr->update([
                     "status" => "Pending",
                     "approved_at" => null,
@@ -645,28 +730,6 @@ class JobOrderTransactionController extends Controller
                     $current_po->delete();
                 }
 
-                $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                    $request->company_id,
-                    $request->business_unit_id,
-                    $request->department_id,
-                    $request->department_unit_id,
-                    $request->sub_unit_id,
-                    $request->location_id
-                );
-
-                $charging_approvers = JobOrderApprovers::where(
-                    "job_order_id",
-                    $charging_setting_id->id
-                )
-                    ->latest()
-                    ->get();
-
-                if (!$charging_approvers) {
-                    return GlobalFunction::notFound(
-                        Message::NO_APPROVERS_SETTINGS_YET
-                    );
-                }
-
                 $fixed_charging_approvers = $charging_approvers->take(2);
 
                 $price_based_charging_approvers = $charging_approvers
@@ -681,7 +744,7 @@ class JobOrderTransactionController extends Controller
                 );
 
                 $layer_count = 1;
-                JobHistory::where("jo_id", $current_jr->id)->forceDelete();
+                JobHistory::where("jo_id", $current_jr->id)->delete();
 
                 foreach ($final_charging_approvers as $approver) {
                     JobHistory::create([
@@ -725,6 +788,12 @@ class JobOrderTransactionController extends Controller
                             $requestor_location_id
                         );
 
+                        if (!$requestor_setting_id) {
+                            return GlobalFunction::invalid(
+                                Message::NO_APPROVERS_SETTINGS_YET
+                            );
+                        }
+
                         $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
                             $request->company_id,
                             $request->business_unit_id,
@@ -733,6 +802,12 @@ class JobOrderTransactionController extends Controller
                             $request->sub_unit_id,
                             $request->location_id
                         );
+
+                        if (!$charging_setting_id) {
+                            return GlobalFunction::invalid(
+                                Message::NO_APPROVERS_SETTINGS_YET
+                            );
+                        }
 
                         $requestor_approvers = JobOrderApprovers::where(
                             "job_order_id",
@@ -881,6 +956,12 @@ class JobOrderTransactionController extends Controller
                     $requestor_location_id
                 );
 
+                if (!$requestor_setting_id) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
+
                 $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
                     $request->company_id,
                     $request->business_unit_id,
@@ -889,6 +970,12 @@ class JobOrderTransactionController extends Controller
                     $request->sub_unit_id,
                     $request->location_id
                 );
+
+                if (!$charging_setting_id) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
 
                 $requestor_approvers = JobOrderApprovers::where(
                     "job_order_id",
@@ -964,6 +1051,66 @@ class JobOrderTransactionController extends Controller
                         $request->location_id
                     );
 
+                    if (!$charging_setting_id) {
+                        return GlobalFunction::invalid(
+                            Message::NO_APPROVERS_SETTINGS_YET
+                        );
+                    }
+
+                    $charging_approvers = JobOrderApprovers::where(
+                        "job_order_id",
+                        $charging_setting_id->id
+                    )
+                        ->latest()
+                        ->get();
+
+                    if (!$charging_approvers) {
+                        return GlobalFunction::notFound(
+                            Message::NO_APPROVERS_SETTINGS_YET
+                        );
+                    }
+
+                    $fixed_charging_approvers = $charging_approvers->take(2);
+
+                    $price_based_charging_approvers = $charging_approvers
+                        ->slice(2)
+                        ->filter(function ($approver) use ($newTotalPrice) {
+                            return $approver->base_price <= $newTotalPrice;
+                        })
+                        ->sortBy("base_price");
+
+                    $final_charging_approvers = $fixed_charging_approvers->concat(
+                        $price_based_charging_approvers
+                    );
+
+                    $layer_count = 1;
+                    JobHistory::where("jo_id", $current_jr->id)->forceDelete();
+
+                    foreach ($final_charging_approvers as $approver) {
+                        JobHistory::create([
+                            "jo_id" => $current_jr->id,
+                            "approver_type" => "charging",
+                            "approver_id" => $approver->approver_id,
+                            "approver_name" => $approver->approver_name,
+                            "layer" => $layer_count++,
+                        ]);
+                    }
+                } else {
+                    $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
+                        $request->company_id,
+                        $request->business_unit_id,
+                        $request->department_id,
+                        $request->department_unit_id,
+                        $request->sub_unit_id,
+                        $request->location_id
+                    );
+
+                    if (!$charging_setting_id) {
+                        return GlobalFunction::invalid(
+                            Message::NO_APPROVERS_SETTINGS_YET
+                        );
+                    }
+
                     $charging_approvers = JobOrderApprovers::where(
                         "job_order_id",
                         $charging_setting_id->id
@@ -1022,24 +1169,28 @@ class JobOrderTransactionController extends Controller
             ]);
         }
 
-        if ($request->isCancelled) {
+        $resubmitted = $request->resubmit;
+
+        if ($resubmitted) {
             if ($current_po) {
                 $current_jr->update([
                     "status" => "Approved",
                     "approved_at" => $dateToday,
-                    "cancelled_at" => null,
+                    // "cancelled_at" => null,
                     "rejected_at" => null,
                 ]);
 
                 $current_po->update([
+                    "layer" => 1,
                     "status" => "Pending",
-                    "cancelled_at" => null,
+                    // "cancelled_at" => null,
                     "rejected_at" => null,
                 ]);
             } else {
                 $current_jr->update([
+                    "layer" => 1,
                     "status" => "Pending",
-                    "cancelled_at" => null,
+                    // "cancelled_at" => null,
                     "rejected_at" => null,
                 ]);
             }
@@ -1197,8 +1348,6 @@ class JobOrderTransactionController extends Controller
                 }
             }
 
-            $resubmitted = $request->resubmit;
-
             $activityDescription = $resubmitted
                 ? "Job order purchase request ID: " .
                     $id .
@@ -1251,64 +1400,134 @@ class JobOrderTransactionController extends Controller
     public function destroy()
     {
     }
+
     public function cancel_jo(CancelRequest $request, $id)
     {
         $userId = auth()->id();
         $currentDateTime = Carbon::now()->timezone("Asia/Manila");
 
-        $transaction = JobOrderTransaction::find($id);
+        $position = Auth()->user()->position_name;
 
-        if (!$transaction) {
-            return GlobalFunction::notFound(Message::NOT_FOUND);
-        }
+        if ($position != "PURCHASING ASSOCIATE") {
+            $transaction = JobOrderTransaction::find($id);
 
-        if ($transaction->status === "Cancelled") {
-            return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
-        }
+            if (!$transaction) {
+                return GlobalFunction::notFound(Message::NOT_FOUND);
+            }
 
-        // Update JR status
-        $transaction->update([
-            "status" => "Cancelled",
-            "approved_at" => null,
-            "cancelled_at" => $currentDateTime,
-            "reason" => $request->reason,
-        ]);
+            if ($transaction->status === "Cancelled") {
+                return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
+            }
 
-        $poTransaction = $transaction->jo_po_transaction->first();
-        $logMessage = "";
-        $responseMessage = "";
-
-        if ($poTransaction) {
-            // Cancel JR and JO
-            $poTransaction->update([
+            // Update JR status
+            $transaction->update([
                 "status" => "Cancelled",
                 "approved_at" => null,
                 "cancelled_at" => $currentDateTime,
                 "reason" => $request->reason,
             ]);
-            if ($request->has("no_rr") && $request->no_rr === true) {
-                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled by UID: {$userId}. Reason: {$request->reason}";
-                $responseMessage = Message::JR_AND_JO_CANCELLED;
+
+            $poTransaction = $transaction->jo_po_transaction->first();
+            $logMessage = "";
+            $responseMessage = "";
+
+            if ($poTransaction) {
+                // Cancel JR and JO
+                $poTransaction->update([
+                    "status" => "Cancelled",
+                    "approved_at" => null,
+                    "cancelled_at" => $currentDateTime,
+                    "reason" => $request->reason,
+                ]);
+                if ($request->has("no_rr") && $request->no_rr === true) {
+                    $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled by UID: {$userId}. Reason: {$request->reason}";
+                    $responseMessage = Message::JR_AND_JO_CANCELLED;
+                } else {
+                    // Cancel remaining items
+                    $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled for the remaining items by UID: {$userId}. Reason: {$request->reason}";
+                    $responseMessage =
+                        Message::JR_AND_JO_CANCELLED_REMAINING_ITEMS;
+                }
             } else {
-                // Cancel remaining items
-                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled for the remaining items by UID: {$userId}. Reason: {$request->reason}";
-                $responseMessage = Message::JR_AND_JO_CANCELLED_REMAINING_ITEMS;
+                // Cancel only JR
+                $logMessage = "Job Request ID: {$id} has been cancelled by UID: {$userId}. Reason: {$request->reason}";
+                $responseMessage = Message::JOB_REQUEST_CANCELLED;
             }
+
+            // Log the activity
+            LogHistory::create([
+                "activity" => $logMessage,
+                "jo_id" => $id,
+                "jo_po_id" => $poTransaction->id ?? null,
+                "action_by" => $userId,
+            ]);
+
+            return GlobalFunction::responseFunction(
+                $responseMessage,
+                $transaction
+            );
         } else {
-            // Cancel only JR
-            $logMessage = "Job Request ID: {$id} has been cancelled by UID: {$userId}. Reason: {$request->reason}";
-            $responseMessage = Message::JOB_REQUEST_CANCELLED;
+            $no_rr = $request->no_rr;
+            $user = Auth()->user()->id;
+            $po_cancel = JOPOTransaction::where("id", $id)
+                ->with("jo_po_orders")
+                ->get()
+                ->first();
+
+            if (!$po_cancel) {
+                return GlobalFunction::notFound(Message::NOT_FOUND);
+            }
+
+            if ($no_rr) {
+                $po_cancel_order = $po_cancel
+                    ->jo_po_orders()
+                    ->pluck("jo_item_id")
+                    ->toArray();
+
+                $pr_items = JobItems::whereIn("id", $po_cancel_order)->update([
+                    "po_at" => null,
+                    "purchase_order_id" => null,
+                ]);
+            }
+
+            $po_cancel->update([
+                "reason" => $request->reason,
+                "rejected_at" => null,
+                "cancelled_at" => Carbon::now()
+                    ->timeZone("Asia/Manila")
+                    ->format("Y-m-d H:i"),
+                "status" => "Cancelled",
+                "approved_at" => null,
+            ]);
+
+            $po_cancel->jo_po_orders()->delete();
+            $po_cancel->delete();
+
+            $activityDescription = $no_rr
+                ? "Purchase order ID:" .
+                    $id .
+                    " has been cancelled by UID: " .
+                    $user .
+                    " Reason: " .
+                    $request->reason
+                : "Purchase order ID:" .
+                    $id .
+                    " remaining has been cancelled by UID: " .
+                    $user .
+                    " Reason: " .
+                    $request->reason;
+
+            LogHistory::create([
+                "activity" => $activityDescription,
+                "jo_po_id" => $id,
+                "action_by" => $user,
+            ]);
+
+            return GlobalFunction::responseFunction(
+                Message::PO_CANCELLED,
+                $po_cancel
+            );
         }
-
-        // Log the activity
-        LogHistory::create([
-            "activity" => $logMessage,
-            "jo_id" => $id,
-            "jo_po_id" => $poTransaction->id ?? null,
-            "action_by" => $userId,
-        ]);
-
-        return GlobalFunction::responseFunction($responseMessage, $transaction);
     }
 
     public function voided_jo(CancelRequest $request, $id)
@@ -1410,6 +1629,10 @@ class JobOrderTransactionController extends Controller
             $requestor_location_id
         );
 
+        if (!$requestor_setting_id) {
+            return GlobalFunction::invalid(Message::NO_APPROVERS_SETTINGS_YET);
+        }
+
         $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
             $request->company_id,
             $request->business_unit_id,
@@ -1418,6 +1641,10 @@ class JobOrderTransactionController extends Controller
             $request->sub_unit_id,
             $request->location_id
         );
+
+        if (!$charging_setting_id) {
+            return GlobalFunction::invalid(Message::NO_APPROVERS_SETTINGS_YET);
+        }
 
         $common_data = [
             "outside_labor" => $request->outside_labor,
@@ -1460,7 +1687,7 @@ class JobOrderTransactionController extends Controller
         );
 
         if ($request->resubmit === true) {
-            $job_order_request->update(["cancelled_at" => null]);
+            $job_order_request->update(["rejected_at" => null]);
         }
 
         $job_items = [];
@@ -1724,6 +1951,69 @@ class JobOrderTransactionController extends Controller
                 "pr" => new JobOrderResource($job_order_request),
                 "po" => new JoPoResource($job_order_po),
             ]
+        );
+    }
+
+    public function buyer_jr(Request $request, $id)
+    {
+        $user_id = Auth()->user()->id;
+        $job_request = JobOrderTransaction::with("order")->find($id);
+
+        if ($job_request->cancelled_at) {
+            return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
+        }
+
+        $payload = $request->all();
+        $is_update = $payload["updated"] ?? false;
+        $payload_items = $payload["items"] ?? $payload;
+
+        $item_ids = array_column($payload_items, "id");
+
+        $pr_items = JobItems::whereIn("id", $item_ids)
+            ->where("jo_transaction_id", $id)
+            ->get();
+
+        if ($pr_items->isEmpty()) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        $item_details = [];
+        foreach ($pr_items as $item) {
+            $payloadItem = collect($payload_items)->firstWhere("id", $item->id);
+            $old_buyer = $item->buyer_name;
+            $old_buyer_id = $item->buyer_id;
+
+            $item->update([
+                "buyer_id" => $payloadItem["buyer_id"],
+                "buyer_name" => $payloadItem["buyer_name"],
+            ]);
+
+            $item_details[] = $is_update
+                ? "Item ID {$item->id}: Buyer reassigned from {$old_buyer} (ID: {$old_buyer_id}) to {$payloadItem["buyer_name"]} (ID: {$payloadItem["buyer_id"]})"
+                : "Item ID {$item->id}: Buyer assigned to {$payloadItem["buyer_name"]} (ID: {$payloadItem["buyer_id"]})";
+        }
+
+        $item_details_string = implode(", ", $item_details);
+
+        $activityDescription = $is_update
+            ? "Job request ID: $id - has been re-tagged to buyer for " .
+                count($item_details) .
+                " item(s). Details: " .
+                $item_details_string
+            : "Job request ID: $id -  has been tagged to buyer for " .
+                count($item_details) .
+                " item(s). Details: " .
+                $item_details_string;
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_id" => $id,
+            "action_by" => $user_id,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            $is_update ? Message::BUYER_UPDATED : Message::BUYER_TAGGED,
+            $pr_items
         );
     }
 }

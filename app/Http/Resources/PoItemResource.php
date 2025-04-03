@@ -29,6 +29,7 @@ class PoItemResource extends JsonResource
                 "allowable_percentage" => new AllowablePercentageResource(
                     AllowablePercentage::first()
                 ),
+                "items" => $this->items,
             ],
             "uom" => $this->uom,
             "price" => $this->price,

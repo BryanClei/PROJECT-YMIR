@@ -20,11 +20,8 @@ return new class extends Migration {
             $table->string("rr_id")->nullable();
             $table->string("jo_id")->nullable();
             $table->string("jo_po_id")->nullable();
-            $table->unsignedInteger("action_by");
-            $table
-                ->foreign("action_by")
-                ->references("id")
-                ->on("users");
+            $table->string("jo_rr_id")->nullable();
+            $table->integer("action_by")->nullable();
             $table->timestamps();
         });
     }

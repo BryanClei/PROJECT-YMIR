@@ -13,17 +13,25 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\BuyerController;
 use App\Http\Controllers\Api\AssetsController;
 use App\Http\Controllers\Api\CanvasController;
+use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\ETDApiController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\JrDraftController;
+use App\Http\Controllers\Api\NoReqJRController;
+use App\Http\Controllers\Api\PrDraftController;
 use App\Http\Controllers\Api\SubUnitController;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\FistoApiController;
+use App\Http\Controllers\Api\GizmoApiController;
 use App\Http\Controllers\Api\JobOrderController;
+use App\Http\Controllers\Api\JrReportController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\PrReportController;
 use App\Http\Controllers\Api\SearchPoController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\AllowableController;
+use App\Http\Controllers\Api\FedoraApiController;
 use App\Http\Controllers\Api\FinancialController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Controllers\Api\CategoriesController;
@@ -37,9 +45,11 @@ use App\Http\Controllers\Api\AccountTitleController;
 use App\Http\Controllers\Api\GeneralLedgerController;
 use App\Http\Controllers\Api\NormalBalanceController;
 use App\Http\Controllers\Api\PRTransactionController;
+use App\Http\Controllers\Api\ReportSummaryController;
 use App\Http\Controllers\Api\RRTransactionController;
 use App\Http\Controllers\Api\DepartmentUnitController;
 use App\Http\Controllers\Api\JobOrderMinMaxController;
+use App\Http\Controllers\Api\PAReturnTaggedController;
 use App\Http\Controllers\Api\AccountSubGroupController;
 use App\Http\Controllers\Api\JORRTransactionController;
 use App\Http\Controllers\Api\AccountTitleUnitController;
@@ -63,6 +73,16 @@ Route::group(["middleware" => ["auth_key"]], function () {
     Route::get("general_ledger_integration", [
         GeneralLedgerController::class,
         "integration_index",
+    ]);
+
+    Route::get("general_ledger_integration_multiple", [
+        GeneralLedgerController::class,
+        "general_ledger_index_multiple_po",
+    ]);
+
+    Route::get("general_ledger_integration_multiple_jo", [
+        GeneralLedgerController::class,
+        "general_ledger_index_multiple_jo",
     ]);
 });
 
@@ -258,6 +278,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         BuyerController::class,
         "item_unit_price",
     ]);
+
     Route::patch("po_transaction/buyer/{id}", [
         PRTransactionController::class,
         "buyer",
@@ -314,6 +335,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
 
     Route::get("job_approver", [PrApproverController::class, "job_order"]);
+    Route::get("expense_approver/show", [
+        PrApproverController::class,
+        "expense_show",
+    ]);
     Route::get("expense_approver", [PrApproverController::class, "expense"]);
     Route::get("assets_approver", [
         PrApproverController::class,
@@ -347,6 +372,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "resubmit",
     ]);
     Route::apiResource("expense", ExpenseController::class);
+
+    Route::patch("po_transaction/buyer_jr/{id}", [
+        JobOrderTransactionController::class,
+        "buyer_jr",
+    ]);
 
     Route::patch("cancel_jo/{id}", [
         JobOrderTransactionController::class,
@@ -432,7 +462,6 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::patch("resubmit_pr_asset/{id}", [
         PAController::class,
         "resubmit_pr_asset",
-        1,
     ]);
     Route::patch("edit_unit_price/{id}", [
         PAController::class,
@@ -494,6 +523,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::get("buyer/po", [BuyerController::class, "index_po"]);
     Route::get("buyer/rr", [BuyerController::class, "index_rr"]);
+    Route::get("buyer_jo", [BuyerController::class, "index_jo"]);
     Route::apiResource("buyer", BuyerController::class);
 
     Route::get("rr_badge", [RRTransactionController::class, "rr_badge"]);
@@ -528,7 +558,7 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         JORRTransactionController::class,
         "report_jo_rr",
     ]);
-
+    Route::get("reports_jr", [JORRTransactionController::class, "report_jr"]);
     Route::get("reports_jo", [JORRTransactionController::class, "report_jo"]);
 
     Route::get("reports_jo_po", [
@@ -568,6 +598,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "jo_rr_multiple",
     ]);
 
+    Route::get("add_to_receipt_jo_rr", [
+        JORRTransactionController::class,
+        "jo_rr_today",
+    ]);
+
     Route::apiResource(
         "job_order_report_transaction",
         JORRTransactionController::class
@@ -575,7 +610,12 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
 
     Route::apiResource("allowable_percentage", AllowableController::class);
 
+    Route::patch("etd_api/sync", [ETDApiController::class, "etd_sync"]);
     Route::apiResource("etd_api", ETDApiController::class);
+
+    Route::get("um_dry_api", [FedoraApiController::class, "um_dry"]);
+
+    Route::apiResource("fedora_api", FedoraApiController::class);
 
     Route::apiResource("fisto_api", FistoApiController::class);
 
@@ -604,6 +644,47 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
 
     Route::apiResource("job_order_min_max", JobOrderMinMaxController::class);
 
+    Route::get("add_to_receipt", [RRController::class, "rr_today"]);
+    Route::get("reports_pr_admin", [RRController::class, "pr_admin_reports"]);
+    Route::get("reports_jr_admin", [RRController::class, "jr_admin_reports"]);
     Route::apiResource("received_receipt", RRController::class);
+
+    Route::apiResource("pr_reports", PrReportController::class);
+    Route::apiResource("jr_reports", JrReportController::class);
+
+    Route::apiResource("credit", CreditController::class);
+
+    Route::apiResource("no_quotation", NoReqJRController::class);
+
+    Route::get("stalwart_report", [
+        ReportSummaryController::class,
+        "stalwart_export",
+    ]);
+
+    Route::get("pr_summary", [ReportSummaryController::class, "pr_summary"]);
+
+    Route::get("po_summary", [ReportSummaryController::class, "po_summary"]);
+
+    Route::get("jr_summary", [ReportSummaryController::class, "jr_summary"]);
+
+    Route::get("jo_summary", [ReportSummaryController::class, "jo_summary"]);
+
+    Route::get("purchasing_analysis", [
+        ReportSummaryController::class,
+        "purchasing_analysis_summary",
+    ]);
+
+    Route::get("purchasing_analysis_jo", [
+        ReportSummaryController::class,
+        "purchasing_analysis_summary_jo",
+    ]);
+
+    Route::apiResource("pr_drafts", PrDraftController::class);
+
+    Route::apiResource("jr_drafts", JrDraftController::class);
+
+    Route::apiResource("return_for_tagging", PAReturnTaggedController::class);
+
+    Route::apiResource("ymir_gizmo", GizmoApiController::class);
 });
 Route::post("login", [UserController::class, "login"]);

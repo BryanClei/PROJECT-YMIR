@@ -44,11 +44,11 @@ class PAController extends Controller
     public function index(PADisplay $request)
     {
         $purchase_request = PurchaseAssistant::with([
-            "vladimir_user" => function ($query) {
-                $query->when(request()->module_name === "Asset", function ($q) {
-                    return $q;
-                });
-            },
+            // "vladimir_user" => function ($query) {
+            //     $query->when(request()->module_name === "Asset", function ($q) {
+            //         return $q;
+            //     });
+            // },
             "regular_user" => function ($query) {
                 $query->when(request()->module_name !== "Asset", function ($q) {
                     return $q;
@@ -84,6 +84,7 @@ class PAController extends Controller
     public function index_purchase_order(PADisplay $request)
     {
         $purchase_request = PurchaseAssistantPO::with([
+            "pr_transaction",
             "po_items",
             "approver_history",
             "log_history" => function ($query) {
@@ -249,6 +250,7 @@ class PAController extends Controller
                         ->with("category");
                 },
                 "order.warehouse",
+                "order.item.small_tools",
                 "users",
             ])
             ->orderByDesc("updated_at")
@@ -259,7 +261,7 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new PRPOResource($purchase_request);
+        // new PRPOResource($purchase_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
@@ -277,6 +279,7 @@ class PAController extends Controller
                 "order" => function ($query) {
                     $query->withTrashed();
                 },
+                "order.items.small_tools",
                 "order.warehouse",
             ])
             ->orderByDesc("updated_at")
@@ -348,6 +351,22 @@ class PAController extends Controller
                         "old_total_price" => $oldTotalPrice,
                         "new_total_price" => $newTotalPrice,
                     ];
+                }
+
+                $oldBuyerName = $originalItem["buyer_name"];
+                $oldBuyerId = $originalItem["buyer_id"];
+                $newBuyerName = $values["buyer_name"];
+                $newBuyerId = $values["buyer_id"];
+
+                if (
+                    $oldBuyerName !== $newBuyerName ||
+                    $oldBuyerId !== $newBuyerId
+                ) {
+                    if ($oldBuyerName === $newBuyerName) {
+                        $buyerTaggingDetails[] = "Item ID {$values["id"]}: Buyer tagged as {$newBuyerName} (ID: {$newBuyerId})";
+                    } else {
+                        $buyerChangeDetails[] = "Item ID {$values["id"]}: Buyer changed from {$oldBuyerName} (ID: {$oldBuyerId}) to {$newBuyerName} (ID: {$newBuyerId})";
+                    }
                 }
             }
         }
@@ -446,6 +465,16 @@ class PAController extends Controller
                     "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
             }
             $activityDescription = rtrim($activityDescription, ", ");
+        }
+
+        if (!empty($buyerTaggingDetails)) {
+            $activityDescription .=
+                ". Buyer Tagging: " . implode(", ", $buyerTaggingDetails);
+        }
+
+        if (!empty($buyerChangeDetails)) {
+            $activityDescription .=
+                ". Buyer Changes: " . implode(", ", $buyerChangeDetails);
         }
 
         LogHistory::create([
@@ -949,17 +978,19 @@ class PAController extends Controller
             ->count();
 
         $for_po = PurchaseAssistant::query()
+            ->where("status", "Approved")
             ->with([
                 "order" => function ($query) {
-                    $query->whereNull("buyer_id");
+                    $query->whereNull("buyer_id")->whereNull("supplier_id");
                 },
             ])
-            ->where("status", "Approved")
+            ->whereHas("order", function ($query) {
+                $query->whereNull("buyer_id")->whereNull("supplier_id");
+            })
             ->whereNotNull("for_po_only")
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
             ->whereNull("cancelled_at")
-            ->whereDoesntHave("po_transaction")
             ->count();
 
         $tagged_buyer = PurchaseAssistant::query()
@@ -1175,15 +1206,19 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $jr_transaction = JobOrderTransaction::where(
-            "id",
-            $jo_po_transaction->jo_number
-        )->first();
+        $direct_jo = $jo_po_transaction->direct_po;
 
-        $jr_transaction->update([
-            "status" => "Return",
-            "reason" => $reason,
-        ]);
+        if ($direct_jo) {
+            $jr_transaction = JobOrderTransaction::where(
+                "id",
+                $jo_po_transaction->jo_number
+            )->first();
+
+            $jr_transaction->update([
+                "status" => "Return",
+                "reason" => $reason,
+            ]);
+        }
 
         $jo_po = $jo_po_transaction->update([
             "status" => "Return",
@@ -1207,8 +1242,6 @@ class PAController extends Controller
         $jo_po_transaction->jo_approver_history()->update([
             "approved_at" => null,
         ]);
-
-        $jr_transaction->approver_history()->update(["approved_at" => null]);
 
         new JoPoResource($jo_po_transaction);
 
@@ -1237,7 +1270,7 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $type_id = Type::where("name", "Assets")
+        $type_id = Type::where("name", "Asset")
             ->get()
             ->first();
 

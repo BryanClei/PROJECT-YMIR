@@ -216,20 +216,26 @@ class ItemController extends Controller
             $warehouse = $index["warehouse"];
             $type = $index["type"];
             $small_tools = $index["small_tools"];
+            $allowable_value = $index["allowable"];
 
             $uom_id = Uom::where("name", $uom)->first();
             $type_id = Type::where("name", $type)->first();
             $category_id = Categories::where("name", $category)->first();
-            $allowable = AllowablePercentage::first()->value;
 
-            $item = Items::create([
-                "name" => $index["name"],
-                "code" => $index["code"],
-                "type" => $type_id->id,
-                "uom_id" => $uom_id->id,
-                "category_id" => $category_id->id,
-                "allowable" => $allowable,
-            ]);
+            $value =
+                $allowable_value == 1 ? AllowablePercentage::first()->value : 0;
+
+            $item = Items::updateOrCreate(
+                ["code" => $index["code"]],
+                [
+                    "name" => $index["name"],
+                    "code" => $index["code"],
+                    "type" => $type_id->id,
+                    "uom_id" => $uom_id->id,
+                    "category_id" => $category_id->id,
+                    "allowable" => $value,
+                ]
+            );
 
             if ($warehouse) {
                 foreach ($warehouse as $warehouseData) {
@@ -238,10 +244,16 @@ class ItemController extends Controller
                         $warehouseData["warehouse"]
                     )->first();
                     if ($warehouse_id) {
-                        ItemWarehouse::create([
-                            "item_id" => $item->id,
-                            "warehouse_id" => $warehouse_id->id,
-                        ]);
+                        ItemWarehouse::updateOrCreate(
+                            [
+                                "item_id" => $item->id,
+                                "warehouse_id" => $warehouse_id->id,
+                            ],
+                            [
+                                "item_id" => $item->id,
+                                "warehouse_id" => $warehouse_id->id,
+                            ]
+                        );
                     }
                 }
             }

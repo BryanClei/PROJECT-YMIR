@@ -19,6 +19,7 @@ class PurchaseAssistant extends Model
 
     protected $fillable = [
         "pr_number",
+        "pr_year_number_id",
         "pr_description",
         "date_needed",
         "user_id",
@@ -54,7 +55,6 @@ class PurchaseAssistant extends Model
         "rejected_at",
         "voided_at",
         "cancelled_at",
-
         "approver_id",
     ];
 
@@ -64,6 +64,8 @@ class PurchaseAssistant extends Model
         return $this->module_name === "Asset"
             ? $this->belongsTo(VladimirUser::class, "user_id", "id")
             : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+
+        // return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
     }
 
     // Add a specific relationship for Vladimir users

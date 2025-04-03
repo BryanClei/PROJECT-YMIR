@@ -26,8 +26,24 @@ class PRTransactionResource extends JsonResource
             "pr_description" => $this->pr_description,
             "helpdesk_id" => $this->helpdesk_id,
             "date_needed" => $this->date_needed,
-
             "user" => $this->getUserData(),
+            // "user" => $this->users
+            //     ? [
+            //         "prefix_id" => $this->users->prefix_id,
+            //         "id_number" => $this->users->id_number,
+            //         "first_name" => $this->users->first_name,
+            //         "middle_name" => $this->users->middle_name,
+            //         "last_name" => $this->users->last_name,
+            //         "mobile_no" => $this->users->mobile_no,
+            //         "warehouse" => $this->user->warehouse
+            //             ? [
+            //                 "warehouse_id" => $this->users->warehouse->id,
+            //                 "warehouse_code" => $this->users->warehouse->code,
+            //                 "warehouse_name" => $this->users->warehouse->name,
+            //             ]
+            //             : null,
+            //     ]
+            //     : null,
 
             "type" => [
                 "id" => $this->type_id,
@@ -65,12 +81,16 @@ class PRTransactionResource extends JsonResource
                 "asset" => $this->asset,
                 "asset_code" => $this->asset_code ?? null,
             ],
+            "cap_ex" => $this->cap_ex,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
             "rush" => $this->rush,
             "for_po_only" => $this->for_po_only,
             "for_po_only_id" => $this->for_po_only_id,
+            "user_tagging" => $this->user_tagging,
+            "supplier_name" => $this->supplier_name,
+            "supplier_id" => $this->supplier_id,
             "for_marketing" => $this->for_marketing,
             "module_name" => $this->module_name,
             "status" => $this->status,
@@ -81,6 +101,7 @@ class PRTransactionResource extends JsonResource
             "description" => $this->description,
             "reason" => $this->reason,
             "created_at" => $this->created_at,
+            "pr_date" => $this->created_at,
             "order_transaction_id" => $this->id,
             "order" => PRItemsResource::collection($this->order),
             "approver_history" => ApporverHistoryResource::collection(

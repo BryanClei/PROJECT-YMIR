@@ -31,6 +31,9 @@ class JoPoOrderResource extends JsonResource
                 "asset_code" => $this->asset_code,
             ],
             "helpdesk_id" => $this->helpdesk_id,
+            "buyer_id" => $this->buyer_id,
+            "buyer_name" => $this->buyer_name,
+            // "rr_transaction" => $this->rr_orders->rr_transaction,
         ];
     }
 }

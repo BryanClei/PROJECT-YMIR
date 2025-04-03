@@ -28,7 +28,7 @@ return new class extends Migration {
                 ->references("id")
                 ->on("categories");
             $table->string("type");
-            $table->integer("allowable");
+            $table->integer("allowable")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

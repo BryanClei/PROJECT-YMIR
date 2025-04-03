@@ -9,15 +9,63 @@ class RROrdersFilters extends QueryFilters
 {
     protected array $allowedFilters = [];
 
-    protected array $columnSearch = [];
+    protected array $columnSearch = [
+        "rr_number",
+        "rr_id",
+        "pr_id",
+        "po_id",
+        "item_id",
+        "item_code",
+        "item_name",
+        "shipment_no",
+    ];
+
+    protected array $relationSearch = [
+        "rr_transaction" => ["rr_year_number_id"],
+    ];
+
+    protected function processSearch($search)
+    {
+        // Join the required relationships first
+        foreach ($this->relationSearch as $relation => $columns) {
+            $this->builder->leftJoin(
+                $relation,
+                "rr_transaction.rr_number",
+                "=",
+                $relation . ".id"
+            );
+        }
+
+        $this->builder->where(function ($query) use ($search) {
+            // Search in main table columns
+            foreach ($this->columnSearch as $column) {
+                $query->orWhere(
+                    "rr_transaction." . $column,
+                    "like",
+                    "%{$search}%"
+                );
+            }
+
+            // Search in relationship columns
+            foreach ($this->relationSearch as $table => $columns) {
+                foreach ($columns as $column) {
+                    $query->orWhere(
+                        $table . "." . $column,
+                        "like",
+                        "%{$search}%"
+                    );
+                }
+            }
+        });
+    }
 
     public function from($from)
     {
-        $this->builder->whereDate("rr_date", ">=", $from);
+        $this->builder->whereDate("delivery_date", ">=", $from);
     }
     public function to($to)
     {
-        $this->builder->whereDate("rr_date", "<=", $to);
+        $this->builder->whereDate("delivery_date", "<=", $to);
     }
 
     // public function requestor($requestor)

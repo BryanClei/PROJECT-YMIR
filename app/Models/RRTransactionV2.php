@@ -29,6 +29,11 @@ class RRTransactionV2 extends Model
         "reason",
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, "received_by", "id");
+    }
+
     public function rr_orders()
     {
         return $this->hasMany(RROrders::class, "rr_id", "id");

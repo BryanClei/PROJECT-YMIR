@@ -62,6 +62,7 @@ class PRPOResource extends JsonResource
                 "asset" => $this->asset,
                 "asset_code" => $this->asset_code ?? null,
             ],
+            "cap_ex" => $this->cap_ex,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
@@ -91,19 +92,17 @@ class PRPOResource extends JsonResource
 
     protected function getUserData()
     {
-        // If it's an Asset module, try to get Vladimir user
         if ($this->module_name === "Asset") {
             if ($this->vladimir_user) {
                 return [
                     "id" => $this->vladimir_user->id,
                     "employee_id" => $this->vladimir_user->employee_id,
                     "username" => $this->vladimir_user->username,
-                    "first_name" => $this->vladimir_user->firstname,
-                    "last_name" => $this->vladimir_user->lastname,
+                    "first_name" => strtoupper($this->vladimir_user->firstname),
+                    "last_name" => strtoupper($this->vladimir_user->lastname),
                 ];
             }
         } else {
-            // For non-Asset modules, use regular user
             if ($this->regular_user) {
                 return [
                     "prefix_id" => $this->regular_user->prefix_id,
@@ -125,8 +124,6 @@ class PRPOResource extends JsonResource
                 ];
             }
         }
-
-        // Return empty array if no user found
         return [];
     }
 }

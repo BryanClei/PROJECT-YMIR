@@ -101,7 +101,7 @@ class PRTransactionFilters extends QueryFilters
                     });
             })
             ->when($status === "return_pr", function ($query) use ($user_id) {
-                $query->where("status", "Return");
+                $query->where("status", "Return")->where("user_id", $user_id);
             })
             ->when($status === "report_approved", function ($query) {
                 $query

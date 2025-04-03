@@ -59,10 +59,8 @@ class JobOrderMinMaxController extends Controller
             "amount_min" => $request->amount_min,
         ]);
 
-        DB::commit();
-
         $update_amount = JobOrderMinMax::where("id", $id)->first();
 
-        return GlobalFunction::save(Message::MIN_MAX_UPDATE, $update_amounts);
+        return GlobalFunction::save(Message::MIN_MAX_UPDATE, $update_amount);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Type;
+use App\Models\Credit;
 use App\Response\Message;
 use App\Models\AccountType;
 use App\Models\AccountGroup;
@@ -30,7 +32,8 @@ class AccountTitleController extends Controller
             "account_sub_group",
             "financial_statement",
             "normal_balance",
-            "account_title_unit"
+            "account_title_unit",
+            "request_type"
         )
             ->when($status === "inactive", function ($query) {
                 $query->onlyTrashed();
@@ -63,6 +66,11 @@ class AccountTitleController extends Controller
             "financial_statement_id" => $request->financial_statement_id,
             "normal_balance_id" => $request->normal_balance_id,
             "account_title_unit_id" => $request->account_title_unit_id,
+            "credit_id" => $request->credit_id,
+            "credit_name" => $request->credit_name,
+            "credit_code" => $request->credit_code,
+            "request_id" => $request->request_id,
+            "request_type" => $request->request_type,
         ]);
 
         $account_title_collect = new AccountTitleResource($account_title);
@@ -91,6 +99,11 @@ class AccountTitleController extends Controller
             "financial_statement_id" => $request->financial_statement_id,
             "normal_balance_id" => $request->normal_balance_id,
             "account_title_unit_id" => $request->account_title_unit_id,
+            "credit_id" => $request->credit_id,
+            "credit_name" => $request->credit_name,
+            "credit_code" => $request->credit_code,
+            "request_id" => $request->request_id,
+            "request_type" => $request->request_type,
         ]);
 
         $account_title_collect = new AccountTitleResource($account_title);
@@ -138,6 +151,8 @@ class AccountTitleController extends Controller
             $financial_statement = $index["financial_statement"];
             $normal_balance = $index["normal_balance"];
             $account_title_unit = $index["account_title_unit"];
+            $credit = $index["credit_name"];
+            $request_type = $index["request_type"];
 
             $account_type_id = AccountType::where(
                 "name",
@@ -163,6 +178,8 @@ class AccountTitleController extends Controller
                 "name",
                 $account_title_unit
             )->first();
+            $credit_id = Credit::where("name", $credit)->first();
+            $request_type_id = Type::where("name", $request_type)->first();
 
             $account_title = AccountTitle::create([
                 "name" => $index["name"],
@@ -173,6 +190,11 @@ class AccountTitleController extends Controller
                 "financial_statement_id" => $financial_statement_id->id,
                 "normal_balance_id" => $normal_balance_id->id,
                 "account_title_unit_id" => $account_title_unit_id->id,
+                "credit_id" => $credit_id->id,
+                "credit_name" => $credit_id->name,
+                "credit_code" => $credit_id->code,
+                "request_id" => $request_type_id->id,
+                "request_type" => $request_type_id->name,
             ]);
         }
 

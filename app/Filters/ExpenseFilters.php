@@ -10,6 +10,7 @@ class ExpenseFilters extends QueryFilters
 
     protected array $columnSearch = [
         "pr_number",
+        "pr_year_number_id",
         "pr_description",
         "date_needed",
         "user_id",
@@ -48,11 +49,10 @@ class ExpenseFilters extends QueryFilters
 
         $this->builder
             ->when($status === "pending", function ($query) use ($user_id) {
-                $query->where("user_id", $user_id)->where(function ($query) {
-                    $query
-                        ->where("status", "Pending")
-                        ->orWhere("status", "For Approval");
-                });
+                $query
+                    ->where("user_id", $user_id)
+                    ->whereNull("approved_at")
+                    ->whereIn("status", ["Pending", "For Approval"]);
             })
             ->when($status === "for_po_pending", function ($query) use (
                 $user_id
@@ -74,7 +74,8 @@ class ExpenseFilters extends QueryFilters
                             $subQ
                                 ->where("status", "Cancelled")
                                 ->whereNotNull("cancelled_at")
-                                ->whereNull("approved_at")
+                                ->whereNull("rejected_at")
+                                // ->whereNull("approved_at")
                                 ->where("user_id", $user_id);
                         })->orWhereHas("po_transaction", function ($poQ) {
                             $poQ->where("status", "Cancelled");
@@ -98,7 +99,6 @@ class ExpenseFilters extends QueryFilters
             })
             ->when($status === "approved", function ($query) use ($user_id) {
                 $query
-                    ->where("user_id", $user_id)
                     ->where("status", "Approved")
                     ->whereNotNull("approved_at")
                     ->whereNull("rejected_at")
@@ -128,6 +128,7 @@ class ExpenseFilters extends QueryFilters
                             $query->whereNull("po_at");
                         },
                     ])
+                    ->where("user_id", $user_id)
                     ->where("status", "Return");
             });
     }

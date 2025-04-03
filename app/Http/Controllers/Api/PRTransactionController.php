@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use App\Models\Type;
 use App\Models\User;
 use App\Models\PRItems;
+use App\Models\PrDrafts;
 use App\Models\PrHistory;
 use App\Response\Message;
 use App\Models\JobHistory;
@@ -20,49 +21,28 @@ use App\Models\AssetsTransaction;
 use App\Models\JobOrderTransaction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\PurchaseRequest\AssetRequest;
 use App\Http\Requests\PurchaseRequest\StoreRequest;
 use App\Http\Requests\PurchaseRequest\UploadRequest;
-use Illuminate\Support\Facades\File;
 
 class PRTransactionController extends Controller
 {
-    // public function store_file(Request $request)
-    // {
-    //     // $path = $request->file("file")->store("public/attachment/");
-
-    //     $name = $request->file("file")->getClientOriginalName();
-    //     return $name;
-    // }
-
     public function index(PRViewRequest $request)
     {
         $status = $request->status;
         $user_id = Auth()->user()->id;
-        $purchase_request = PRTransaction::query()
-            ->with([
-                "vladimir_user" => function ($query) {
-                    $query->when(request()->module_name === "Asset", function (
-                        $q
-                    ) {
-                        return $q;
-                    });
-                },
-                "regular_user" => function ($query) {
-                    $query->when(request()->module_name !== "Asset", function (
-                        $q
-                    ) {
-                        return $q;
-                    });
-                },
-                "order",
-                "order.item",
-                "approver_history",
-                "po_transaction.order",
-                "po_transaction.approver_history",
-            ])
+        $purchase_request = PRTransaction::with([
+            "users",
+            "order",
+            "order.item",
+            "approver_history",
+            "po_transaction.order",
+            "po_transaction.approver_history",
+        ])
+            ->where("user_id", $user_id)
             ->where("module_name", "Inventoriables")
             ->orderBy("rush", "desc")
             ->orderBy("updated_at", "desc")
@@ -88,16 +68,7 @@ class PRTransactionController extends Controller
         $user_id = Auth()->user()->id;
 
         $purchase_request = AssetsTransaction::with([
-            "vladimir_user" => function ($query) {
-                $query->when(request()->module_name === "Asset", function ($q) {
-                    return $q;
-                });
-            },
-            "regular_user" => function ($query) {
-                $query->when(request()->module_name !== "Asset", function ($q) {
-                    return $q;
-                });
-            },
+            "user",
             "order",
             "order.item",
             "approver_history",
@@ -126,6 +97,13 @@ class PRTransactionController extends Controller
     {
         $user_id = Auth()->user()->id;
 
+        $pr_draft = $request->pr_draft_id ? $request->pr_draft_id : null;
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
         $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
         $date_today = $request->boolean("for_po_only")
             ? Carbon::now()
@@ -190,8 +168,11 @@ class PRTransactionController extends Controller
             "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
             "layer" => "1",
             "description" => $request->description,
+            "supplier_name" => $request->supplier_name,
+            "supplier_id" => $request->supplier_id,
         ]);
         $purchase_request->save();
 
@@ -215,7 +196,10 @@ class PRTransactionController extends Controller
                 "item_code" => $request["order"][$index]["item_code"],
                 "item_name" => $request["order"][$index]["item_name"],
                 "uom_id" => $request["order"][$index]["uom_id"],
+                // "item_stock" => $request["order"][$index]["item_stock"],
                 "quantity" => $request["order"][$index]["quantity"],
+                "unit_price" => $request["order"][$index]["unit_price"],
+                "total_price" => $request["order"][$index]["total_price"],
                 "remarks" => $request["order"][$index]["remarks"],
                 "attachment" => json_encode($filenames),
                 "assets" => $request["order"][$index]["assets"],
@@ -251,6 +235,14 @@ class PRTransactionController extends Controller
                 "approver_id" => $index["approver_id"],
                 "approver_name" => $index["approver_name"],
                 "layer" => $index["layer"],
+            ]);
+        }
+
+        if ($pr_draft) {
+            $draft = PrDrafts::find($pr_draft);
+
+            $draft->update([
+                "status" => "Submitted",
             ]);
         }
 
@@ -294,6 +286,17 @@ class PRTransactionController extends Controller
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i")
             : null;
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $purchase_request->update([
             "pr_description" => $request["pr_description"],
@@ -324,6 +327,11 @@ class PRTransactionController extends Controller
             "approved_at" => null,
             "layer" => "1",
             "description" => $request->description,
+            "for_po_only" => $date_today,
+            "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
+            "supplier_name" => $request->supplier_name,
+            "supplier_id" => $request->supplier_id,
         ]);
         $purchase_request->save();
 
@@ -364,7 +372,10 @@ class PRTransactionController extends Controller
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "unit_price" => $values["unit_price"],
+                    "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "assets" => $values["assets"],
@@ -427,7 +438,7 @@ class PRTransactionController extends Controller
                 "-FA-" .
                 str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
-            $type_id = Type::where("name", "Assets")
+            $type_id = Type::where("name", "Asset")
                 ->get()
                 ->first();
 
@@ -487,9 +498,11 @@ class PRTransactionController extends Controller
                 PRItems::create([
                     "transaction_id" => $purchase_request->id,
                     "reference_no" => $values["reference_no"],
+                    "item_id" => $values["item_id"],
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
                     "remarks" => $values["remarks"],
                     "warehouse_id" => $values["r_warehouse_id"],
@@ -515,13 +528,22 @@ class PRTransactionController extends Controller
 
     public function update(StoreRequest $request, $id)
     {
-        $purchase_request = PRTransaction::find($id);
+        $purchase_request = PRTransaction::with(
+            "order",
+            "approver_history"
+        )->find($id);
         $user_id = Auth()->user()->id;
         $not_found = PRTransaction::where("id", $id)->exists();
 
         if (!$not_found) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         if ($request->boolean("for_po_only")) {
             $for_po_id = $user_id;
@@ -534,12 +556,53 @@ class PRTransactionController extends Controller
         }
 
         $orders = $request->order;
+        $newTotalQuantity = array_sum(array_column($orders, "quantity"));
+        $oldTotalQuantity = $purchase_request->order->sum("quantity");
 
         $rush = $request->boolean("rush")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i")
             : null;
+
+        $approver_settings = ApproverSettings::where(
+            "company_id",
+            $purchase_request->company_id
+        )
+            ->where("business_unit_id", $purchase_request->business_unit_id)
+            ->where("department_id", $purchase_request->department_id)
+            ->where("department_unit_id", $purchase_request->department_unit_id)
+            ->where("sub_unit_id", $purchase_request->sub_unit_id)
+            ->where("location_id", $purchase_request->location_id)
+            ->whereHas("set_approver")
+            ->get()
+            ->first();
+
+        $approvers = SetApprover::where(
+            "approver_settings_id",
+            $approver_settings->id
+        )->get();
+        if ($approvers->isEmpty()) {
+            return GlobalFunction::save(Message::NO_APPROVERS);
+        }
+
+        if ($newTotalQuantity !== $oldTotalQuantity) {
+            $purchase_request->approver_history()->delete();
+
+            foreach ($approvers as $index) {
+                PrHistory::create([
+                    "pr_id" => $purchase_request->id,
+                    "approver_id" => $index["approver_id"],
+                    "approver_name" => $index["approver_name"],
+                    "layer" => $index["layer"],
+                ]);
+            }
+
+            $purchase_request->update([
+                "layer" => 1,
+                "status" => "Pending",
+            ]);
+        }
 
         $purchase_request->update([
             "pr_number" => $purchase_request->id,
@@ -569,6 +632,9 @@ class PRTransactionController extends Controller
             "rush" => $rush,
             "for_po_only" => $date_today,
             "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
+            "supplier_name" => $request->supplier_name,
+            "supplier_id" => $request->supplier_id,
         ]);
 
         $newOrders = collect($orders)
@@ -609,7 +675,10 @@ class PRTransactionController extends Controller
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "unit_price" => $values["unit_price"],
+                    "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
                     "attachment" => json_encode($filenames),
                     "assets" => $values["assets"],
@@ -656,20 +725,33 @@ class PRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        foreach ($pr_history as $pr) {
-            $pr->update([
-                "approved_at" => null,
-                "rejected_at" => null,
-            ]);
-        }
-
         $orders = $request->order;
+
+        $for_po_id = $request->boolean("for_po_only") ? $user_id : null;
+        $date_today = $request->boolean("for_po_only")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
 
         $rush = $request->boolean("rush")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
                 ->format("Y-m-d H:i")
             : null;
+
+        $user_tagged = $request->boolean("user_tagging")
+            ? Carbon::now()
+                ->timeZone("Asia/Manila")
+                ->format("Y-m-d H:i")
+            : null;
+
+        foreach ($pr_history as $pr) {
+            $pr->update([
+                "approved_at" => null,
+                "rejected_at" => null,
+            ]);
+        }
 
         $purchase_request->update([
             "pr_number" => $purchase_request->id,
@@ -690,7 +772,7 @@ class PRTransactionController extends Controller
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
             "sub_unit_name" => $request->sub_unit_name,
-            "module_name" => "Inventoriables",
+            "module_name" => $request->module_name,
             "status" => "Pending",
             "description" => $request->description,
             "rejected_at" => null,
@@ -700,6 +782,11 @@ class PRTransactionController extends Controller
             "f2" => $request->f2,
             "rush" => $rush,
             "layer" => "1",
+            "for_po_only" => $date_today,
+            "for_po_only_id" => $for_po_id,
+            "user_tagging" => $user_tagged,
+            "supplier_name" => $request->supplier_name,
+            "supplier_id" => $request->supplier_id,
         ]);
 
         $newOrders = collect($orders)
@@ -727,7 +814,10 @@ class PRTransactionController extends Controller
                     "item_code" => $values["item_code"],
                     "item_name" => $values["item_name"],
                     "uom_id" => $values["uom_id"],
+                    // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "unit_price" => $values["unit_price"],
+                    "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
                     "assets" => $values["assets"],
                     "warehouse_id" => $values["warehouse_id"],
@@ -793,6 +883,7 @@ class PRTransactionController extends Controller
             "po" => "po",
             "jo" => "jo",
             "rr" => "rr",
+            "jr" => "jr",
         ];
 
         if (!isset($typeSelectors[$type])) {
@@ -802,6 +893,14 @@ class PRTransactionController extends Controller
         $selector = $typeSelectors[$type];
         $updateFilename = $request->input("update_file", false);
         $uploadedFiles = [];
+
+        // $publicHtmlPath = '/home/cprdfymir/public_html/attachment'; // Production Path
+        // $publicHtmlPath =
+        //     "/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment"; // Prestest Path
+
+        // if (!File::exists($publicHtmlPath)) {
+        //     File::makeDirectory($publicHtmlPath, 0755, true);
+        // } // Prod & Pretest
 
         foreach ($files as $itemIndex => $itemFiles) {
             foreach ($itemFiles as $fileIndex => $file) {
@@ -816,6 +915,8 @@ class PRTransactionController extends Controller
                     $filename = $filenames[$itemIndex][$fileIndex];
 
                     $filePath = "app/public/attachment/{$filename}";
+                    // $filePath = "app/public/attachment/{$filename}"; // Production Path
+                    // $filePath = "app/public/pretestomega.rdfymir.com/attachment/{$filename}"; // Prestest Path
                     if (File::exists(storage_path($filePath))) {
                         File::delete(storage_path($filePath));
                     }
@@ -835,15 +936,20 @@ class PRTransactionController extends Controller
                     "attachment",
                     $file,
                     $filename
-                );
+                ); // Local Stored Path
+
+                $stored = $file->move($publicHtmlPath, $filename);
 
                 if ($stored) {
                     $uploadedFiles[] = [
                         "filename" => $filename,
                         "filepath" => "public/attachment/{$filename}",
+                        // "filepath" => "{$publicHtmlPath}/{$filename}",
                         "url" => Storage::disk("public")->url(
                             "attachment/{$filename}"
-                        ),
+                        ), // Local Path
+                        // "url" => "https://rdfymir.com/attachment/{$filename}", // Correct URL for accessing the file
+                        // "url" => "https://pretestomega.rdfymir.com/attachment/{$filename}", // Prestest Path
                     ];
                 } else {
                     $message = "Failed to store file: {$filename}";
@@ -856,161 +962,15 @@ class PRTransactionController extends Controller
         return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
     }
 
-    // production store multiple for public path
-    // public function store_multiple(UploadRequest $request, $id)
-    // {
-    //     $files = $request->file("files");
-    //     $filenames = $request->input("filenames", []);
-    //     $type = $request->input("type");
-
-    //     $typeSelectors = [
-    //         "pr" => "pr",
-    //         "po" => "po",
-    //         "jo" => "jo",
-    //         "rr" => "rr",
-    //     ];
-
-    //     if (!isset($typeSelectors[$type])) {
-    //         throw new \Exception("Invalid type");
-    //     }
-
-    //     $selector = $typeSelectors[$type];
-    //     $updateFilename = $request->input("update_file", false);
-    //     $uploadedFiles = [];
-
-    //     $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
-
-    //     if (!File::exists($publicHtmlPath)) {
-    //         File::makeDirectory($publicHtmlPath, 0755, true);
-    //     }
-
-    //     foreach ($files as $itemIndex => $itemFiles) {
-    //         foreach ($itemFiles as $fileIndex => $file) {
-    //             if (!$file->isValid()) {
-    //                 continue;
-    //             }
-
-    //             if (
-    //                 $updateFilename &&
-    //                 isset($filenames[$itemIndex][$fileIndex])
-    //             ) {
-    //                 $filename = $filenames[$itemIndex][$fileIndex];
-
-    //                 $filePath = "app/public/attachment/{$filename}";
-    //                 if (File::exists(storage_path($filePath))) {
-    //                     File::delete(storage_path($filePath));
-    //                 }
-    //             }
-
-    //             $originalFilename = pathinfo(
-    //                 $file->getClientOriginalName(),
-    //                 PATHINFO_FILENAME
-    //             );
-
-    //             $filename =
-    //                 "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
-    //                 "." .
-    //                 $file->getClientOriginalExtension();
-
-    //             $stored = $file->move($publicHtmlPath, $filename);
-
-    //             if ($stored) {
-    //                 $uploadedFiles[] = [
-    //                     "filename" => $filename,
-    //                     "filepath" => "{$publicHtmlPath}/{$filename}",
-    //                     "url" => "https://rdfymir.com/attachment/{$filename}", // Correct URL for accessing the file
-    //                 ];
-    //             } else {
-    //                 $message = "Failed to store file: {$filename}";
-    //                 return GlobalFunction::uploadfailed($message, $files);
-    //             }
-    //         }
-    //     }
-
-    //     $message = Message::UPLOAD_SUCCESSFUL;
-    //     return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
-    // }
-
-    // production pretest store multiple for public path
-    // public function store_multiple(UploadRequest $request, $id)
-    // {
-    //     $files = $request->file("files");
-    //     $filenames = $request->input("filenames", []);
-    //     $type = $request->input("type");
-
-    //     $typeSelectors = [
-    //         "pr" => "pr",
-    //         "po" => "po",
-    //         "jo" => "jo",
-    //         "rr" => "rr",
-    //     ];
-
-    //     if (!isset($typeSelectors[$type])) {
-    //         throw new \Exception("Invalid type");
-    //     }
-
-    //     $selector = $typeSelectors[$type];
-    //     $updateFilename = $request->input("update_file", false);
-    //     $uploadedFiles = [];
-
-    //     $publicHtmlPath = '/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment';
-
-    //     if (!File::exists($publicHtmlPath)) {
-    //         File::makeDirectory($publicHtmlPath, 0755, true);
-    //     }
-
-    //     foreach ($files as $itemIndex => $itemFiles) {
-    //         foreach ($itemFiles as $fileIndex => $file) {
-    //             if (!$file->isValid()) {
-    //                 continue;
-    //             }
-
-    //             if (
-    //                 $updateFilename &&
-    //                 isset($filenames[$itemIndex][$fileIndex])
-    //             ) {
-    //                 $filename = $filenames[$itemIndex][$fileIndex];
-
-    //                 $filePath = "app/public/pretestomega.rdfymir.com/attachment/{$filename}";
-    //                 if (File::exists(storage_path($filePath))) {
-    //                     File::delete(storage_path($filePath));
-    //                 }
-    //             }
-
-    //             $originalFilename = pathinfo(
-    //                 $file->getClientOriginalName(),
-    //                 PATHINFO_FILENAME
-    //             );
-
-    //             $filename =
-    //                 "{$originalFilename}_{$selector}_id_{$id}_item_{$itemIndex}_file_{$fileIndex}" .
-    //                 "." .
-    //                 $file->getClientOriginalExtension();
-
-    //             $stored = $file->move($publicHtmlPath, $filename);
-
-    //             if ($stored) {
-    //                 $uploadedFiles[] = [
-    //                     "filename" => $filename,
-    //                     "filepath" => "{$publicHtmlPath}/{$filename}",
-    //                     "url" => "https://pretestomega.rdfymir.com/attachment/{$filename}", // Correct URL for accessing the file
-    //                 ];
-    //             } else {
-    //                 $message = "Failed to store file: {$filename}";
-    //                 return GlobalFunction::uploadfailed($message, $files);
-    //             }
-    //         }
-    //     }
-
-    //     $message = Message::UPLOAD_SUCCESSFUL;
-    //     return GlobalFunction::uploadSuccessful($message, $uploadedFiles);
-    // }
-
     public function download($filename)
     {
         $disk = Storage::disk("public");
+        //  $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
+        // $publicHtmlPath =
+        //     "/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment";
 
         if (!$disk->exists("attachment/{$filename}")) {
+            // Local
             $message = Message::FILE_NOT_FOUND;
             return GlobalFunction::uploadfailed(
                 $message,
@@ -1022,52 +982,31 @@ class PRTransactionController extends Controller
         return response()
             ->download($filePath, $filename)
             ->setStatusCode(200);
+
+        // $filePath = "{$publicHtmlPath}/{$filename}";
+
+        // if (!File::exists($publicHtmlPath)) {
+        //     // Pretest & Production
+        //     $message = Message::FILE_NOT_FOUND;
+        //     return GlobalFunction::uploadfailed(
+        //         $message,
+        //         $filename
+        //     )->setStatusCode(Message::DATA_NOT_FOUND);
+        // }
+
+        // return response()
+        //     ->download($filePath, $filename)
+        //     ->setStatusCode(200);
     }
-
-    // Production Download for public path
-    // public function download($filename)
-    // {
-    //     $publicHtmlPath = '/home/cprdfymir/public_html/attachment';
-
-    //     $filePath = "{$publicHtmlPath}/{$filename}";
-
-    //     if (!File::exists($filePath)) {
-    //         $message = Message::FILE_NOT_FOUND;
-    //         return GlobalFunction::uploadfailed(
-    //             $message,
-    //             $filename
-    //         )->setStatusCode(Message::DATA_NOT_FOUND);
-    //     }
-
-    //     return response()
-    //         ->download($filePath, $filename)
-    //         ->setStatusCode(200);
-    // }
-
-    // Production Pretest Download for public path
-    // public function download($filename)
-    // {
-    //     $publicHtmlPath = '/home/cprdfymir/public_html/pretestomega.rdfymir.com/attachment';
-
-    //     $filePath = "{$publicHtmlPath}/{$filename}";
-
-    //     if (!File::exists($filePath)) {
-    //         $message = Message::FILE_NOT_FOUND;
-    //         return GlobalFunction::uploadfailed(
-    //             $message,
-    //             $filename
-    //         )->setStatusCode(Message::DATA_NOT_FOUND);
-    //     }
-
-    //     return response()
-    //         ->download($filePath, $filename)
-    //         ->setStatusCode(200);
-    // }
 
     public function buyer(Request $request, $id)
     {
         $user_id = Auth()->user()->id;
         $purchase_request = PRTransaction::with("order")->find($id);
+
+        $date_today = Carbon::now()
+            ->timeZone("Asia/Manila")
+            ->format("Y-m-d H:i");
 
         if ($purchase_request->cancelled_at) {
             return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
@@ -1096,6 +1035,7 @@ class PRTransactionController extends Controller
             $item->update([
                 "buyer_id" => $payloadItem["buyer_id"],
                 "buyer_name" => $payloadItem["buyer_name"],
+                "tagged_buyer" => $date_today,
             ]);
 
             $item_details[] = $is_update

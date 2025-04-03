@@ -34,6 +34,7 @@ class JORROrderResource extends JsonResource
             "shipment_no" => $this->shipment_no,
             "delivery_date" => $this->delivery_date,
             "rr_date" => $this->rr_date,
+            "jo_po_orders" => $this->order,
             "jr_transaction" => $this->jo_transaction,
             "jo_transaction" => $this->jo_po_transaction,
         ];

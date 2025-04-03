@@ -9,6 +9,7 @@ class PurchaseAssistantFilters extends QueryFilters
     protected array $allowedFilters = [];
 
     protected array $columnSearch = [
+        "pr_year_number_id",
         "pr_number",
         "pr_description",
         "date_needed",
@@ -33,6 +34,69 @@ class PurchaseAssistantFilters extends QueryFilters
         "supplier_name",
         "module_name",
     ];
+
+    protected array $relationSearch = [
+        "users" => ["user_id", "first_name", "middle_name", "last_name"],
+    ];
+
+    protected function processSearch($search)
+    {
+        // Join the required relationships first
+        foreach ($this->relationSearch as $relation => $columns) {
+            $this->builder->leftJoin(
+                $relation,
+                "pr_transactions.user_id",
+                "=",
+                $relation . ".id"
+            );
+        }
+
+        $this->builder->where(function ($query) use ($search) {
+            // Search in main table columns
+            foreach ($this->columnSearch as $column) {
+                $query->orWhere(
+                    "pr_transactions." . $column,
+                    "like",
+                    "%{$search}%"
+                );
+            }
+
+            // Search in relationship columns
+            foreach ($this->relationSearch as $table => $columns) {
+                foreach ($columns as $column) {
+                    $query->orWhere(
+                        $table . "." . $column,
+                        "like",
+                        "%{$search}%"
+                    );
+                }
+            }
+        });
+    }
+
+    public function search_business_unit($search_business_unit, $status = null)
+    {
+        $this->builder->where(function ($query) use ($search_business_unit) {
+            $query
+                ->where(
+                    "business_unit_name",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                )
+                ->orWhere(
+                    "business_unit_id",
+                    "like",
+                    "%" . $search_business_unit . "%"
+                );
+        });
+
+        // Add status filter if provided
+        if ($status !== null) {
+            $this->builder->where("status", $status);
+        }
+
+        return $this->builder;
+    }
 
     public function status($status)
     {
@@ -214,7 +278,6 @@ class PurchaseAssistantFilters extends QueryFilters
                             },
                         ]);
                 });
-            })
-            ;
+            });
     }
 }

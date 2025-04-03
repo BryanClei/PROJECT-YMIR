@@ -45,6 +45,7 @@ class JobOrderTransaction extends Model
         "layer",
         "description",
         "reason",
+        "approver_remarks",
         "approved_at",
         "rejected_at",
         "voided_at",

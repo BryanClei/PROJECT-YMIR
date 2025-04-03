@@ -56,6 +56,14 @@ class ImportRequest extends FormRequest
                 "required",
                 "exists:account_title_units,name,deleted_at,NULL",
             ],
+            "*.credit_name" => [
+                "required",
+                "exists:credit,name,deleted_at,NULL",
+            ],
+            "*.request_type" => [
+                "required",
+                "exists:types,name,deleted_at,NULL",
+            ],
         ];
     }
 

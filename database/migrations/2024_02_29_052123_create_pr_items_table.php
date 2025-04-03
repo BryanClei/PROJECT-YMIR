@@ -29,15 +29,21 @@ return new class extends Migration {
                 ->foreign("uom_id")
                 ->references("id")
                 ->on("uoms");
+            $table->double("item_stock")->nullable();
+            $table->double("unit_price")->nullable();
+            $table->double("total_price")->nullable();
             $table->double("quantity");
             $table->string("remarks")->nullable();
             $table->string("attachment")->nullable();
-            $table->string("buyer_id")->nullalble();
+            $table->string("buyer_id")->nullable();
             $table->string("buyer_name")->nullable();
+            $table->timestamp("tagged_buyer")->nullable();
+            $table->integer("supplier_id")->nullable();
             $table->timestamp("po_at")->nullable();
             $table->string("purchase_order_id")->nullable();
             $table->string("type")->nullable();
             $table->integer("warehouse_id")->nullable();
+            $table->string("assets")->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

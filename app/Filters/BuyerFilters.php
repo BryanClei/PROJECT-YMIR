@@ -10,6 +10,7 @@ class BuyerFilters extends QueryFilters
 
     protected array $columnSearch = [
         "pr_number",
+        "pr_year_number_id",
         "pr_description",
         "date_needed",
         "user_id",
@@ -39,9 +40,14 @@ class BuyerFilters extends QueryFilters
         $user_id = auth()->user()->id;
 
         $this->builder
-            ->when($status === "po_approved", function ($query) {
+            ->when($status === "po_approved", function ($query) use ($user_id) {
                 $query
                     ->whereNotNull("approved_at")
+                    ->whereHas("po_transaction.order", function ($query) use (
+                        $user_id
+                    ) {
+                        $query->where("buyer_id", $user_id);
+                    })
                     ->whereHas("po_transaction", function ($query) {
                         $query->where("status", "For Receiving");
                     })

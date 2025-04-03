@@ -87,8 +87,8 @@ class DepartmentUnitController extends Controller
         if ($department_unit->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        $sub_unit = SubUnit::with("sub_unit")
-            ->whereHas("sub_unit", function ($query) use ($id) {
+        $sub_unit = SubUnit::with("department_unit")
+            ->whereHas("department_unit", function ($query) use ($id) {
                 return $query->where("id", $id);
             })
             ->exists();

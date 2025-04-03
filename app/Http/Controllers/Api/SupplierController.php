@@ -67,6 +67,7 @@ class SupplierController extends Controller
             "code" => $request->code,
             "name" => $request->name,
             "type" => $request->type,
+            "term" => $request->term,
             // "address_1" => $request->address_1,
             // "address_2" => $request->address_2,
         ]);

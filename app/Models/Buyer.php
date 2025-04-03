@@ -55,7 +55,6 @@ class Buyer extends Model
         "rejected_at",
         "voided_at",
         "cancelled_at",
-
         "approver_id",
     ];
 

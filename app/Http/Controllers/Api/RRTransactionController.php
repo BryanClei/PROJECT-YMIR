@@ -21,6 +21,7 @@ use App\Http\Resources\RRResource;
 use App\Http\Requests\PO\PORequest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
+use App\Http\Resources\RRV2Resource;
 use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\RRSyncDisplay;
 use App\Http\Resources\RROrdersResource;
@@ -61,14 +62,14 @@ class RRTransactionController extends Controller
 
     public function show($id)
     {
-        $rr_transaction = RRTransaction::with(
-            "pr_transaction.users",
-            "pr_transaction.order",
-            "rr_orders",
-            "po_transaction",
-            "po_order",
-            "po_order.category"
-        )
+        $rr_transaction = RRTransaction::with([
+            "rr_orders.po_transaction" => function ($query) {
+                $query->withTrashed();
+            },
+            "rr_orders.pr_transaction",
+            "rr_orders.order.uom",
+            "log_history",
+        ])
             ->where("id", $id)
             ->orderByDesc("updated_at")
             ->first();
@@ -77,11 +78,11 @@ class RRTransactionController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        new RRResource($rr_transaction);
+        $collect_rr_transaction = new RRV2Resource($rr_transaction);
 
         return GlobalFunction::responseFunction(
             Message::RR_DISPLAY,
-            $rr_transaction
+            $collect_rr_transaction
         );
     }
 
@@ -126,6 +127,15 @@ class RRTransactionController extends Controller
             $user_id,
             $itemDetails
         );
+
+        // $allItemsReceived = $po_transaction->po_items->every(function ($item) {
+        //     return $item->quantity === $item->quantity_serve;
+        // });
+
+        // if ($allItemsReceived) {
+        //     $po_transaction->status = "Received";
+        //     $po_transaction->save();
+        // }
 
         $rr_collect = new RRResource($rr_transaction);
 
@@ -191,7 +201,7 @@ class RRTransactionController extends Controller
             "rr_transaction",
             "rr_transaction.rr_orders"
         )
-            ->orderByDesc("updated_at")
+            ->orderByDesc("created_at")
             ->useFilters()
             ->dynamicPaginate();
 
@@ -303,15 +313,24 @@ class RRTransactionController extends Controller
 
     public function report_pr(PRViewRequest $request)
     {
-        $purchase_order = PRTransaction::with(
-            "users",
-            "order",
-            "approver_history"
+        $pr_items = PRItems::with(
+            "po_order.rr_orders.po_transaction",
+            "po_order.rr_orders.rr_transaction",
+            "uom",
+            "transaction.approver_history",
+            "transaction.users"
         )
             ->useFilters()
             ->dynamicPaginate();
+        // $purchase_order = PRTransaction::with(
+        //     "users",
+        //     "order",
+        //     "approver_history"
+        // )
+        //     ->useFilters()
+        //     ->dynamicPaginate();
 
-        $is_empty = $purchase_order->isEmpty();
+        $is_empty = $pr_items->isEmpty();
 
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -319,11 +338,11 @@ class RRTransactionController extends Controller
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
-            $purchase_order
+            $pr_items
         );
     }
 
-    public function report_po(Request $request)
+    public function report_po(PRViewRequest $request)
     {
         $buyer = $request->input("buyer");
         $from = $request->input("from");
@@ -332,8 +351,8 @@ class RRTransactionController extends Controller
             "uom",
             "pr_item",
             "po_transaction.users",
-            "po_transaction.pr_transaction",
-            "po_transaction",
+            "po_transaction.pr_transaction.approver_history",
+            "po_transaction.approver_history",
             "po_transaction.rr_transaction",
             "po_transaction.rr_transaction.rr_orders"
         )
@@ -352,27 +371,43 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function report_rr()
+    public function report_rr(Request $request)
     {
-        $rr_orders = RROrders::with(
-            "order",
+        $user_id = Auth()->user()->id;
+        $type = $request->type;
+
+        $query = RROrders::with([
+            "order.supplier",
             "order.uom",
             "rr_transaction",
-            "rr_transaction.pr_transaction",
-            "rr_transaction.pr_transaction.users",
-            "rr_transaction.po_transaction.company",
-            "rr_transaction.po_transaction.department",
-            "rr_transaction.po_transaction.department_unit",
-            "rr_transaction.po_transaction.sub_unit",
-            "rr_transaction.po_transaction.location",
-            "rr_transaction.po_transaction.account_title",
-            "rr_transaction.po_transaction.account_title.account_type",
-            "rr_transaction.po_transaction.account_title.account_group",
-            "rr_transaction.po_transaction.account_title.account_sub_group",
-            "rr_transaction.po_transaction.account_title.financial_statement"
-        )
-            ->useFilters()
-            ->dynamicPaginate();
+            "po_transaction" => function ($query) {
+                $query->withTrashed();
+            },
+            "po_transaction.pr_transaction" => function ($query) {
+                $query->withTrashed();
+            },
+            "po_transaction.pr_transaction.users",
+            "po_transaction.pr_transaction.approver_history",
+            "po_transaction.company",
+            "po_transaction.department",
+            "po_transaction.department_unit",
+            "po_transaction.sub_unit",
+            "po_transaction.location",
+            "po_transaction.account_title",
+            "po_transaction.account_title.account_type",
+            "po_transaction.account_title.account_group",
+            "po_transaction.account_title.account_sub_group",
+            "po_transaction.account_title.financial_statement",
+            "po_transaction.approver_history",
+        ])->whereNull("deleted_at");
+
+        if ($type === "for_user") {
+            $query->whereHas("po_transaction", function ($q) use ($user_id) {
+                $q->where("user_id", $user_id);
+            });
+        }
+
+        $rr_orders = $query->useFilters()->dynamicPaginate();
 
         $is_empty = $rr_orders->isEmpty();
 
@@ -388,13 +423,15 @@ class RRTransactionController extends Controller
 
     public function cancel_rr(PORequest $request, $id)
     {
-        $reason = $request->remarks;
+        $reason = $request->reason;
         $vlad_user = $request->v_name;
         $rdf_id = $request->rdf_id;
 
         $user = $vlad_user
             ? $rdf_id . " (" . $vlad_user . ")"
             : ($user = Auth()->user()->id);
+
+        $type = $vlad_user ? "returned" : "cancelled";
 
         $rr_transaction = RRTransaction::where("id", $id)
             ->with("rr_orders", "po_order")
@@ -420,7 +457,7 @@ class RRTransactionController extends Controller
             $rr_order->delete();
         }
 
-        $activityDescription = "Received Receipt ID: {$rr_transaction->id} has been cancelled by UID: {$user}. Reason: {$reason}.";
+        $activityDescription = "Received Receipt ID: {$rr_transaction->id} has been {$type} by UID: {$user}. Reason: {$reason}.";
 
         LogHistory::create([
             "activity" => $activityDescription,

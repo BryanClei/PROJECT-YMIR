@@ -17,26 +17,26 @@ class RRResource extends JsonResource
     public function toArray($request)
     {
         return [
-            "po_year_number_id" => $this->po_transaction->po_year_number_id,
+            // "po_year_number_id" => $this->po_transaction->po_year_number_id,
             "rr_year_number_id" => $this->rr_year_number_id,
             "rr_number" => $this->id,
             "pr_number" => $this->pr_id,
             "po_number" => $this->po_id,
             "tagging_id" => $this->tagging_id,
             "transaction_date" => $this->transaction_date,
-            "user" => $this->po_transaction->users
+            "received_by" => $this->users
                 ? [
-                    "id" => $this->po_transaction->users->id,
+                    "id" => $this->users->id,
                     "name" =>
-                        $this->po_transaction->users->first_name .
+                        $this->users->first_name .
                         " " .
-                        $this->po_transaction->users->middle_name .
+                        $this->users->middle_name .
                         " " .
-                        $this->po_transaction->users->last_name,
+                        $this->users->last_name,
                 ]
                 : null,
-            "request_type" => $this->po_transaction->module_name,
-            "description" => $this->po_transaction->po_description,
+            // "request_type" => $this->po_transaction->module_name,
+            // "description" => $this->po_transaction->po_description,
             "order" => $this->rr_orders,
             "log_history" => LogHistoryResource::collection($this->log_history),
             "deleted_at" => $this->deleted_at,
