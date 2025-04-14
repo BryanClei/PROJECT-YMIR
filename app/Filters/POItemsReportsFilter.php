@@ -88,11 +88,15 @@ class POItemsReportsFilter extends QueryFilters
                     );
                 })
                 ->when($status == "rejected", function ($q) {
-                    $q->where("status", "Rejected");
+                    $q->where("status", "Reject");
+                })
+                ->when($status == "returned", function ($q) {
+                    $q->where("status", "Return");
                 })
                 ->when($status == "admin_reports", function ($q) {
                     $q->whereNot("status", "Cancelled");
-                });
+                })
+                ->when($status == "view_all", function ($q) {});
         });
     }
 

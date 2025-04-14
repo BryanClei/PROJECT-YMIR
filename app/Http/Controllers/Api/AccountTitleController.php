@@ -33,7 +33,8 @@ class AccountTitleController extends Controller
             "financial_statement",
             "normal_balance",
             "account_title_unit",
-            "request_type"
+            "request_type",
+            "warehouseAccountTitles"
         )
             ->when($status === "inactive", function ($query) {
                 $query->onlyTrashed();

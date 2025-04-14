@@ -221,13 +221,15 @@ class RRTransactionController extends Controller
     {
         $po_approve = POTransaction::withTrashed()
             ->with([
-                "order" => function ($query) {
-                    $query->withTrashed();
-                },
                 "rr_transaction",
+                "order" => function ($query) use ($id) {
+                    $po = POTransaction::withTrashed()->find($id);
+                    if ($po && $po->trashed()) {
+                        $query->withTrashed();
+                    }
+                },
             ])
-            ->where("id", $id)
-            ->first();
+            ->find($id);
 
         if (!$po_approve) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -456,8 +458,13 @@ class RRTransactionController extends Controller
 
                 if ($pr_item) {
                     $pr_item->update([
-                        "partial_received" => $pr_item->partial_received - $rr_order->quantity_receive,
-                        "remaining_qty" => $pr_item->quantity - ($pr_item->partial_received - $rr_order->quantity_receive),
+                        "partial_received" =>
+                            $pr_item->partial_received -
+                            $rr_order->quantity_receive,
+                        "remaining_qty" =>
+                            $pr_item->quantity -
+                            ($pr_item->partial_received -
+                                $rr_order->quantity_receive),
                     ]);
                 }
             }

@@ -63,6 +63,7 @@ class POTransaction extends Model
         "cancelled_at",
         "updated_by",
         "approver_id",
+        "ep_sync",
     ];
 
     // public function users()

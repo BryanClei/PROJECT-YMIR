@@ -27,7 +27,7 @@ class PADisplay extends FormRequest
             "status" => [
                 "required",
                 "string",
-                "in:to_po,rejected,approved,For approval,pending,for_po,tagged_buyer,return_po,cancelled,partial_received",
+                "in:to_po,rejected,approved,For approval,pending,for_po,tagged_buyer,return_po,cancelled,partial_received,view_all",
             ],
         ];
     }

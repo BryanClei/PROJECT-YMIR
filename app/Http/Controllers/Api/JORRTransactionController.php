@@ -499,8 +499,11 @@ class JORRTransactionController extends Controller
         );
     }
 
-    public function report_jo_rr()
+    public function report_jo_rr(Request $request)
     {
+        $user_id = Auth()->user()->id;
+        $type = $request->type;
+
         $display = JORROrders::with([
             "order",
             "order.uom",
@@ -527,15 +530,23 @@ class JORRTransactionController extends Controller
             "jo_po_transaction.jo_approver_history" => function ($query) {
                 $query->with("user");
             },
-        ])
-            ->useFilters()
-            ->dynamicPaginate();
+        ])->whereNull("deleted_at");
 
-        if ($display->isEmpty()) {
+        if ($type === "for_user") {
+            $display->whereHas("jo_po_transaction", function ($q) use (
+                $user_id
+            ) {
+                $q->where("user_id", $user_id);
+            });
+        }
+
+        $jo_rr_orders = $display->useFilters()->dynamicPaginate();
+
+        if ($jo_rr_orders->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        foreach ($display as $item) {
+        foreach ($jo_rr_orders as $item) {
             if (isset($item->jo_po_transaction->jo_approver_history)) {
                 foreach (
                     $item->jo_po_transaction->jo_approver_history
@@ -554,7 +565,10 @@ class JORRTransactionController extends Controller
             }
         }
 
-        return GlobalFunction::responseFunction(Message::RR_DISPLAY, $display);
+        return GlobalFunction::responseFunction(
+            Message::RR_DISPLAY,
+            $jo_rr_orders
+        );
     }
 
     public function report_jo()

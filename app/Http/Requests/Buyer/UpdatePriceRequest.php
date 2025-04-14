@@ -32,7 +32,7 @@ class UpdatePriceRequest extends FormRequest
             // "orders.*.price" => "required, min:0.01"
             "orders" => ["required", "array", "min:1"],
             "orders.*.price" => ["required", "numeric", "min:0.01"],
-            "orders.*.total_price" => ["required", "numeric", "min:0.01"],
+            // "orders.*.total_price" => ["required", "numeric", "min:0.01"],
             // "orders.*.id" =>
             //     "required|exists:po_orders,id,deleted_at,NULL,buyer_id," .
             //     $user_id,

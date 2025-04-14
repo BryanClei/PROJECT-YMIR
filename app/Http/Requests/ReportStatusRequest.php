@@ -27,7 +27,7 @@ class ReportStatusRequest extends FormRequest
             "status" => [
                 "required",
                 "string",
-                "in:rejected,approved,pending,cancelled,admin_reports",
+                "in:rejected,approved,pending,cancelled,admin_reports,view_all,returned,view_all_purchasing_monitoring",
             ],
         ];
     }

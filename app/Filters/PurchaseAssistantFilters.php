@@ -111,6 +111,11 @@ class PurchaseAssistantFilters extends QueryFilters
                                     ->whereNull("buyer_id")
                                     ->whereNull("po_at");
                             })
+                            ->where(function ($query) {
+                                $query
+                                    ->whereNull("remaining_qty")
+                                    ->orWhere("remaining_qty", "!=", 0);
+                            })
                             ->whereNull("po_at");
                     })
                     ->with([
@@ -278,6 +283,9 @@ class PurchaseAssistantFilters extends QueryFilters
                             },
                         ]);
                 });
+            })
+            ->when($status === "view_all", function ($query) {
+                $query->whereDoesntHave("po_transaction");
             });
     }
 }

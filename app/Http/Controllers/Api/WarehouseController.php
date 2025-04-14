@@ -49,9 +49,10 @@ class WarehouseController extends Controller
             "token" => $request->token,
         ]);
 
-        $warehouse
-            ->warehouseAccountTitles()
-            ->attach($request->account_title_id);
+        $accountTitleIds = collect($request->account_titles)->pluck(
+            "account_title_id"
+        );
+        $warehouse->warehouseAccountTitles()->attach($accountTitleIds);
 
         return GlobalFunction::save(
             Message::WAREHOUSE_SAVE,
@@ -74,7 +75,10 @@ class WarehouseController extends Controller
             "token" => $request->token,
         ]);
 
-        $warehouse->warehouseAccountTitles()->sync($request->account_title_id);
+        $accountTitleIds = collect($request->account_titles)->pluck(
+            "account_title_id"
+        );
+        $warehouse->warehouseAccountTitles()->sync($accountTitleIds);
 
         return GlobalFunction::responseFunction(
             Message::WAREHOUSE_UPDATE,

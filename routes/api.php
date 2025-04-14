@@ -272,6 +272,8 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         PRTransactionController::class,
         "resubmit",
     ]);
+
+    Route::get("buyer_rr", [BuyerController::class, "buyer_rr"]);
     Route::patch("place_order/{id}", [BuyerController::class, "place_order"]);
     Route::get("buyer_badge", [BuyerController::class, "buyer_badge"]);
     Route::get("unit_item_price/{id}", [
@@ -515,6 +517,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::get("buyer/view/{id}", [BuyerController::class, "view"]);
     Route::get("buyer/view_to_po/{id}", [BuyerController::class, "viewto_po"]);
     Route::patch("cancel_po/{id}", [PoController::class, "cancel_po"]);
+    Route::patch("cancel_po_item/{orderItemId}", [
+        PoController::class,
+        "cancel_po_item",
+    ]);
     Route::patch("cancel_jo_po/{id}", [PoController::class, "cancel_jo_po"]);
     Route::get("buyer/view_po/{id}", [PoController::class, "view"]);
     Route::patch("return_pr_items", [
@@ -615,6 +621,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
 
     Route::get("um_dry_api", [FedoraApiController::class, "um_dry"]);
 
+    Route::get("elixir_pharmacy_api", [
+        FedoraApiController::class,
+        "elixir_pharmacy",
+    ]);
+
     Route::apiResource("fedora_api", FedoraApiController::class);
 
     Route::apiResource("fisto_api", FistoApiController::class);
@@ -659,6 +670,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::get("stalwart_report", [
         ReportSummaryController::class,
         "stalwart_export",
+    ]);
+
+    Route::get("purchase_monitoring", [
+        ReportSummaryController::class,
+        "purchase_monitoring",
     ]);
 
     Route::get("pr_summary", [ReportSummaryController::class, "pr_summary"]);

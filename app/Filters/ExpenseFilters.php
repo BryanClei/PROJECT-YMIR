@@ -121,7 +121,7 @@ class ExpenseFilters extends QueryFilters
                         $query->whereNotNull("approved_at");
                     });
             })
-            ->when($status === "return_pr", function ($query) {
+            ->when($status === "return_pr", function ($query) use ($user_id) {
                 $query
                     ->with([
                         "order" => function ($query) {

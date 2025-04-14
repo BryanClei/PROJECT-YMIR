@@ -222,7 +222,13 @@ class BuyerController extends Controller
         $purchase_order = Buyer::with([
             "users",
             "order" => function ($query) {
-                $query->with("category");
+                $query
+                    ->where(function ($query) {
+                        $query
+                            ->whereNull("remaining_qty")
+                            ->orWhere("remaining_qty", "!=", 0);
+                    })
+                    ->with("category");
             },
             "approver_history",
             "po_transaction",
@@ -235,6 +241,10 @@ class BuyerController extends Controller
         if (!$purchase_order) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
+        $purchase_order->order->each(function ($order) {
+            $order->quantity = $order->quantity - $order->partial_received;
+        });
 
         new PRPOResource($purchase_order);
 
@@ -278,6 +288,7 @@ class BuyerController extends Controller
 
         foreach ($order as $values) {
             $order_id = $values["id"];
+            $values["remarks"];
             $poItem = POItems::where("id", $order_id)->first();
 
             if ($poItem) {
@@ -296,7 +307,7 @@ class BuyerController extends Controller
                 $poItem->update([
                     "price" => $newPrice,
                     "total_price" => $newTotalPrice,
-                    "remarks" => $request["remarks"],
+                    "remarks" => $values["remarks"],
                     "buyer_id" => $request["buyer_id"],
                     "buyer_name" => $request["buyer_name"],
                 ]);
@@ -798,5 +809,10 @@ class BuyerController extends Controller
             Message::PURCHASE_ORDER_DISPLAY,
             $job_order_request
         );
+    }
+
+    public function buyer_rr()
+    {
+        return "hello";
     }
 }

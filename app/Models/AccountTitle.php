@@ -83,7 +83,11 @@ class AccountTitle extends Model
 
     public function warehouseAccountTitles()
     {
-        return $this->hasMany(WarehouseAccountTitles::class);
+        return $this->hasMany(
+            WarehouseAccountTitles::class,
+            "account_title_id",
+            "id"
+        );
     }
 
     public function warehouses()

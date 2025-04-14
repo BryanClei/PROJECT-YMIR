@@ -67,9 +67,7 @@ class PAController extends Controller
             ->useFilters()
             ->dynamicPaginate();
 
-        $is_empty = $purchase_request->isEmpty();
-
-        if ($is_empty) {
+        if ($purchase_request->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
@@ -229,7 +227,6 @@ class PAController extends Controller
     {
         $status = $request->status;
         $user_id = Auth()->user()->id;
-
         $purchase_request = PurchaseAssistant::where("id", $id)
             ->with([
                 "order" => function ($query) use ($status, $user_id) {
@@ -247,7 +244,12 @@ class PAController extends Controller
                                 ->whereNotNull("buyer_id")
                                 ->whereNull("supplier_id");
                         })
-                        ->with("category");
+                        ->with("category")
+                        ->where(function ($query) {
+                            $query
+                                ->whereNull("remaining_qty")
+                                ->orWhere("remaining_qty", "!=", 0);
+                        });
                 },
                 "order.warehouse",
                 "order.item.small_tools",
@@ -261,11 +263,19 @@ class PAController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $purchase_request->order->each(function ($order) {
-            $order->quantity = $order->quantity - $order->partial_received;
-        });
+        $purchase_request->order = $purchase_request->order
+            ->filter(function ($order) {
+                if ($order->remaining_qty === null) {
+                    $order->remaining_qty = $order->quantity;
+                }
 
-        // new PRPOResource($purchase_request);
+                $partial_received = $order->partial_received ?? 0;
+
+                $effective_quantity = $order->quantity - $partial_received;
+
+                return $effective_quantity > 0;
+            })
+            ->values();
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,

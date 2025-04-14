@@ -84,11 +84,33 @@ class PrItemsReportsFilters extends QueryFilters
                     );
                 })
                 ->when($status == "rejected", function ($q) {
-                    $q->where("status", "Rejected");
+                    $q->where("status", "Reject");
+                })
+                ->when($status == "returned", function ($q) {
+                    $q->where("status", "Return");
                 })
                 ->when($status == "admin_reports", function ($q) {
                     $q->whereNot("status", "Cancelled");
+                })
+                ->when($status == "view_all", function ($q) {})
+                ->when($status == "view_all_purchasing_monitoring", function (
+                    $q
+                ) {
+                    $q->whereDoesntHave("po_transaction");
                 });
+        });
+    }
+
+    public function from($from)
+    {
+        $this->builder->whereHas("transaction", function ($query) use ($from) {
+            $query->whereDate("created_at", ">=", $from);
+        });
+    }
+    public function to($to)
+    {
+        $this->builder->whereHas("transaction", function ($query) use ($to) {
+            $query->whereDate("created_at", "<=", $to);
         });
     }
 }

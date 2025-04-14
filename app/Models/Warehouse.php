@@ -28,13 +28,13 @@ class Warehouse extends Model
         );
     }
 
-    public function accountTitles()
-    {
-        return $this->belongsToMany(
-            AccountTitle::class,
-            "warehouse_account_titles"
-        )
-            ->withPivot("transaction_type")
-            ->withTimestamps();
-    }
+    // public function accountTitles()
+    // {
+    //     return $this->belongsToMany(
+    //         AccountTitle::class,
+    //         "warehouse_account_titles"
+    //     )
+    //         ->withPivot("transaction_type")
+    //         ->withTimestamps();
+    // }
 }

@@ -83,11 +83,32 @@ class JoPoReportsFilters extends QueryFilters
                     );
                 })
                 ->when($status == "rejected", function ($q) {
-                    $q->where("status", "Rejected");
+                    $q->where("status", "Reject");
+                })
+                ->when($status == "returned", function ($q) {
+                    $q->where("status", "Return");
                 })
                 ->when($status == "admin_reports", function ($q) {
                     $q->whereNot("status", "Cancelled");
-                });
+                })
+                ->when($status == "view_all", function ($q) {});
+        });
+    }
+
+    public function from($from)
+    {
+        $this->builder->whereHas("jo_po_transaction", function ($query) use (
+            $from
+        ) {
+            $query->whereDate("created_at", ">=", $from);
+        });
+    }
+    public function to($to)
+    {
+        $this->builder->whereHas("jo_po_transaction", function ($query) use (
+            $to
+        ) {
+            $query->whereDate("created_at", "<=", $to);
         });
     }
 }

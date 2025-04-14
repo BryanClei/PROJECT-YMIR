@@ -10,7 +10,7 @@ class GizmoApiController extends Controller
 {
     public function index()
     {
-        $po_transaction = POTransaction::with("order")
+        $po_transaction = POTransaction::with("order.uom")
             ->whereIn("status", ["For Receiving", "Approved"])
             ->whereNotNull("approved_at")
             ->get();

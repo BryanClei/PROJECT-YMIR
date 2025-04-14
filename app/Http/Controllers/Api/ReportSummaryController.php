@@ -13,9 +13,12 @@ use Illuminate\Http\Request;
 use App\Models\POItemsReports;
 use App\Models\PRItemsReports;
 use App\Models\JobItemsReports;
+use App\Http\Requests\PADisplay;
 use App\Functions\GlobalFunction;
 use App\Models\JoPoOrdersReports;
+use App\Models\PurchaseAssistant;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PRPOResource;
 use App\Http\Requests\ReportStatusRequest;
 use App\Http\Resources\IntegrationGLResource;
 
@@ -27,31 +30,25 @@ class ReportSummaryController extends Controller
         $type = $request->type;
 
         $user_id = Auth()->user()->id;
-        $user_department_id = Auth()->user()->department_id;
 
         $pr_items = PRItemsReports::with(
             "uom",
-            "transaction.users",
-            "transaction.approver_history"
+            "transaction.vladimir_user",
+            "transaction.regular_user",
+            "transaction.approver_history",
+            "transaction.po_transaction",
+            "po_order.rr_orders.rr_transaction"
         )
             ->whereHas("transaction", function ($subQuery) use (
                 $type,
-                $user_id,
-                $user_department_id
+                $user_id
             ) {
                 $subQuery
-                    ->when($type === "for_user", function ($q) use (
-                        $user_id,
-                        $user_department_id
-                    ) {
-                        $q->where("user_id", $user_id)->where(
-                            "department_id",
-                            $user_department_id
-                        );
+                    ->when($type === "for_user", function ($q) use ($user_id) {
+                        $q->where("user_id", $user_id);
                     })
                     ->when($type === "for_approver", function ($q) use (
-                        $user_id,
-                        $user_department_id
+                        $user_id
                     ) {
                         $q->whereHas("approver_history", function (
                             $qsubQuery
@@ -68,6 +65,40 @@ class ReportSummaryController extends Controller
         if ($pr_items->isEmpty()) {
             return GlobalFunction::notFound(Message::NO_DATA_FOUND);
         }
+
+        $transform = function ($item) {
+            $t = $item->transaction;
+            if (!$t) {
+                return $item;
+            }
+
+            $t->users =
+                $t->module_name === "Asset" && $t->vladimir_user
+                    ? [
+                        "id" => $t->vladimir_user->id,
+                        "employee_id" => $t->vladimir_user->employee_id,
+                        "username" => $t->vladimir_user->username,
+                        "first_name" => $t->vladimir_user->firstname,
+                        "last_name" => $t->vladimir_user->lastname,
+                    ]
+                    : ($t->regular_user
+                        ? [
+                            "prefix_id" => $t->regular_user->prefix_id,
+                            "id_number" => $t->regular_user->id_number,
+                            "first_name" => $t->regular_user->first_name,
+                            "middle_name" => $t->regular_user->middle_name,
+                            "last_name" => $t->regular_user->last_name,
+                            "mobile_no" => $t->regular_user->mobile_no,
+                        ]
+                        : []);
+
+            unset($t->vladimir_user, $t->regular_user);
+            return $item;
+        };
+
+        method_exists($pr_items, "getCollection")
+            ? $pr_items->getCollection()->transform($transform)
+            : $pr_items->transform($transform);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
@@ -77,51 +108,33 @@ class ReportSummaryController extends Controller
 
     public function po_summary(ReportStatusRequest $request)
     {
-        $status = $request->status;
-        $type = $request->type;
-
-        $user_id = Auth()->user()->id;
-        $user_department_id = Auth()->user()->department_id;
+        $user = Auth()->user();
 
         $pr_items = POItemsReports::with([
             "uom",
-            "po_transaction" => function ($query) {
-                $query->withTrashed();
-            },
+            "po_transaction" => fn($q) => $q->withTrashed(),
             "po_transaction.approver_history",
-            "po_transaction.users",
+            "po_transaction.vladimir_user",
+            "po_transaction.regular_user",
             "po_transaction.pr_transaction",
             "rr_orders.rr_transaction",
         ])
             ->withTrashed()
-            ->whereHas("po_transaction", function ($subQuery) use (
-                $type,
-                $user_id,
-                $user_department_id
-            ) {
-                $subQuery
-                    ->withTrashed()
-                    ->when($type === "for_user", function ($q) use (
-                        $user_id,
-                        $user_department_id
-                    ) {
-                        $q->where("user_id", $user_id)->where(
-                            "department_id",
-                            $user_department_id
-                        );
-                    })
-                    ->when($type === "for_approver", function ($q) use (
-                        $user_id,
-                        $user_department_id
-                    ) {
-                        $q->whereHas("approver_history", function (
-                            $qsubQuery
-                        ) use ($user_id) {
-                            $qsubQuery
-                                ->where("approver_id", $user_id)
-                                ->whereNotNull("approved_at");
-                        });
-                    });
+            ->whereHas("po_transaction", function ($q) use ($request, $user) {
+                $q->withTrashed()
+                    ->when(
+                        $request->type === "for_user",
+                        fn($q) => $q->where("user_id", $user->id)
+                    )
+                    ->when(
+                        $request->type === "for_approver",
+                        fn($q) => $q->whereHas(
+                            "approver_history",
+                            fn($h) => $h
+                                ->where("approver_id", $user->id)
+                                ->whereNotNull("approved_at")
+                        )
+                    );
             })
             ->useFilters()
             ->dynamicPaginate();
@@ -129,6 +142,40 @@ class ReportSummaryController extends Controller
         if ($pr_items->isEmpty()) {
             return GlobalFunction::notFound(Message::NO_DATA_FOUND);
         }
+
+        $transform = function ($item) {
+            $t = $item->po_transaction;
+            if (!$t) {
+                return $item;
+            }
+
+            $t->users =
+                $t->module_name === "Asset" && $t->vladimir_user
+                    ? [
+                        "id" => $t->vladimir_user->id,
+                        "employee_id" => $t->vladimir_user->employee_id,
+                        "username" => $t->vladimir_user->username,
+                        "first_name" => $t->vladimir_user->firstname,
+                        "last_name" => $t->vladimir_user->lastname,
+                    ]
+                    : ($t->regular_user
+                        ? [
+                            "prefix_id" => $t->regular_user->prefix_id,
+                            "id_number" => $t->regular_user->id_number,
+                            "first_name" => $t->regular_user->first_name,
+                            "middle_name" => $t->regular_user->middle_name,
+                            "last_name" => $t->regular_user->last_name,
+                            "mobile_no" => $t->regular_user->mobile_no,
+                        ]
+                        : []);
+
+            unset($t->vladimir_user, $t->regular_user);
+            return $item;
+        };
+
+        method_exists($pr_items, "getCollection")
+            ? $pr_items->getCollection()->transform($transform)
+            : $pr_items->transform($transform);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_DISPLAY,
@@ -142,31 +189,24 @@ class ReportSummaryController extends Controller
         $type = $request->type;
 
         $user_id = Auth()->user()->id;
-        $user_department_id = Auth()->user()->department_id;
 
         $pr_items = JobItemsReports::with(
             "uom",
             "transaction.users",
-            "transaction.approver_history"
+            "transaction.approver_history",
+            "transaction.jo_po_transaction",
+            "jo_po_orders.rr_orders.jo_rr_transaction"
         )
             ->whereHas("transaction", function ($subQuery) use (
                 $type,
-                $user_id,
-                $user_department_id
+                $user_id
             ) {
                 $subQuery
-                    ->when($type === "for_user", function ($q) use (
-                        $user_id,
-                        $user_department_id
-                    ) {
-                        $q->where("user_id", $user_id)->where(
-                            "department_id",
-                            $user_department_id
-                        );
+                    ->when($type === "for_user", function ($q) use ($user_id) {
+                        $q->where("user_id", $user_id);
                     })
                     ->when($type === "for_approver", function ($q) use (
-                        $user_id,
-                        $user_department_id
+                        $user_id
                     ) {
                         $q->whereHas("approver_history", function (
                             $qsubQuery
@@ -196,7 +236,6 @@ class ReportSummaryController extends Controller
         $type = $request->type;
 
         $user_id = Auth()->user()->id;
-        $user_department_id = Auth()->user()->department_id;
 
         $pr_items = JoPoOrdersReports::with([
             "uom",
@@ -205,6 +244,7 @@ class ReportSummaryController extends Controller
             },
             "jo_po_transaction.users",
             "jo_po_transaction.jo_approver_history",
+            "jo_po_transaction.jo_transaction",
             "rr_orders" => function ($query) {
                 $query->withTrashed();
             },
@@ -213,22 +253,14 @@ class ReportSummaryController extends Controller
             ->withTrashed()
             ->whereHas("jo_po_transaction", function ($subQuery) use (
                 $type,
-                $user_id,
-                $user_department_id
+                $user_id
             ) {
                 $subQuery
-                    ->when($type === "for_user", function ($q) use (
-                        $user_id,
-                        $user_department_id
-                    ) {
-                        $q->where("user_id", $user_id)->where(
-                            "department_id",
-                            $user_department_id
-                        );
+                    ->when($type === "for_user", function ($q) use ($user_id) {
+                        $q->where("user_id", $user_id);
                     })
                     ->when($type === "for_approver", function ($q) use (
-                        $user_id,
-                        $user_department_id
+                        $user_id
                     ) {
                         $q->whereHas("jo_approver_history", function (
                             $qsubQuery
@@ -361,5 +393,95 @@ class ReportSummaryController extends Controller
         // $result = array_merge(...$collected);
 
         // return $result;
+    }
+
+    public function purchase_monitoring(PADisplay $request)
+    {
+        $status = $request->status;
+        $type = $request->type;
+
+        $user_id = Auth()->user()->id;
+
+        $pr_items = PRItemsReports::whereHas("transaction", function ($mQuery) {
+            $mQuery->where("status", "Approved");
+        })
+            ->with([
+                "uom",
+                "transaction.vladimir_user",
+                "transaction.regular_user",
+                "transaction.approver_history",
+            ])
+            ->when($status == "to_po", function ($query) {
+                $query
+                    ->whereNull("buyer_id")
+                    ->whereNull("buyer_name")
+                    ->whereHas("transaction", function ($subQuery) {
+                        $subQuery
+                            ->whereNull("for_po_only")
+                            ->whereNull("for_po_only_id");
+                    });
+            })
+            ->when($status == "tagged_buyer", function ($query) {
+                $query
+                    ->whereNotNull("buyer_id")
+                    ->whereNotNull("buyer_name")
+                    ->whereHas("transaction", function ($subQuery) {
+                        $subQuery
+                            ->whereNull("for_po_only")
+                            ->whereNull("for_po_only_id");
+                    });
+            })
+            ->when($status == "for_po", function ($query) {
+                $query->whereHas("transaction", function ($query) {
+                    $query
+                        ->whereNotNull("for_po_only")
+                        ->whereNotNull("for_po_only_id");
+                });
+            })
+            ->whereNull("po_at")
+            ->dynamicPaginate();
+
+        if ($pr_items->isEmpty()) {
+            return GlobalFunction::notFound(Message::NO_DATA_FOUND);
+        }
+
+        $transform = function ($item) {
+            $t = $item->transaction;
+            if (!$t) {
+                return $item;
+            }
+
+            $t->users =
+                $t->module_name === "Asset" && $t->vladimir_user
+                    ? [
+                        "id" => $t->vladimir_user->id,
+                        "employee_id" => $t->vladimir_user->employee_id,
+                        "username" => $t->vladimir_user->username,
+                        "first_name" => $t->vladimir_user->firstname,
+                        "last_name" => $t->vladimir_user->lastname,
+                    ]
+                    : ($t->regular_user
+                        ? [
+                            "prefix_id" => $t->regular_user->prefix_id,
+                            "id_number" => $t->regular_user->id_number,
+                            "first_name" => $t->regular_user->first_name,
+                            "middle_name" => $t->regular_user->middle_name,
+                            "last_name" => $t->regular_user->last_name,
+                            "mobile_no" => $t->regular_user->mobile_no,
+                        ]
+                        : []);
+
+            unset($t->vladimir_user, $t->regular_user);
+            return $item;
+        };
+
+        method_exists($pr_items, "getCollection")
+            ? $pr_items->getCollection()->transform($transform)
+            : $pr_items->transform($transform);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $pr_items
+        );
     }
 }

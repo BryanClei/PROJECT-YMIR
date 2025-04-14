@@ -12,6 +12,7 @@ class ApproverDashboardFilters extends QueryFilters
 
     protected array $columnSearch = [
         "pr_number",
+        "po_year_number_id",
         "po_number",
         "po_description",
         "date_needed",

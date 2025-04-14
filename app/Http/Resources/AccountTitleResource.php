@@ -65,6 +65,7 @@ class AccountTitleResource extends JsonResource
                 "id" => $this->request_id,
                 "name" => $this->request_type,
             ],
+            "warehouse" => $this->warehouseAccountTitles,
         ];
     }
 }

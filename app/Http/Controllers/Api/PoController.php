@@ -383,7 +383,7 @@ class PoController extends Controller
             "jo_number" => $request->jo_number,
             "po_description" => $request->po_description,
             "date_needed" => $request->date_needed,
-            "user_id" => $user_id,
+            "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
             "business_unit_id" => $request->business_unit_id,
@@ -854,92 +854,48 @@ class PoController extends Controller
     {
         $job_order = JOPOTransaction::find($id);
         $orders = $request->order;
-        $user_id = Auth()->user()->id;
-        $not_found = JOPOTransaction::where("id", $id)->exists();
+        $user_id = auth()->user()->id;
 
-        if (!$not_found) {
+        if (!$job_order) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
         $po_history = JoPoHistory::where("jo_po_id", $id)->get();
-
         if ($po_history->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
         $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
 
-        $requestor = JobOrderTransaction::where(
-            "id",
-            $request->jo_number
-        )->first();
-
-        $requestor_company_id = $requestor->users()->first()->company_id;
-        $requestor_business_id = $requestor->users()->first()->business_unit_id;
-        $requestor_department_id = $requestor->users()->first()->department_id;
-
-        $requestor_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_requestor_setting_id(
-            $requestor_company_id,
-            $requestor_business_id,
-            $requestor_department_id
-        );
-
-        $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
+        $charging_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
             $request->company_id,
             $request->business_unit_id,
             $request->department_id
         );
 
-        $requestor_po_approvers = JobOrderPurchaseOrderApprovers::where(
+        $po_approvers = JobOrderPurchaseOrderApprovers::where(
             "jo_purchase_order_id",
-            $requestor_purchase_order_setting_id->id
+            $charging_setting_id->id
         )
             ->where("base_price", "<=", $sumOfTotalPrices)
             ->get();
 
-        if (!$requestor_po_approvers) {
+        if ($po_approvers->isEmpty()) {
             return GlobalFunction::notFound(Message::NO_APPROVERS_PRICE);
         }
 
-        $charging_po_approvers =
-            $requestor_purchase_order_setting_id->id !==
-            $charging_purchase_order_setting_id->id
-                ? JobOrderPurchaseOrderApprovers::where(
-                    "jo_purchase_order_id",
-                    $charging_purchase_order_setting_id->id
-                )
-                    ->where("base_price", "<=", $sumOfTotalPrices)
-                    ->get()
-                : collect([]);
-
+        // Reset approval history
         JoPoHistory::where("jo_po_id", $id)->delete();
 
+        // Insert new approvers
         $layer = 1;
-
-        foreach ($requestor_po_approvers as $approver) {
+        foreach ($po_approvers as $approver) {
             JoPoHistory::create([
                 "jo_po_id" => $id,
                 "approver_id" => $approver->approver_id,
                 "approver_name" => $approver->approver_name,
                 "layer" => $layer++,
                 "approved_at" => null,
-            ]);
-        }
-
-        foreach ($charging_po_approvers as $approver) {
-            JoPoHistory::create([
-                "jo_po_id" => $id,
-                "approver_id" => $approver->approver_id,
-                "approver_name" => $approver->approver_name,
-                "layer" => $layer++,
-                "approved_at" => null,
-            ]);
-        }
-
-        foreach ($po_history as $pr) {
-            $pr->update([
-                "approved_at" => null,
-                "rejected_at" => null,
             ]);
         }
 
@@ -1018,29 +974,31 @@ class PoController extends Controller
             ->get()
             ->first();
 
-        // if (
-        //     $po_cancel
-        //         ->rr_transaction()
-        //         ->whereNull("deleted_at")
-        //         ->exists()
-        // ) {
-        //     return GlobalFunction::invalid(Message::ALREADY_HAVE_RR);
-        // }
+        if (!$po_cancel) {
+            return GlobalFunction::notFound(Message::INVALID_ACTION);
+        }
 
-        // if ($no_rr) {
-        //     $po_cancel_order = $po_cancel
-        //         ->order()
-        //         ->pluck("pr_item_id")
-        //         ->toArray();
+        if ($po_cancel->status == "Cancelled") {
+            return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
+        }
 
-        //     $pr_items = PRItems::whereIn("id", $po_cancel_order)->update([
-        //         "buyer_id" => null,
-        //         "buyer_name" => null,
-        //         "supplier_id" => null,
-        //         "po_at" => null,
-        //         "purchase_order_id" => null,
-        //     ]);
-        // }
+        foreach ($po_cancel->order as $order) {
+            $prItem = PRItems::find($order->pr_item_id);
+            if ($prItem) {
+                $partialReceived = $order->quantity_serve;
+                $remainingQty = $order->quantity - $order->quantity_serve;
+
+                $prItem->update([
+                    "partial_received" => $partialReceived,
+                    "remaining_qty" => $remainingQty,
+                    "buyer_id" => null,
+                    "buyer_name" => null,
+                    "supplier_id" => null,
+                    "po_at" => null,
+                    "purchase_order_id" => null,
+                ]);
+            }
+        }
 
         $po_cancel_order = $po_cancel
             ->order()
@@ -1090,6 +1048,63 @@ class PoController extends Controller
         return GlobalFunction::responseFunction(
             Message::PO_CANCELLED,
             $po_cancel
+        );
+    }
+
+    public function cancel_po_item(PORequest $request, $orderItemId)
+    {
+        $no_rr = $request->no_rr;
+        $user = auth()->user()->id;
+
+        $order = POItems::with("po_transaction")->find($orderItemId);
+
+        if (!$order) {
+            return GlobalFunction::notFound(Message::INVALID_ACTION);
+        }
+
+        $po = $order->po_transaction;
+
+        if ($po->status === "Cancelled") {
+            return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
+        }
+
+        $prItem = PRItems::find($order->pr_item_id);
+        if ($prItem) {
+            $partialReceived = $order->quantity_serve;
+            $remainingQty = $order->quantity - $order->quantity_serve;
+
+            $prItem->update([
+                "partial_received" => $partialReceived,
+                "remaining_qty" => $remainingQty,
+                "buyer_id" => null,
+                "buyer_name" => null,
+                "supplier_id" => null,
+                "po_at" => null,
+                "purchase_order_id" => null,
+            ]);
+        }
+
+        $order->delete();
+
+        $remainingOrders = $po->order()->count();
+        $statusNote =
+            $remainingOrders === 0
+                ? "All items now cancelled"
+                : "Partial cancellation";
+
+        $activityDescription = $no_rr
+            ? "PO Item ID: {$orderItemId} under PO ID: {$po->id} was cancelled by UID: {$user}. Reason: {$request->reason}. Status: {$statusNote}"
+            : "PO Item ID: {$orderItemId} (no RR) under PO ID: {$po->id} was cancelled by UID: {$user}. Reason: {$request->reason}. Status: {$statusNote}";
+
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "po_id" => $po->id,
+            "action_by" => $user,
+        ]);
+
+        return GlobalFunction::responseFunction(
+            "PO Item successfully cancelled.",
+            $orderItemId
         );
     }
 
