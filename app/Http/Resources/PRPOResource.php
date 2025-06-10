@@ -62,7 +62,13 @@ class PRPOResource extends JsonResource
                 "asset" => $this->asset,
                 "asset_code" => $this->asset_code ?? null,
             ],
+            "supplier" => [
+                "supplier_id" => $this->supplier_id,
+                "supplier_name" => $this->supplier_name,
+                "pcf_remarks" => $this->pcf_remarks,
+            ],
             "cap_ex" => $this->cap_ex,
+            "ship_to" => $this->ship_to,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,

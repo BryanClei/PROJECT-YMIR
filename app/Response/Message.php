@@ -47,6 +47,8 @@ class Message
     const MIN_SET = "Job order min successfully set.";
     const CREDIT_SAVE = "Credit successfully created.";
     const PURCHASE_REQUEST_DRAFT_SAVE = "Draft successfully save.";
+    const CALENDAR_SETUP_SAVE = "Calendar setup successfully save.";
+    const CHRAGING_SAVE = "One Charging successfully save.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -87,6 +89,8 @@ class Message
     const MIN_MAX_DISPLAY = "Job order min and max display successfully.";
     const CREDIT_DISPLAY = "Credit display successfully.";
     const PURCHASE_REQUEST_DRAFT_DISPLAY = "Draft display successfully.";
+    const CALENDAR_SETUP = "Calendar setup display successfully.";
+    const CHARGING_DISPLAY = "One Charging display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -133,9 +137,12 @@ class Message
     const PURCHASE_REQUEST_AND_ORDER_UPDATE = "Purchase request and purchase order updated successfully.";
     const CREDIT_UPDATE = "Credit updated successfully.";
     const PURCHASE_REQUEST_DRAFT_UPDATE = "Purchase request draft update successfully.";
+    const CALENDAR_SETUP_UPDATED = "Calendar setup updated successfully.";
 
     const RR_TAGGED_FISTO = "RR orders tagged successfully.";
     const RR_ETD_ITEMS = "RR orders sync successfully.";
+
+    const SYNC_ORDERS = "Orders sync successfully.";
 
     //SOFT DELETE
     const ARCHIVE_STATUS = "Successfully archived.";

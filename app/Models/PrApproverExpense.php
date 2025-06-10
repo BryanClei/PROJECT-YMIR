@@ -103,4 +103,9 @@ class PrApproverExpense extends Model
     {
         return $this->hasMany(LogHistory::class, "pr_id", "id");
     }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Suppliers::class, "supplier_id", "id");
+    }
 }

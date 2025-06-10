@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\PurchaseRequest;
 
+use Carbon\Carbon;
 use App\Models\ApproverSettings;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,14 +25,13 @@ class StoreRequest extends FormRequest
      */
     public function rules()
     {
-        return [
+        $rules = [
             "pr_number" => [
                 $this->route()->pr_transaction
                     ? "unique:pr_transactions,pr_number," .
                         $this->route()->pr_transaction
                     : "unique:pr_transactions,pr_number",
             ],
-            // "supplier_id" => "exists:suppliers,id,deleted_at,NULL",
             "company_id" => "exists:companies,id,deleted_at,NULL",
             "business_unit_id" => "exists:business_units,id,deleted_at,NULL",
             "department_id" => "exists:departments,id,deleted_at,NULL",
@@ -39,16 +39,41 @@ class StoreRequest extends FormRequest
                 "exists:department_units,id,deleted_at,NULL",
             "sub_unit_id" => "exists:sub_units,id,deleted_at,NULL",
             "location_id" => "exists:locations,id,deleted_at,NULL",
+            "ship_to" => "required",
         ];
+
+        if ($this->boolean("for_po_only") || $this->filled("supplier_id")) {
+            $rules["order.*.unit_price"] = "required|numeric|gt:0";
+        }
+
+        return $rules;
     }
+
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
-            // $validator->errors()->add("custom", $this->user()->id);
-            // $validator->errors()->add("custom", $this->route()->id);
-            // $validator->errors()->add("custom", "STOP!");
+            $shouldValidateUnitPrices =
+                $this->boolean("for_po_only") || $this->filled("supplier_id");
 
-            $approvers = ApproverSettings::where(
+            if ($shouldValidateUnitPrices) {
+                $orders = $this->input("order", []);
+
+                foreach ($orders as $index => $item) {
+                    $unitPrice = $item["unit_price"] ?? null;
+
+                    if (!is_numeric($unitPrice) || $unitPrice <= 0) {
+                        $validator
+                            ->errors()
+                            ->add(
+                                "order.{$index}.unit_price",
+                                "The unit price must be a number greater than zero."
+                            );
+                    }
+                }
+            }
+
+            // Approver check (unchanged)
+            $approvers = \App\Models\ApproverSettings::where(
                 "business_unit_id",
                 $this->input("business_unit_id")
             )
@@ -60,8 +85,8 @@ class StoreRequest extends FormRequest
                 )
                 ->where("sub_unit_id", $this->input("sub_unit_id"))
                 ->where("location_id", $this->input("location_id"))
-                ->get()
                 ->first();
+
             if (!$approvers) {
                 $validator->errors()->add("message", "No approvers yet.");
             }

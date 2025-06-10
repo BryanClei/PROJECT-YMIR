@@ -35,6 +35,8 @@ class POItems extends Model
         "remarks",
         "warehouse_id",
         "category_id",
+        "umd_sync",
+        "system_sync",
     ];
 
     protected $casts = [

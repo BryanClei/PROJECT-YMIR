@@ -49,6 +49,7 @@ class Expense extends Model
         "description",
         "reason",
         "asset",
+        "asset_code",
         "sgp",
         "f1",
         "f2",
@@ -112,5 +113,10 @@ class Expense extends Model
     public function log_history()
     {
         return $this->hasMany(LogHistory::class, "pr_id", "id");
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Suppliers::class, "supplier_id", "id");
     }
 }

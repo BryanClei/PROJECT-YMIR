@@ -95,6 +95,8 @@ return new class extends Migration {
             $table->string("description")->nullable();
             $table->string("reason")->nullable();
             $table->string("edit_remarks")->nullable();
+            $table->string("pcf_remarks")->nullable();
+            $table->string("ship_to")->nullable();
             $table->longText("approver_remarks")->nullable();
             $table->string("asset")->nullable();
             $table->string("asset_code")->nullable();

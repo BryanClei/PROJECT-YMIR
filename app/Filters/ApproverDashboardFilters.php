@@ -52,12 +52,11 @@ class ApproverDashboardFilters extends QueryFilters
 
         $this->builder
             ->when($status == "pending", function ($query) use (
-                $po_ids,
-                $layers
+                $user,
+                $po_ids
             ) {
                 $query
                     ->whereIn("id", $po_ids)
-                    ->whereIn("layer", $layers)
                     ->where(function ($query) {
                         $query
                             ->where("status", "Pending")
@@ -66,8 +65,29 @@ class ApproverDashboardFilters extends QueryFilters
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
                     ->whereNull("rejected_at")
-                    ->whereHas("approver_history", function ($query) {
-                        $query->whereNull("approved_at");
+                    ->whereHas("approver_history", function ($query) use (
+                        $user
+                    ) {
+                        // Only show transactions where the current user is the approver
+                        // for the current layer AND hasn't approved yet
+                        $query
+                            ->where("approver_id", $user)
+                            ->whereNull("approved_at");
+                    })
+                    // Additional condition: ensure the transaction's current layer
+                    // matches the user's layer in the approval history
+                    ->where(function ($query) use ($user) {
+                        $query->whereRaw(
+                            "layer = (
+                        SELECT layer 
+                        FROM po_history 
+                        WHERE po_history.po_id = po_transactions.id 
+                        AND po_history.approver_id = ? 
+                        AND po_history.approved_at IS NULL
+                        LIMIT 1
+                    )",
+                            [$user]
+                        );
                     });
             })
             ->when($status == "rejected", function ($query) use (

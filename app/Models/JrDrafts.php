@@ -48,6 +48,7 @@ class JrDrafts extends Model
         "outside_labor",
         "cap_ex",
         "direct_po",
+        "ship_to",
         "helpdesk_id",
     ];
 

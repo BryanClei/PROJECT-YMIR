@@ -49,27 +49,28 @@ class JOApproversFilter extends QueryFilters
 
     public function status($status)
     {
-        $user = Auth()->user()->id;
-        $user_id = User::where("id", $user)
-            ->get()
-            ->first();
+        $user = auth()->user()->id;
 
-        $jo_id = JobHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("jo_id");
-        $layer = JobHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("layer");
+        $userLayers = JobHistory::where("approver_id", $user)
+            ->pluck("layer", "jo_id")
+            ->toArray();
 
         $this->builder
-            ->when($status == "pending", function ($query) use (
-                $jo_id,
-                $layer
+            ->when($status === "pending", function ($query) use (
+                $userLayers,
+                $user
             ) {
                 $query
-
-                    ->whereIn("id", $jo_id)
-                    ->whereIn("layer", $layer)
+                    ->where(function ($q) use ($userLayers) {
+                        foreach ($userLayers as $joId => $layer) {
+                            $q->orWhere(function ($sub) use ($joId, $layer) {
+                                $sub->where("id", $joId)->where(
+                                    "layer",
+                                    $layer
+                                );
+                            });
+                        }
+                    })
                     ->where(function ($query) {
                         $query
                             ->where("status", "Pending")
@@ -77,34 +78,41 @@ class JOApproversFilter extends QueryFilters
                     })
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
-                    ->whereNull("rejected_at");
-            })
-            ->when($status == "rejected", function ($query) use (
-                $jo_id,
-                $layer
-            ) {
-                $query
-                    ->whereIn("id", $jo_id)
-                    ->whereIn("layer", $layer)
-                    ->whereNull("voided_at")
-                    ->whereNotNull("rejected_at");
+                    ->whereNull("rejected_at")
+                    ->whereHas("approver_history", function ($query) use (
+                        $user,
+                        $userLayers
+                    ) {
+                        $query
+                            ->whereNull("approved_at")
+                            ->where("approver_id", $user)
+                            ->whereIn("jo_id", array_keys($userLayers))
+                            ->whereIn("layer", array_values($userLayers));
+                    });
             })
 
-            ->when($status == "approved", function ($query) use (
-                $jo_id,
-                $layer,
-                $user_id
-            ) {
+            ->when($status === "approved", function ($query) use ($user) {
                 $query
-                    ->whereIn("id", $jo_id)
                     ->whereNull("cancelled_at")
                     ->whereNull("voided_at")
                     ->whereHas("approver_history", function ($query) use (
-                        $user_id
+                        $user
                     ) {
                         $query
-                            ->whereIn("approver_id", $user_id)
+                            ->where("approver_id", $user)
                             ->whereNotNull("approved_at");
+                    });
+            })
+
+            ->when($status === "rejected", function ($query) use ($user) {
+                $query
+                    ->whereNull("voided_at")
+                    ->whereHas("approver_history", function ($query) use (
+                        $user
+                    ) {
+                        $query
+                            ->where("approver_id", $user)
+                            ->whereNotNull("rejected_at");
                     });
             });
     }

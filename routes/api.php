@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\NoReqJRController;
 use App\Http\Controllers\Api\PrDraftController;
 use App\Http\Controllers\Api\SubUnitController;
 use App\Http\Controllers\Api\BusinessController;
+use App\Http\Controllers\Api\ChargingController;
 use App\Http\Controllers\Api\FistoApiController;
 use App\Http\Controllers\Api\GizmoApiController;
 use App\Http\Controllers\Api\JobOrderController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\Api\PrApproverController;
 use App\Http\Controllers\Api\SmallToolsController;
 use App\Http\Controllers\Api\AccountTypeController;
 use App\Http\Controllers\Api\PoApproversController;
+use App\Http\Controllers\Api\RRDateSetupController;
 use App\Http\Controllers\Api\AccountGroupController;
 use App\Http\Controllers\Api\AccountTitleController;
 use App\Http\Controllers\Api\GeneralLedgerController;
@@ -84,6 +86,8 @@ Route::group(["middleware" => ["auth_key"]], function () {
         GeneralLedgerController::class,
         "general_ledger_index_multiple_jo",
     ]);
+
+    Route::post("rdf_one_charging", [ChargingController::class, "store"]);
 });
 
 Route::group(["middleware" => ["auth:sanctum"]], function () {
@@ -214,6 +218,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::post("uoms/import", [UomController::class, "import"]);
     Route::apiResource("uoms", UomController::class);
 
+    Route::get("suppliers/generated_code", [
+        SupplierController::class,
+        "generatedCode",
+    ]);
     Route::patch("suppliers/archived/{id}", [
         SupplierController::class,
         "destroy",
@@ -304,6 +312,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         PoController::class,
         "resubmit_jo",
     ]);
+    Route::patch("cancel_po/{id}", [PoController::class, "cancel_po"]);
+    Route::patch("cancel_po_items", [PoController::class, "cancel_po_items"]);
+    Route::patch("cancel_jo_po/{id}", [PoController::class, "cancel_jo_po"]);
+    Route::get("buyer/view_po/{id}", [PoController::class, "view"]);
     Route::apiResource("po_transaction", PoController::class);
 
     Route::patch("approvers_settings/archived/{id}", [
@@ -337,10 +349,10 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
 
     Route::get("job_approver", [PrApproverController::class, "job_order"]);
-    Route::get("expense_approver/show", [
-        PrApproverController::class,
-        "expense_show",
-    ]);
+    // Route::get("expense_approver/show", [
+    //     PrApproverController::class,
+    //     "expense_show",
+    // ]);
     Route::get("expense_approver", [PrApproverController::class, "expense"]);
     Route::get("assets_approver", [
         PrApproverController::class,
@@ -516,13 +528,6 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     ]);
     Route::get("buyer/view/{id}", [BuyerController::class, "view"]);
     Route::get("buyer/view_to_po/{id}", [BuyerController::class, "viewto_po"]);
-    Route::patch("cancel_po/{id}", [PoController::class, "cancel_po"]);
-    Route::patch("cancel_po_item/{orderItemId}", [
-        PoController::class,
-        "cancel_po_item",
-    ]);
-    Route::patch("cancel_jo_po/{id}", [PoController::class, "cancel_jo_po"]);
-    Route::get("buyer/view_po/{id}", [PoController::class, "view"]);
     Route::patch("return_pr_items", [
         BuyerController::class,
         "return_pr_items",
@@ -617,6 +622,23 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
     Route::apiResource("allowable_percentage", AllowableController::class);
 
     Route::patch("etd_api/sync", [ETDApiController::class, "etd_sync"]);
+    Route::get("dynamic_integration_rr_api", [
+        ETDApiController::class,
+        "dynamic_integration_rr_api",
+    ]);
+    Route::patch("dynamic_rr_sync/sync", [
+        ETDApiController::class,
+        "dynamic_rr_sync",
+    ]);
+    Route::patch("um_dry_api/sync", [FedoraApiController::class, "umd_sync"]);
+    Route::get("dynamic_integration_api", [
+        FedoraApiController::class,
+        "dynamic_api",
+    ]);
+    Route::patch("dynamic_itegration_api/sync", [
+        FedoraApiController::class,
+        "dynamic_sync",
+    ]);
     Route::apiResource("etd_api", ETDApiController::class);
 
     Route::get("um_dry_api", [FedoraApiController::class, "um_dry"]);
@@ -677,6 +699,11 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "purchase_monitoring",
     ]);
 
+    Route::get("pr_purchasing_reports", [
+        ReportSummaryController::class,
+        "pr_purchasing_reports",
+    ]);
+
     Route::get("pr_summary", [ReportSummaryController::class, "pr_summary"]);
 
     Route::get("po_summary", [ReportSummaryController::class, "po_summary"]);
@@ -701,6 +728,12 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
 
     Route::apiResource("return_for_tagging", PAReturnTaggedController::class);
 
+    Route::get("ymir_gizmo_jo", [GizmoApiController::class, "job_order"]);
+
     Route::apiResource("ymir_gizmo", GizmoApiController::class);
+
+    Route::apiResource("rr_date_setup", RRDateSetupController::class);
+
+    Route::apiResource("rdf_one_charging", ChargingController::class);
 });
 Route::post("login", [UserController::class, "login"]);

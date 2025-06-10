@@ -81,15 +81,19 @@ class BuyerController extends Controller
             "order" => function ($query) {
                 $query->withTrashed();
             },
+            "order.rr_orders.rr_transaction",
             "approver_history",
             "log_history",
             "rr_transaction",
         ])
-            ->when($status === "cancelled", function ($query) {
-                $query->onlyTrashed()->whereHas("order", function ($subQuery) {
-                    $subQuery->onlyTrashed();
-                });
+            ->whereHas("order", function ($query) use ($user_id) {
+                $query->where("buyer_id", $user_id)->withTrashed();
             })
+            // ->when($status === "cancelled", function ($query) {
+            //     $query->onlyTrashed()->whereHas("order", function ($subQuery) {
+            //         $subQuery->onlyTrashed();
+            //     });
+            // })
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -373,6 +377,8 @@ class BuyerController extends Controller
             "updated_by" => $user_id,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "buyer_id" => $request->buyer_id,
             "buyer_name" => $request->buyer_name,
             "edit_remarks" => $request->edit_remarks,
@@ -420,12 +426,12 @@ class BuyerController extends Controller
                     ->first();
 
                 foreach ($approvers as $index) {
-                    -($existing_approver = PoHistory::where(
+                    $existing_approver = PoHistory::where(
                         "po_id",
                         $po_approver_history->po_id
                     )
                         ->where("approver_id", $index["approver_id"])
-                        ->first());
+                        ->first();
 
                     if (!$existing_approver) {
                         PoHistory::create([
@@ -564,7 +570,12 @@ class BuyerController extends Controller
             ->get()
             ->sum("po_transaction_count");
 
-        $cancelled = BuyerPO::withTrashed()
+        $cancelled = BuyerPO::with([
+            "order" => function ($query) {
+                $query->withTrashed();
+            },
+        ])
+            ->withTrashed()
             ->where("status", "Cancelled")
             ->whereHas("order", function ($query) use ($user_id) {
                 $query->where("buyer_id", $user_id)->withTrashed();
@@ -586,15 +597,21 @@ class BuyerController extends Controller
         ) {
             $query
                 ->where("buyer_id", $user_id)
-                ->whereColumn("quantity_serve", "=", "quantity");
-        })->count();
+                ->whereColumn("quantity_serve", ">=", "quantity");
+        })
+            ->where("status", "For Receiving")
+            ->whereHas("rr_transaction")
+            ->whereNotNull("approved_at")
+            ->whereNull("rejected_at")
+            ->whereNull("cancelled_at")
+            ->count();
 
         $jo_approval = BuyerJobOrderPO::whereHas("jo_po_orders", function (
             $query
         ) use ($user_id) {
             $query->where("buyer_id", $user_id);
         })
-            ->where("status", "Pending")
+            ->whereIn("status", ["Pending", "For Approval"])
             ->whereNull("approved_at")
             ->whereNull("rejected_at")
             ->whereNull("cancelled_at")
@@ -614,8 +631,8 @@ class BuyerController extends Controller
         ) use ($user_id) {
             $query->where("buyer_id", $user_id);
         })
-            ->where("status", "Rejected")
-            ->whereNotNull("cancelled_at")
+            ->where("status", "Reject")
+            ->whereNull("cancelled_at")
             ->whereNotNull("rejected_at")
             ->count();
 
@@ -627,6 +644,34 @@ class BuyerController extends Controller
             ->where("status", "Cancelled")
             ->whereNotNull("rejected_at")
             ->whereNotNull("cancelled_at")
+            ->count();
+
+        $jo_pending_to_received = BuyerJobOrderPO::whereHas(
+            "jo_po_orders",
+            function ($subQuery) use ($user_id) {
+                $subQuery
+                    ->where("buyer_id", $user_id)
+                    ->where("quantity_serve", ">", 0)
+                    ->whereColumn("quantity_serve", "<", "quantity");
+            }
+        )
+            ->where("status", "For Receiving")
+            ->whereNotNull("approved_at")
+            ->whereNull("rejected_at")
+            ->whereNull("cancelled_at")
+            ->count();
+
+        $jo_completed = BuyerJobOrderPO::whereHas("jo_po_orders", function (
+            $query
+        ) use ($user_id) {
+            $query
+                ->where("buyer_id", $user_id)
+                ->whereColumn("quantity_serve", ">=", "quantity");
+        })
+            ->where("status", "For Receiving")
+            ->whereNotNull("approved_at")
+            ->whereNull("rejected_at")
+            ->whereNull("cancelled_at")
             ->count();
 
         $result = [
@@ -641,6 +686,8 @@ class BuyerController extends Controller
             "jo_approved" => $jo_approved,
             "jo_rejected" => $jo_rejected,
             "jo_cancelled" => $jo_cancelled,
+            "jo_pending_to_reeived" => $jo_pending_to_received,
+            "jo_completed" => $jo_completed,
         ];
 
         return GlobalFunction::responseFunction(
@@ -793,7 +840,10 @@ class BuyerController extends Controller
     {
         $user_id = Auth()->user()->id;
         $status = $request->status;
-        $job_order_request = BuyerJobOrderPO::with("jo_po_orders")
+        $job_order_request = BuyerJobOrderPO::with(
+            "jo_po_orders",
+            "jo_po_orders.rr_orders.jo_rr_transaction"
+        )
             ->orderByDesc("updated_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -809,10 +859,5 @@ class BuyerController extends Controller
             Message::PURCHASE_ORDER_DISPLAY,
             $job_order_request
         );
-    }
-
-    public function buyer_rr()
-    {
-        return "hello";
     }
 }

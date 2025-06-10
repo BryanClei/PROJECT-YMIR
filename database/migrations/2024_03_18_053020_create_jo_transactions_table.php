@@ -90,6 +90,7 @@ return new class extends Migration {
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();
             $table->string("direct_po")->nullable();
+            $table->string("ship_to")->nullable();
             $table->string("rush")->nullable();
             $table->string("outside_labor")->nullable();
             $table->string("cap_ex")->nullable();

@@ -78,6 +78,7 @@ class JoPoResource extends JsonResource
             "rush" => $this->rush,
             "outside_labor" => $this->outside_labor,
             "direct_po" => $this->direct_po,
+            "ship_to" => $this->ship_to,
             "cap_ex" => $this->cap_ex,
             "approved_at" => $this->approved_at,
             "rejected_at" => $this->rejected_at,
@@ -91,8 +92,6 @@ class JoPoResource extends JsonResource
             "jo_po_orders" => JoPoOrderResource::collection(
                 $this->jo_po_orders
             ),
-            // "jo_rr_transaction" =>
-            //     $this->jo_po_orders->rr_orders->jo_rr_transaction,
             "jo_po_approver_history" => JobOrderHistoryResource::collection(
                 $this->jo_approver_history
             ),

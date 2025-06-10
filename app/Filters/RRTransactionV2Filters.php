@@ -36,6 +36,15 @@ class RRTransactionV2Filters extends QueryFilters
                 $user_id
             ) {
                 $query->where("received_by", $user_id);
+            })
+            ->when($status === "buyer_completed", function ($query) use (
+                $user_id
+            ) {
+                $query->whereHas("rr_orders.order", function ($subQuery) use (
+                    $user_id
+                ) {
+                    $subQuery->where("buyer_id", $user_id);
+                });
             });
     }
 }

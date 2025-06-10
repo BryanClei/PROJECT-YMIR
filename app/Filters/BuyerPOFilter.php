@@ -40,41 +40,6 @@ class BuyerPOFilter extends QueryFilters
         "pr_transaction" => ["pr_year_number_id"],
     ];
 
-    protected function processSearch($search)
-    {
-        // Join the required relationships first
-        foreach ($this->relationSearch as $relation => $columns) {
-            $this->builder->leftJoin(
-                $relation,
-                "po_transactions.pr_number",
-                "=",
-                $relation . ".pr_number"
-            );
-        }
-
-        $this->builder->where(function ($query) use ($search) {
-            // Search in main table columns
-            foreach ($this->columnSearch as $column) {
-                $query->orWhere(
-                    "po_transactions." . $column,
-                    "like",
-                    "%{$search}%"
-                );
-            }
-
-            // Search in relationship columns
-            foreach ($this->relationSearch as $table => $columns) {
-                foreach ($columns as $column) {
-                    $query->orWhere(
-                        $table . "." . $column,
-                        "like",
-                        "%{$search}%"
-                    );
-                }
-            }
-        });
-    }
-
     public function search_business_unit($search_business_unit)
     {
         $this->builder
@@ -131,8 +96,13 @@ class BuyerPOFilter extends QueryFilters
             })
             ->when($status === "cancelled", function ($query) use ($user_id) {
                 $query
+                    ->with([
+                        "order" => function ($query) {
+                            $query->onlyTrashed();
+                        },
+                    ])
                     ->whereHas("order", function ($query) use ($user_id) {
-                        $query->where("buyer_id", $user_id)->withTrashed();
+                        $query->onlyTrashed()->where("buyer_id", $user_id);
                     })
                     ->where("status", "Cancelled")
                     ->whereNotNull("cancelled_at");
@@ -162,7 +132,11 @@ class BuyerPOFilter extends QueryFilters
                             "quantity"
                         );
                     })
-                    ->whereHas("rr_transaction");
+                    ->where("status", "For Receiving")
+                    ->whereHas("rr_transaction")
+                    ->whereNotNull("approved_at")
+                    ->whereNull("rejected_at")
+                    ->whereNull("cancelled_at");
             });
     }
 }

@@ -271,6 +271,7 @@ class RRHelperFunctions
         }
         return $itemDetails;
     }
+    
     private static function createRROrder(
         $rr_transaction,
         $order,

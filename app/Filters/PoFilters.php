@@ -11,14 +11,6 @@ class PoFilters extends QueryFilters
 
     use DateFilter;
 
-    public function search_po_year_id($search_po_year_id)
-    {
-        $this->builder->where(
-            "po_year_number_id",
-            "like",
-            "%" . $search_po_year_id . "%"
-        );
-    }
     protected array $columnSearch = [
         "pr_number",
         "po_year_number_id",
@@ -52,6 +44,11 @@ class PoFilters extends QueryFilters
         "f1",
         "f2",
         "supplier_name",
+    ];
+
+    protected array $relationSearch = [
+        "pr_transaction" => ["pr_year_number_id"],
+        "order.warehouse" => ["name"],
     ];
 
     public function status($status)

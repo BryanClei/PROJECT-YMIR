@@ -24,7 +24,10 @@ class PORequest extends FormRequest
     public function rules()
     {
         return [
-            "reason" => "required",
+            "order_item_ids" => "required|array|min:1",
+            "order_item_ids.*" => "integer|exists:po_items,id,deleted_at,NULL",
+            "reason" => "required|string",
+            "no_rr" => "nullable|boolean",
         ];
     }
 }

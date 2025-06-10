@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
 use App\Http\Requests\PO\ValidationRequest;
 use App\Models\JobOrderPurchaseOrderApprovers;
+use App\Http\Requests\ReceivedReceipt\CancelRequest;
 
 class PoController extends Controller
 {
@@ -211,10 +212,13 @@ class PoController extends Controller
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "status" => "Pending",
             "asset" => $request->asset,
+            "asset_code" => $request->asset_code,
             "sgp" => $request->sgp,
             "f1" => $request->f1,
             "f2" => $request->f2,
@@ -402,6 +406,8 @@ class PoController extends Controller
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "status" => "Pending",
@@ -592,6 +598,8 @@ class PoController extends Controller
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "module_name" => $request->module_name,
@@ -704,8 +712,9 @@ class PoController extends Controller
             "rejected_at" => null,
             "reason" => $request->reason,
             "layer" => "1",
-            // "supplier_id" => $request->supplier_id,
-            // "supplier_name" => $request->supplier_name,
+            "pcf_remarks" => $request->pcf_remarks,
+            "supplier_id" => $request->supplier_id,
+            "supplier_name" => $request->supplier_name,
         ]);
 
         $activityDescription =
@@ -965,7 +974,7 @@ class PoController extends Controller
         return GlobalFunction::save(Message::RESUBMITTED_PO, $jo_collect);
     }
 
-    public function cancel_po(PORequest $request, $id)
+    public function cancel_po(CancelRequest $request, $id)
     {
         $no_rr = $request->no_rr;
         $user = Auth()->user()->id;
@@ -1051,60 +1060,122 @@ class PoController extends Controller
         );
     }
 
-    public function cancel_po_item(PORequest $request, $orderItemId)
+    public function cancel_po_items(PORequest $request)
     {
         $no_rr = $request->no_rr;
         $user = auth()->user()->id;
+        $orderItemIds = $request->order_item_ids;
+        $reason = $request->reason;
 
-        $order = POItems::with("po_transaction")->find($orderItemId);
-
-        if (!$order) {
-            return GlobalFunction::notFound(Message::INVALID_ACTION);
+        if (!is_array($orderItemIds) || empty($orderItemIds)) {
+            return GlobalFunction::invalid(
+                "No PO items selected for cancellation."
+            );
         }
 
-        $po = $order->po_transaction;
+        $cancelledItems = [];
+        $skippedItems = [];
+        $affectedPRs = [];
+        $affectedPOs = [];
 
-        if ($po->status === "Cancelled") {
-            return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
+        foreach ($orderItemIds as $orderItemId) {
+            $order = POItems::with("po_transaction")->find($orderItemId);
+
+            if (!$order) {
+                $skippedItems[] = [
+                    "id" => $orderItemId,
+                    "reason" => "PO item not found.",
+                ];
+                continue;
+            }
+
+            $po = $order->po_transaction;
+
+            if ($po->status === "Cancelled") {
+                $skippedItems[] = [
+                    "id" => $orderItemId,
+                    "reason" => "PO is already cancelled.",
+                ];
+                continue;
+            }
+
+            $prItem = PRItems::find($order->pr_item_id);
+
+            if ($prItem) {
+                $partialReceived =
+                    ($prItem->partial_received ?? 0) + $order->quantity_serve;
+                $remainingQty = $order->quantity - $order->quantity_serve;
+
+                if ($prItem->transaction_id) {
+                    $affectedPRs[$prItem->transaction_id][] = [
+                        "pr_item_id" => $prItem->id,
+                        "description" => $prItem->item_description,
+                        "qty" => $remainingQty,
+                    ];
+                }
+
+                $prItem->update([
+                    "partial_received" => $partialReceived,
+                    "remaining_qty" => $remainingQty,
+                    "buyer_id" => null,
+                    "buyer_name" => null,
+                    "supplier_id" => null,
+                    "po_at" => null,
+                    "purchase_order_id" => null,
+                ]);
+            }
+
+            $affectedPOs[$po->id][] = [
+                "order_item_id" => $order->id,
+                "description" => $order->item_description,
+                "qty" => $order->quantity,
+                "qty_serve" => $order->quantity_serve,
+            ];
+
+            $order->delete();
+            $cancelledItems[] = $orderItemId;
         }
 
-        $prItem = PRItems::find($order->pr_item_id);
-        if ($prItem) {
-            $partialReceived = $order->quantity_serve;
-            $remainingQty = $order->quantity - $order->quantity_serve;
+        foreach ($affectedPRs as $prId => $items) {
+            $logMessage = "Purchase request ID: {$prId} has been updated by UID: {$user}. Affected PR Items: ";
 
-            $prItem->update([
-                "partial_received" => $partialReceived,
-                "remaining_qty" => $remainingQty,
-                "buyer_id" => null,
-                "buyer_name" => null,
-                "supplier_id" => null,
-                "po_at" => null,
-                "purchase_order_id" => null,
+            foreach ($items as $item) {
+                $logMessage .= "- Item ID: {$item["pr_item_id"]}, Description: {$item["description"]}, Remaining Qty: {$item["qty"]} ";
+            }
+
+            $logMessage .= "Reason: {$reason}.";
+
+            LogHistory::create([
+                "activity" => $logMessage,
+                "pr_id" => $prId,
+                "action_by" => $user,
             ]);
         }
 
-        $order->delete();
+        foreach ($affectedPOs as $poId => $items) {
+            $logMessage = "Purchase order ID: {$poId} has been updated by UID: {$user}. Cancelled PO Items: ";
 
-        $remainingOrders = $po->order()->count();
-        $statusNote =
-            $remainingOrders === 0
-                ? "All items now cancelled"
-                : "Partial cancellation";
+            foreach ($items as $item) {
+                $logMessage .= "Item ID: {$item["order_item_id"]}, Description: {$item["description"]}, Qty: {$item["qty"]}, Served: {$item["qty_serve"]}";
+                $logMessage .= $no_rr ? "" : " (no RR)";
+                $logMessage .= "\n";
+            }
 
-        $activityDescription = $no_rr
-            ? "PO Item ID: {$orderItemId} under PO ID: {$po->id} was cancelled by UID: {$user}. Reason: {$request->reason}. Status: {$statusNote}"
-            : "PO Item ID: {$orderItemId} (no RR) under PO ID: {$po->id} was cancelled by UID: {$user}. Reason: {$request->reason}. Status: {$statusNote}";
+            $logMessage .= "Reason: {$reason}.";
 
-        LogHistory::create([
-            "activity" => $activityDescription,
-            "po_id" => $po->id,
-            "action_by" => $user,
-        ]);
+            LogHistory::create([
+                "activity" => $logMessage,
+                "po_id" => $poId,
+                "action_by" => $user,
+            ]);
+        }
 
         return GlobalFunction::responseFunction(
-            "PO Item successfully cancelled.",
-            $orderItemId
+            "PO Item cancellation complete.",
+            [
+                "cancelled" => $cancelledItems,
+                "skipped" => $skippedItems,
+            ]
         );
     }
 
@@ -1200,26 +1271,20 @@ class PoController extends Controller
 
         // Get all JO PO IDs and their corresponding layers for the user
         $userLayers = JoPoHistory::where("approver_id", $user)
-            ->pluck("layer", "jo_po_id") // JO PO ID => Layer assigned to the user
+            ->pluck("layer", "jo_po_id")
             ->toArray();
 
         $job_order_count = JOPOTransaction::whereHas(
             "jo_approver_history",
-            function ($query) use ($user, $userLayers) {
+            function ($query) use ($user) {
                 $query
                     ->whereNull("approved_at")
                     ->where("approver_id", $user)
-                    ->whereIn("jo_po_id", array_keys($userLayers))
-                    ->whereIn("layer", array_values($userLayers));
+                    ->whereRaw(
+                        "jo_po_transactions.layer = jo_po_history.layer"
+                    );
             }
         )
-            ->where(function ($query) use ($userLayers) {
-                foreach ($userLayers as $joPoId => $layer) {
-                    $query->orWhere(function ($subQuery) use ($joPoId, $layer) {
-                        $subQuery->where("id", $joPoId)->where("layer", $layer);
-                    });
-                }
-            })
             ->where(function ($query) {
                 $query
                     ->where("status", "Pending")
@@ -1278,10 +1343,5 @@ class PoController extends Controller
         $po_collect = new PoItemResource($po_item);
 
         return GlobalFunction::save(Message::REMARKS_UPDATE, $po_collect);
-    }
-
-    public function um_sync()
-    {
-        return $po_transation = POTransaction::get();
     }
 }

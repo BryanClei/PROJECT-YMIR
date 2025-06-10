@@ -60,6 +60,16 @@ class GeneralLedgerController extends Controller
         $month = $date->month;
         $year = $date->year;
 
+        if (!$adjustment_month && !$from_date && !$to_date) {
+            return response()->json(
+                [
+                    "status" => "success",
+                    "message" => "connection: established",
+                ],
+                200
+            );
+        }
+
         $rr_transaction = RROrdersReports::whereHas("po_transaction", function (
             $query
         ) {
@@ -89,6 +99,16 @@ class GeneralLedgerController extends Controller
         )->toArray([]);
 
         $result = array_merge(...$collected);
+
+        if (!$result) {
+            return response()->json(
+                [
+                    "status" => "success",
+                    "message" => "Success fetching but no data found..",
+                ],
+                200
+            );
+        }
 
         return $result;
     }

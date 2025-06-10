@@ -39,6 +39,8 @@ class PurchaseAssistant extends Model
         "sub_unit_name",
         "account_title_id",
         "account_title_name",
+        "pcf_remarks",
+        "ship_to",
         "supplier_id",
         "supplier_name",
         "module_name",

@@ -115,6 +115,7 @@ return new class extends Migration {
             $table->string("f1")->nullable();
             $table->string("f2")->nullable();
             $table->string("rush")->nullable();
+            $table->string("ship_to");
             $table->string("place_order")->nullable();
             $table->string("for_po_only")->nullable();
             $table->string("for_po_only_id")->nullable();

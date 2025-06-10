@@ -196,6 +196,7 @@ class JobOrderTransactionController extends Controller
                 "account_title_name" => $request->account_title_name,
                 "asset" => $request->asset,
                 "description" => $request->description,
+                "ship_to" => $request->ship_to,
             ];
 
             $job_order_request = new JobOrderTransaction(
@@ -210,6 +211,8 @@ class JobOrderTransactionController extends Controller
                     "helpdesk_id" => $request->helpdesk_id,
                     "for_po_only" => $date_today,
                     "for_po_only_id" => $for_po_id,
+                    "supplier_id" => $request->supplier_id,
+                    "supplier_name" => $request->supplier_name,
                     "approved_at" => $dateToday,
                     "direct_po" => $dateToday,
                 ])
@@ -494,6 +497,7 @@ class JobOrderTransactionController extends Controller
                 "account_title_name" => $request->account_title_name,
                 "asset" => $request->asset,
                 "description" => $request->description,
+                "ship_to" => $request->ship_to,
             ];
 
             $job_order_request = new JobOrderTransaction(
@@ -508,6 +512,8 @@ class JobOrderTransactionController extends Controller
                     "helpdesk_id" => $request->helpdesk_id,
                     "for_po_only" => $date_today,
                     "for_po_only_id" => $for_po_id,
+                    "supplier_id" => $request->supplier_id,
+                    "supplier_name" => $request->supplier_name,
                 ])
             );
 
@@ -676,11 +682,14 @@ class JobOrderTransactionController extends Controller
             "account_title_name" => $request->account_title_name,
             "asset" => $request->asset,
             "description" => $request->description,
+            "ship_to" => $request->ship_to,
         ];
 
         $current_jr->update(
             array_merge($common_data, [
                 "jo_description" => $request->jo_description,
+                "supplier_id" => $request->supplier_id,
+                "supplier_name" => $request->supplier_name,
             ])
         );
 
@@ -772,6 +781,7 @@ class JobOrderTransactionController extends Controller
                             "cancelled_at" => null,
                             "rejected_at" => null,
                             "direct_po" => $dateToday,
+                            "layer" => "1",
                         ]);
 
                         JoPoHistory::where(
@@ -1196,68 +1206,97 @@ class JobOrderTransactionController extends Controller
             }
         }
 
+        // Move $updatedItems initialization OUTSIDE the main loop
+        $updatedItems = [];
+
         foreach ($orders as $index => $values) {
-            $existingItem = $existingItems->firstWhere("id", $values["id"]);
+            // Check if item has ID (existing item) or not (new item)
+            if (isset($values["id"])) {
+                // EXISTING ITEM - Update it
+                $existingItem = $existingItems->firstWhere("id", $values["id"]);
+                if ($existingItem) {
+                    // Track price changes BEFORE updating
+                    $oldUnitPrice = $existingItem->unit_price;
+                    $newUnitPrice = $values["unit_price"];
+                    $oldTotalPrice = $existingItem->total_price;
+                    $item_name = $existingItem->description;
+                    $newTotalPrice =
+                        $values["unit_price"] * $values["quantity"];
 
-            if ($existingItem) {
-                $attachments = $request["order"][$index]["attachment"];
-                if (!empty($attachments)) {
-                    $filenames = [];
-                    foreach ($attachments as $fileIndex => $file) {
-                        $originalFilename = basename($file);
-                        $info = pathinfo($originalFilename);
-                        $filenameOnly = $info["filename"];
-                        $extension = $info["extension"];
-                        $filename = "{$filenameOnly}_jr_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
-                        $filenames[] = $filename;
+                    if (
+                        $oldUnitPrice != $newUnitPrice ||
+                        $oldTotalPrice != $newTotalPrice
+                    ) {
+                        $updatedItems[] = [
+                            "id" => $values["id"],
+                            "name" => $item_name,
+                            "old_unit_price" => $oldUnitPrice,
+                            "new_unit_price" => $newUnitPrice,
+                            "old_total_price" => $oldTotalPrice,
+                            "new_total_price" => $newTotalPrice,
+                        ];
                     }
-                    $filenames = json_encode($filenames);
-                } else {
-                    $filenames = $existingItem->attachment;
-                }
 
-                $existingItem->update([
-                    "description" => $values["description"],
-                    "uom_id" => $values["uom_id"],
-                    "quantity" => $values["quantity"],
-                    "unit_price" => $values["unit_price"],
-                    "total_price" =>
-                        $values["unit_price"] * $values["quantity"],
-                    "remarks" => $values["remarks"],
-                    "attachment" => $filenames,
-                    "asset" => $values["asset"],
-                    "asset_code" => $values["asset_code"],
-                    "helpdesk_id" => $values["helpdesk_id"],
-                ]);
+                    // Handle attachments for existing items
+                    $attachments = $request["order"][$index]["attachment"];
+                    if (!empty($attachments)) {
+                        $filenames = [];
+                        foreach ($attachments as $fileIndex => $file) {
+                            $originalFilename = basename($file);
+                            $info = pathinfo($originalFilename);
+                            $filenameOnly = $info["filename"];
+                            $extension = $info["extension"];
+                            $filename = "{$filenameOnly}_jr_id_{$current_jr->id}_item_{$index}_file_{$fileIndex}.{$extension}";
+                            $filenames[] = $filename;
+                        }
+                        $filenames = json_encode($filenames);
+                    } else {
+                        $filenames = $existingItem->attachment;
+                    }
 
-                if ($current_po && $will_be_direct) {
-                    $jobItem = $existingItem;
+                    // Update existing item
+                    $existingItem->update([
+                        "description" => $values["description"],
+                        "uom_id" => $values["uom_id"],
+                        "quantity" => $values["quantity"],
+                        "unit_price" => $values["unit_price"],
+                        "total_price" =>
+                            $values["unit_price"] * $values["quantity"],
+                        "remarks" => $values["remarks"],
+                        "attachment" => $filenames,
+                        "asset" => $values["asset"],
+                        "asset_code" => $values["asset_code"],
+                        "helpdesk_id" => $values["helpdesk_id"],
+                    ]);
 
-                    JoPoOrders::updateOrCreate(
-                        [
-                            "jo_po_id" => $current_po->id,
-                            "jo_transaction_id" => $current_jr->id,
-                            "jo_item_id" => $jobItem->id,
-                        ],
-                        [
-                            "description" => $values["description"],
-                            "uom_id" => $values["uom_id"],
-                            "unit_price" => $values["unit_price"],
-                            "quantity" => $values["quantity"],
-                            "quantity_serve" => 0,
-                            "total_price" =>
-                                $values["unit_price"] * $values["quantity"],
-                            "attachment" => $filenames,
-                            "remarks" => $values["remarks"],
-                            "asset" => $values["asset"],
-                            "asset_code" => $values["asset_code"],
-                            "helpdesk_id" => $values["helpdesk_id"],
-                        ]
-                    );
+                    if ($current_po && $will_be_direct) {
+                        $jobItem = $existingItem;
+                        JoPoOrders::updateOrCreate(
+                            [
+                                "jo_po_id" => $current_po->id,
+                                "jo_transaction_id" => $current_jr->id,
+                                "jo_item_id" => $jobItem->id,
+                            ],
+                            [
+                                "description" => $values["description"],
+                                "uom_id" => $values["uom_id"],
+                                "unit_price" => $values["unit_price"],
+                                "quantity" => $values["quantity"],
+                                "quantity_serve" => 0,
+                                "total_price" =>
+                                    $values["unit_price"] * $values["quantity"],
+                                "attachment" => $filenames,
+                                "remarks" => $values["remarks"],
+                                "asset" => $values["asset"],
+                                "asset_code" => $values["asset_code"],
+                                "helpdesk_id" => $values["helpdesk_id"],
+                            ]
+                        );
+                    }
                 }
             } else {
+                // NEW ITEM - Create it
                 $attachments = $request["order"][$index]["attachment"];
-
                 if (!empty($attachments)) {
                     $filenames = [];
                     foreach ($attachments as $fileIndex => $file) {
@@ -1297,7 +1336,6 @@ class JobOrderTransactionController extends Controller
                         ->where("jo_transaction_id", $current_jr->id)
                         ->where("jo_item_id", $jobItem->id)
                         ->first();
-
                     if (!$existingJoPoOrder || $existingJoPoOrder->trashed()) {
                         JoPoOrders::create([
                             "jo_po_id" => $current_po->id,
@@ -1319,71 +1357,44 @@ class JobOrderTransactionController extends Controller
                     }
                 }
             }
+        }
 
-            $updatedItems = [];
-            foreach ($orders as $index => $values) {
-                $existingItem = $existingItems->firstWhere("id", $values["id"]);
+        // MOVE ALL LOGGING OUTSIDE THE LOOP
+        $activityDescription = $resubmitted
+            ? "Job order purchase request ID: " .
+                $id .
+                " has been resubmitted by UID: " .
+                $user_id
+            : "Job order purchase request ID: {$current_jr->id} has been updated by UID: {$user_id}";
 
-                if ($existingItem) {
-                    $oldUnitPrice = $existingItem->unit_price;
-                    $newUnitPrice = $values["unit_price"];
-                    $oldTotalPrice = $existingItem->total_price;
-                    $item_name = $existingItem->description;
-                    $newTotalPrice =
-                        $values["unit_price"] * $values["quantity"];
-
-                    if (
-                        $oldUnitPrice != $newUnitPrice ||
-                        $oldTotalPrice != $newTotalPrice
-                    ) {
-                        $updatedItems[] = [
-                            "id" => $values["id"],
-                            "name" => $item_name,
-                            "old_unit_price" => $oldUnitPrice,
-                            "new_unit_price" => $newUnitPrice,
-                            "old_total_price" => $oldTotalPrice,
-                            "new_total_price" => $newTotalPrice,
-                        ];
-                    }
-                }
+        if (!empty($updatedItems)) {
+            $activityDescription .= ". Price updates: ";
+            foreach ($updatedItems as $item) {
+                $activityDescription .=
+                    "Item ID {$item["id"]}: " .
+                    "{$item["name"]} {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
+                    "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
             }
+            $activityDescription = rtrim($activityDescription, ", ");
+        }
 
-            $activityDescription = $resubmitted
-                ? "Job order purchase request ID: " .
-                    $id .
-                    " has been resubmitted by UID: " .
-                    $user_id
-                : "Job order purchase request ID: {$current_jr->id} has been updated by UID: {$user_id}";
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_id" => $current_jr->id,
+            "action_by" => $user_id,
+        ]);
 
-            if (!empty($updatedItems)) {
-                $activityDescription .= ". Price updates: ";
-                foreach ($updatedItems as $item) {
-                    $activityDescription .=
-                        "Item ID {$item["id"]}: " .
-                        "{$item["name"]} {$item["old_unit_price"]} -> {$item["new_unit_price"]}, " .
-                        "Total price {$item["old_total_price"]} -> {$item["new_total_price"]}, ";
-                }
-                $activityDescription = rtrim($activityDescription, ", ");
-            }
-
+        if ($current_po) {
+            $activityDescription_po =
+                "Job order purchase order ID: " .
+                $current_po->id .
+                " has been created by UID: " .
+                $user_id;
             LogHistory::create([
-                "activity" => $activityDescription,
-                "jo_id" => $current_jr->id,
+                "activity" => $activityDescription_po,
+                "jo_po_id" => $current_po->id,
                 "action_by" => $user_id,
             ]);
-
-            if ($current_po) {
-                $activityDescription_po =
-                    "Job order purchase order ID: " .
-                    $current_po->id .
-                    " has been created by UID: " .
-                    $user_id;
-                LogHistory::create([
-                    "activity" => $activityDescription,
-                    "jo_po_id" => $current_po->id,
-                    "action_by" => $user_id,
-                ]);
-            }
         }
 
         return GlobalFunction::save(
@@ -1670,6 +1681,7 @@ class JobOrderTransactionController extends Controller
             "asset" => $request->asset,
             "description" => $request->description,
             "direct_po" => $dateToday,
+            "ship_to" => $request->ship_to,
         ];
 
         $job_order_request->update(

@@ -42,6 +42,8 @@ class JOPOTransaction extends Model
         "account_title_name",
         "module_name",
         "total_item_price",
+        "pcf_remarks",
+        "ship_to",
         "supplier_id",
         "supplier_name",
         "status",

@@ -94,10 +94,6 @@ class UpdateRequest extends FormRequest
                     return $validator
                         ->errors()
                         ->add("message", "No job request approver setup yet.");
-                } else {
-                    return $validator
-                        ->errors()
-                        ->add("message", "No job order approver setup yet.");
                 }
             } else {
                 // For amounts less than min_max (direct), check both charging and requestor approvers

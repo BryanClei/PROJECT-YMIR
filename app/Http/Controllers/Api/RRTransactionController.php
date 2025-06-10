@@ -25,9 +25,11 @@ use App\Http\Resources\RRV2Resource;
 use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\RRSyncDisplay;
 use App\Http\Resources\RROrdersResource;
+use Illuminate\Pagination\AbstractPaginator;
 use App\Http\Resources\PRTransactionResource;
 use App\Http\Requests\AssetVladimir\UpdateRequest;
 use App\Http\Requests\ReceivedReceipt\StoreRequest;
+use App\Http\Requests\ReceivedReceipt\CancelRequest;
 use App\Http\Resources\LogHistory\LogHistoryResource;
 
 class RRTransactionController extends Controller
@@ -412,9 +414,44 @@ class RRTransactionController extends Controller
         $rr_orders = $query->useFilters()->dynamicPaginate();
 
         $is_empty = $rr_orders->isEmpty();
-
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
+
+        if ($rr_orders instanceof AbstractPaginator) {
+            $rr_orders->getCollection()->transform(function ($rr_order) {
+                if (
+                    isset($rr_order->po_transaction) &&
+                    $rr_order->po_transaction->deleted_at === null
+                ) {
+                    $quantity = $rr_order->order->quantity ?? 0;
+                    $quantity_served = $rr_order->order->quantity_serve ?? 0;
+
+                    $rr_order->po_status = $rr_order->po_transaction->status;
+
+                    if ($quantity_served >= $quantity) {
+                        $rr_order->po_transaction->status = "Received";
+                    }
+                }
+                return $rr_order;
+            });
+        } else {
+            $rr_orders = $rr_orders->transform(function ($rr_order) {
+                if (
+                    isset($rr_order->po_transaction) &&
+                    $rr_order->po_transaction->deleted_at === null
+                ) {
+                    $quantity = $rr_order->order->quantity ?? 0;
+                    $quantity_served = $rr_order->order->quantity_serve ?? 0;
+
+                    $rr_order->po_status = $rr_order->po_transaction->status;
+
+                    if ($quantity_served >= $quantity) {
+                        $rr_order->po_transaction->status = "Received";
+                    }
+                }
+                return $rr_order;
+            });
         }
 
         return GlobalFunction::responseFunction(
@@ -423,7 +460,7 @@ class RRTransactionController extends Controller
         );
     }
 
-    public function cancel_rr(PORequest $request, $id)
+    public function cancel_rr(CancelRequest $request, $id)
     {
         $reason = $request->reason;
         $vlad_user = $request->v_name;
@@ -442,6 +479,16 @@ class RRTransactionController extends Controller
         if (!$rr_transaction) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
+        // ✅ 7-day cancellation limit check
+        // $createdAt = Carbon::parse($rr_transaction->created_at);
+        // $now = Carbon::now();
+
+        // if ($createdAt->diffInDays($now) > 7) {
+        //     return response()->json([
+        //         "message" => "Transaction can no longer be $type. It has exceeded the 7-day cancellation window.",
+        //     ], 403);
+        // }
 
         $po_orders = $rr_transaction->rr_orders->pluck("item_id")->toArray();
 

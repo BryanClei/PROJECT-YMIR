@@ -37,6 +37,7 @@ class JORROrderResource extends JsonResource
             "jo_po_orders" => $this->order,
             "jr_transaction" => $this->jo_transaction,
             "jo_transaction" => $this->jo_po_transaction,
+            "rr_transaction" => $this->jo_rr_transaction,
         ];
     }
 }

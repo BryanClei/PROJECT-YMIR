@@ -27,6 +27,17 @@ class ItemController extends Controller
         $status = $request->status;
         $item_name = $request->item_name;
 
+        $sort_field = $request->input("sort_field", "code");
+        $sort_direction = $request->input("sort_direction", "desc");
+
+        $allowedFields = ["id", "code", "item_name"];
+        if (!in_array($sort_field, $allowedFields)) {
+            $sort_field = "code";
+        }
+
+        $sort_direction =
+            strtolower($sort_direction) === "asc" ? "asc" : "desc";
+
         $item = Items::with(
             "types",
             "uom",
@@ -37,23 +48,16 @@ class ItemController extends Controller
                 $query->onlyTrashed();
             })
             ->useFilters()
-            ->orderByDesc("code")
+            ->orderBy($sort_field, $sort_direction)
             ->dynamicPaginate();
 
         $is_empty = $item->isEmpty();
-
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
         ItemResource::collection($item);
         return GlobalFunction::responseFunction(Message::ITEM_DISPLAY, $item);
-
-        // $item_collect = ItemResource::collection($item);
-        // return GlobalFunction::responseFunction(
-        //     Message::ITEM_DISPLAY,
-        //     $item_collect
-        // );
     }
 
     public function show(DisplayRequest $request, $id)

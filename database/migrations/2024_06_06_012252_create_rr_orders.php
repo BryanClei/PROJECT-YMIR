@@ -24,7 +24,7 @@ return new class extends Migration {
             $table->string("pr_id");
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
-            $table->string("item_name")->nullable();
+            $table->longText("item_name")->nullable();
             $table->double("quantity_receive")->nullable();
             $table->string("remaining");
             $table->string("shipment_no");

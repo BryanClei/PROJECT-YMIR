@@ -38,7 +38,7 @@ class PrDraftController extends Controller
             $drafts
         );
     }
-    
+
     public function store(StoreRequest $request)
     {
         $user_id = Auth()->user()->id;
@@ -87,6 +87,7 @@ class PrDraftController extends Controller
             "description" => $request->description,
             "supplier_name" => $request->supplier_name,
             "supplier_id" => $request->supplier_id,
+            "ship_to" => $request->ship_to,
         ]);
         $pr_draft->save();
 
@@ -166,6 +167,7 @@ class PrDraftController extends Controller
             "description" => $request->description,
             "supplier_name" => $request->supplier_name,
             "supplier_id" => $request->supplier_id,
+            "ship_to" => $request->ship_to,
         ]);
 
         $newOrders = collect($orders)

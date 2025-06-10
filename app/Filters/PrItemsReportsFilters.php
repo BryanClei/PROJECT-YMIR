@@ -9,6 +9,7 @@ class PrItemsReportsFilters extends QueryFilters
     protected array $allowedFilters = [];
 
     protected array $columnSearch = [
+        "id",
         "transaction_id",
         "reference_no",
         "item_id",
@@ -31,36 +32,42 @@ class PrItemsReportsFilters extends QueryFilters
 
     protected array $relationSearch = [
         "transaction" => ["pr_year_number_id"],
+        "po_transaction" => ["po_year_number_id"],
     ];
 
-    protected function processSearch($search)
-    {
-        foreach ($this->relationSearch as $relation => $columns) {
-            $this->builder->leftJoin(
-                $relation,
-                "pr_items.transaction_id",
-                "=",
-                $relation . ".id"
-            );
-        }
+    // protected function processSearch($search)
+    // {
+    //     $this->builder
+    //         ->leftJoin(
+    //             "transaction",
+    //             "pr_items.transaction_id",
+    //             "=",
+    //             "transaction.id"
+    //         )
+    //         ->leftJoin(
+    //             "po_transaction",
+    //             "pr_items.po_transaction_id",
+    //             "=",
+    //             "po_transaction.id"
+    //         );
 
-        $this->builder->where(function ($query) use ($search) {
-            foreach ($this->columnSearch as $column) {
-                $query->orWhere("pr_items." . $column, "like", "%{$search}%");
-            }
+    //     $this->builder->where(function ($query) use ($search) {
+    //         foreach ($this->columnSearch as $column) {
+    //             $query->orWhere("pr_items." . $column, "like", "%{$search}%");
+    //         }
 
-            // Search in relationship columns
-            foreach ($this->relationSearch as $table => $columns) {
-                foreach ($columns as $column) {
-                    $query->orWhere(
-                        $table . "." . $column,
-                        "like",
-                        "%{$search}%"
-                    );
-                }
-            }
-        });
-    }
+    //         // Search in relationship columns
+    //         foreach ($this->relationSearch as $table => $columns) {
+    //             foreach ($columns as $column) {
+    //                 $query->orWhere(
+    //                     $table . "." . $column,
+    //                     "like",
+    //                     "%{$search}%"
+    //                 );
+    //             }
+    //         }
+    //     });
+    // }
 
     public function status($status)
     {

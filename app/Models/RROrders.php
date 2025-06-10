@@ -33,6 +33,7 @@ class RROrders extends Model
         "late_attachment",
         "sync",
         "etd_sync",
+        "system_sync",
         "f_tagged",
     ];
 

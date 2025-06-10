@@ -81,6 +81,7 @@ class JrDraftController extends Controller
             "description" => $request->description,
             "module_name" => "Job Order",
             "status" => "Draft",
+            "ship_to" => $request->ship_to,
         ]);
 
         $jr_draft->save();
@@ -124,7 +125,7 @@ class JrDraftController extends Controller
         $orders = $request->order;
         $draft_orders = $jr_draft->order;
         $jr_draft->update([
-            "jo_description" => $request["jr_description"],
+            "jo_description" => $request["jo_description"],
             "date_needed" => $request["date_needed"],
             "user_id" => $user_id,
             "type_id" => $request->type_id,
@@ -154,6 +155,7 @@ class JrDraftController extends Controller
             "cap_ex" => $request->cap_ex,
             "helpdesk_id" => $request->helpdesk_id,
             "description" => $request->description,
+            "ship_to" => $request->ship_to,
         ]);
         $newOrders = collect($orders)
             ->pluck("id")

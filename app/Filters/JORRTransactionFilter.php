@@ -8,7 +8,11 @@ class JORRTransactionFilter extends QueryFilters
 {
     protected array $allowedFilters = [];
 
-    protected array $columnSearch = [];
+    protected array $columnSearch = ["jo_rr_year_number_id", "jo_po_id"];
+
+    protected array $relationSearch = [
+        "jo_po_transactions" => ["po_year_number_id"],
+    ];
 
     public function status($status, $date = null)
     {

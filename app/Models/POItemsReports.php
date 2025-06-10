@@ -64,7 +64,16 @@ class POItemsReports extends Model
 
     public function po_transaction()
     {
-        return $this->belongsTo(POTransaction::class, "po_id", "po_number");
+        return $this->belongsTo(
+            POTransaction::class,
+            "po_id",
+            "po_number"
+        )->withTrashed();
+    }
+
+    public function pr_transaction()
+    {
+        return $this->belongsTo(PRTransaction::class, "pr_id", "id");
     }
 
     public function category()

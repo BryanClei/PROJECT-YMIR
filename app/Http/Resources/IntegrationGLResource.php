@@ -3,6 +3,12 @@
 namespace App\Http\Resources;
 
 use Carbon\Carbon;
+use App\Models\Company;
+use App\Models\SubUnit;
+use App\Models\Location;
+use App\Models\Department;
+use App\Models\BusinessUnit;
+use App\Models\DepartmentUnit;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class IntegrationGLResource extends JsonResource
@@ -20,6 +26,26 @@ class IntegrationGLResource extends JsonResource
         $formatted_del = Carbon::parse($this->delivery_date)->format("Y-m-d");
         $month2 = Carbon::parse($this->delivery_date)->format("Ym");
 
+        // Static values for Asset module
+        $company = Company::where("name", "RDF FLFI")
+            ->where("code", "01")
+            ->first();
+        $business_unit = BusinessUnit::where("name", "RDF Corporate Services")
+            ->where("code", "10")
+            ->first();
+        $department = Department::where("name", "Corporate")
+            ->where("code", "100")
+            ->first();
+        $department_unit = DepartmentUnit::where("name", "Corporate Common")
+            ->where("code", "101")
+            ->first();
+        $location = Location::where("name", "Head Office")
+            ->where("code", "1")
+            ->first();
+        $sub_unit = SubUnit::where("name", "Corporate Common")
+            ->where("code", "11")
+            ->first();
+
         $assetCIP =
             $this->po_transaction->module_name === "Asset"
                 ? $this->order->remarks
@@ -31,6 +57,9 @@ class IntegrationGLResource extends JsonResource
                 : $this->po_transaction->module_name;
 
         $userData = $this->getUserData();
+
+        // Determine which organizational data to use based on module
+        $isAssetModule = $this->po_transaction->module_name === "Asset";
 
         return [
             [
@@ -44,21 +73,42 @@ class IntegrationGLResource extends JsonResource
                 "accountTitleCode" =>
                     (int) $this->po_transaction->account_title->code,
                 "accountTitle" => $this->po_transaction->account_title->name,
-                "companyCode" => (int) $this->po_transaction->company->code,
-                "company" => $this->po_transaction->company->name,
-                "divisionCode" =>
-                    (int) $this->po_transaction->business_unit->code,
-                "division" => $this->po_transaction->business_unit_name,
-                "departmentCode" =>
-                    (int) $this->po_transaction->department->code,
-                "department" => $this->po_transaction->department->name,
-                "unitCode" =>
-                    (int) $this->po_transaction->department_unit->code,
-                "unit" => $this->po_transaction->department_unit->name,
-                "subUnitCode" => (int) $this->po_transaction->sub_unit->code,
-                "subUnit" => $this->po_transaction->sub_unit->name,
-                "locationCode" => (int) $this->po_transaction->location->code,
-                "location" => $this->po_transaction->location->name,
+                "companyCode" => $isAssetModule
+                    ? (int) $company->code
+                    : (int) $this->po_transaction->company->code,
+                "company" => $isAssetModule
+                    ? $company->name
+                    : $this->po_transaction->company->name,
+                "divisionCode" => $isAssetModule
+                    ? (int) $business_unit->code
+                    : (int) $this->po_transaction->business_unit->code,
+                "division" => $isAssetModule
+                    ? $business_unit->name
+                    : $this->po_transaction->business_unit_name,
+                "departmentCode" => $isAssetModule
+                    ? (int) $department->code
+                    : (int) $this->po_transaction->department->code,
+                "department" => $isAssetModule
+                    ? $department->name
+                    : $this->po_transaction->department->name,
+                "unitCode" => $isAssetModule
+                    ? (int) $department_unit->code
+                    : (int) $this->po_transaction->department_unit->code,
+                "unit" => $isAssetModule
+                    ? $department_unit->name
+                    : $this->po_transaction->department_unit->name,
+                "subUnitCode" => $isAssetModule
+                    ? (int) $sub_unit->code
+                    : (int) $this->po_transaction->sub_unit->code,
+                "subUnit" => $isAssetModule
+                    ? $sub_unit->name
+                    : $this->po_transaction->sub_unit->name,
+                "locationCode" => $isAssetModule
+                    ? (int) $location->code
+                    : (int) $this->po_transaction->location->code,
+                "location" => $isAssetModule
+                    ? $location->name
+                    : $this->po_transaction->location->name,
                 "poNumber" => $this->po_transaction->po_year_number_id,
                 "rrNumber" => $this->rr_transaction->rr_year_number_id,
                 "referenceNo" => $this->shipment_no,
@@ -105,7 +155,7 @@ class IntegrationGLResource extends JsonResource
                         ->name,
                 "unitResponsible" => null,
                 "batch" => null,
-                "remarks" => null,
+                "remarks" => $this->pr_transaction->pr_year_number_id,
                 "payrollPeriod" => null,
                 "position" => null,
                 "payrollType" => null,
@@ -146,21 +196,42 @@ class IntegrationGLResource extends JsonResource
                 "accountTitle" =>
                     $this->po_transaction->account_title->credit_name ??
                     $this->po_transaction->account_title->name,
-                "companyCode" => (int) $this->po_transaction->company->code,
-                "company" => $this->po_transaction->company->name,
-                "divisionCode" =>
-                    (int) $this->po_transaction->business_unit->code,
-                "division" => $this->po_transaction->business_unit_name,
-                "departmentCode" =>
-                    (int) $this->po_transaction->department->code,
-                "department" => $this->po_transaction->department->name,
-                "unitCode" =>
-                    (int) $this->po_transaction->department_unit->code,
-                "unit" => $this->po_transaction->department_unit->name,
-                "subUnitCode" => (int) $this->po_transaction->sub_unit->code,
-                "subUnit" => $this->po_transaction->sub_unit->name,
-                "locationCode" => (int) $this->po_transaction->location->code,
-                "location" => $this->po_transaction->location->name,
+                "companyCode" => $isAssetModule
+                    ? (int) $company->code
+                    : (int) $this->po_transaction->company->code,
+                "company" => $isAssetModule
+                    ? $company->name
+                    : $this->po_transaction->company->name,
+                "divisionCode" => $isAssetModule
+                    ? (int) $business_unit->code
+                    : (int) $this->po_transaction->business_unit->code,
+                "division" => $isAssetModule
+                    ? $business_unit->name
+                    : $this->po_transaction->business_unit_name,
+                "departmentCode" => $isAssetModule
+                    ? (int) $department->code
+                    : (int) $this->po_transaction->department->code,
+                "department" => $isAssetModule
+                    ? $department->name
+                    : $this->po_transaction->department->name,
+                "unitCode" => $isAssetModule
+                    ? (int) $department_unit->code
+                    : (int) $this->po_transaction->department_unit->code,
+                "unit" => $isAssetModule
+                    ? $department_unit->name
+                    : $this->po_transaction->department_unit->name,
+                "subUnitCode" => $isAssetModule
+                    ? (int) $sub_unit->code
+                    : (int) $this->po_transaction->sub_unit->code,
+                "subUnit" => $isAssetModule
+                    ? $sub_unit->name
+                    : $this->po_transaction->sub_unit->name,
+                "locationCode" => $isAssetModule
+                    ? (int) $location->code
+                    : (int) $this->po_transaction->location->code,
+                "location" => $isAssetModule
+                    ? $location->name
+                    : $this->po_transaction->location->name,
                 "poNumber" => $this->po_transaction->po_year_number_id,
                 "rrNumber" => $this->rr_transaction->rr_year_number_id,
                 "referenceNo" => $this->shipment_no,
@@ -209,7 +280,7 @@ class IntegrationGLResource extends JsonResource
                         ->name,
                 "unitResponsible" => null,
                 "batch" => null,
-                "remarks" => null,
+                "remarks" => $this->pr_transaction->pr_year_number_id,
                 "payrollPeriod" => null,
                 "position" => null,
                 "payrollType" => null,

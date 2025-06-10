@@ -108,9 +108,25 @@ class SupplierController extends Controller
         $import = $request->all();
 
         foreach ($import as $index) {
+            $year = date("Y");
+            $prefix = "SUP";
+
+            $latest = Suppliers::withTrashed()
+                ->where("code", "like", "{$year}-{$prefix}-%")
+                ->orderByRaw(
+                    "CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED) DESC"
+                )
+                ->first();
+
+            $generated_code = $latest
+                ? (int) explode("-", $latest->code)[2] + 1
+                : 1;
+
+            $code = sprintf("%s-%s-%03d", $year, $prefix, $generated_code);
+
             $supplier = Suppliers::create([
                 "name" => $index["name"],
-                "code" => $index["code"],
+                "code" => $code,
                 "type" => $index["type"],
                 "term" => $index["term"],
                 // "address_1" => $index["address_1"],
@@ -119,5 +135,26 @@ class SupplierController extends Controller
         }
 
         return GlobalFunction::save(Message::SUPPLIER_SAVE, $import);
+    }
+
+    public function generatedCode()
+    {
+        $year = date("Y");
+        $prefix = "SUP";
+
+        $latest = Suppliers::withTrashed()
+            ->where("code", "like", "{$year}-{$prefix}-%")
+            ->orderByRaw(
+                "CAST(SUBSTRING_INDEX(code, '-', -1) AS UNSIGNED) DESC"
+            )
+            ->first();
+
+        $generated_code = $latest
+            ? (int) explode("-", $latest->code)[2] + 1
+            : 1;
+
+        $code = sprintf("%s-%s-%03d", $year, $prefix, $generated_code);
+
+        return response()->json(["code" => $code]);
     }
 }

@@ -64,9 +64,11 @@ class PAPOResource extends JsonResource
             "supplier_id" => [
                 "id" => $this->supplier_id,
                 "name" => $this->supplier_name,
+                "pcf_remarks" => $this->pcf_remarks,
             ],
             "user_tagging" => $this->user_tagging,
             "cap_ex" => $this->cap_ex,
+            "ship_to" => $this->ship_to,
             "asset" => $this->asset,
             "sgp" => $this->sgp,
             "f1" => $this->f1,

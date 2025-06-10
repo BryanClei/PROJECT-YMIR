@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Http;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Requests\Approver\RejectRequest;
 use App\Http\Resources\PRTransactionResource;
+use App\Http\Requests\JobOrderTransaction\CancelRequest;
 
 class PrApproverController extends Controller
 {
@@ -48,7 +49,11 @@ class PrApproverController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $purchase_request = PrApproverExpense::with("order", "approver_history")
+        $purchase_request = PrApproverExpense::with(
+            "users",
+            "order",
+            "approver_history"
+        )
             ->where("module_name", "Inventoriables")
             ->useFilters()
             ->dynamicPaginate();
@@ -80,7 +85,11 @@ class PrApproverController extends Controller
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $purchase_request = PrApproverExpense::with("order", "approver_history")
+        $purchase_request = PrApproverExpense::with(
+            "users",
+            "order",
+            "approver_history"
+        )
             ->where("module_name", "Expense")
             // ->whereIn("id", $pr_id)
             // ->whereIn("layer", $layer)
@@ -102,43 +111,43 @@ class PrApproverController extends Controller
         );
     }
 
-    public function expense_show(Request $request)
-    {
-        $user = Auth()->user()->id;
+    // public function expense_show(Request $request)
+    // {
+    //     $user = Auth()->user()->id;
 
-        $pr_id = PrHistory::where("approver_id", $user)
-            ->get()
-            ->pluck("pr_id");
-        $layer = PrHistory::where("approver_id", $user)
-            ->whereNull("approved_at")
-            ->get()
-            ->pluck("layer");
+    //     $pr_id = PrHistory::where("approver_id", $user)
+    //         ->get()
+    //         ->pluck("pr_id");
+    //     $layer = PrHistory::where("approver_id", $user)
+    //         ->whereNull("approved_at")
+    //         ->get()
+    //         ->pluck("layer");
 
-        if (empty($pr_id) || empty($layer)) {
-            return GlobalFunction::notFound(Message::NOT_FOUND);
-        }
+    //     if (empty($pr_id) || empty($layer)) {
+    //         return GlobalFunction::notFound(Message::NOT_FOUND);
+    //     }
 
-        $purchase_request = PrApproverExpense::with(
-            "users",
-            "order",
-            "approver_history"
-        )
-            ->where("module_name", "Expense")
-            ->useFilters()
-            ->dynamicPaginate()
-            ->first();
+    //     $purchase_request = PrApproverExpense::with(
+    //         "users",
+    //         "order",
+    //         "approver_history"
+    //     )
+    //         ->where("module_name", "Expense")
+    //         ->useFilters()
+    //         ->dynamicPaginate()
+    //         ->first();
 
-        if (!$purchase_request) {
-            return GlobalFunction::notFound(Message::NOT_FOUND);
-        }
+    //     if (!$purchase_request) {
+    //         return GlobalFunction::notFound(Message::NOT_FOUND);
+    //     }
 
-        $new = new PRTransactionResource($purchase_request);
+    //     $new = new PRTransactionResource($purchase_request);
 
-        return GlobalFunction::responseFunction(
-            Message::PURCHASE_REQUEST_DISPLAY,
-            $new
-        );
-    }
+    //     return GlobalFunction::responseFunction(
+    //         Message::PURCHASE_REQUEST_DISPLAY,
+    //         $new
+    //     );
+    // }
 
     public function assets_approver(Request $request)
     {
@@ -186,6 +195,7 @@ class PrApproverController extends Controller
         $status = $request->status;
 
         $jo_approvers = JOApprovers::with(
+            "users",
             "order",
             "approver_history",
             "log_history"
@@ -448,7 +458,9 @@ class PrApproverController extends Controller
             ->first();
 
         if (!$approved_history) {
-            return GlobalFunction::invalid(Message::INVALID_ACTION);
+            return GlobalFunction::invalid(
+                Message::JR_LAYER_APPROVER_VALIDATION
+            );
         }
 
         if ($approved_history->layer !== $pr_transaction->layer) {
@@ -506,41 +518,63 @@ class PrApproverController extends Controller
         return GlobalFunction::responseFunction(Message::APPORVED, $pr_collect);
     }
 
-    public function cancelled_jo(Request $request, $id)
+    public function cancelled_jo(CancelRequest $request, $id)
     {
-        $user = Auth()->user()->id;
-        $date_today = Carbon::now()
-            ->timeZone("Asia/Manila")
-            ->format("Y-m-d H:i");
+        $userId = auth()->id();
+        $currentDateTime = Carbon::now()->timezone("Asia/Manila");
+        $transaction = JobOrderTransaction::find($id);
 
-        $pr_transaction = JobOrderTransaction::find($id);
+        if (!$transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
 
-        $pr_transaction->update([
-            "reason" => $request->reason,
-            "cancelled_at" => $date_today,
+        if ($transaction->status === "Cancelled") {
+            return GlobalFunction::invalid(Message::CANCELLED_ALREADY);
+        }
+
+        // Update JR status
+        $transaction->update([
             "status" => "Cancelled",
+            "approved_at" => null,
+            "cancelled_at" => $currentDateTime,
+            "reason" => $request->reason,
         ]);
 
-        $activityDescription =
-            "Job order purchase request ID: " .
-            $id .
-            " has been cancelled by UID: " .
-            $user .
-            " Reason : " .
-            $request["reason"];
+        $poTransaction = $transaction->jo_po_transaction->first();
+        $logMessage = "";
+        $responseMessage = "";
 
+        if ($poTransaction) {
+            // Cancel JR and JO
+            $poTransaction->update([
+                "status" => "Cancelled",
+                "approved_at" => null,
+                "cancelled_at" => $currentDateTime,
+                "reason" => $request->reason,
+            ]);
+            if ($request->has("no_rr") && $request->no_rr === true) {
+                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled by UID: {$userId}. Reason: {$request->reason}";
+                $responseMessage = Message::JR_AND_JO_CANCELLED;
+            } else {
+                // Cancel remaining items
+                $logMessage = "Job Request and Job Order ID: JR - {$id}, JO - {$poTransaction->id} have been cancelled for the remaining items by UID: {$userId}. Reason: {$request->reason}";
+                $responseMessage = Message::JR_AND_JO_CANCELLED_REMAINING_ITEMS;
+            }
+        } else {
+            // Cancel only JR
+            $logMessage = "Job Request ID: {$id} has been cancelled by UID: {$userId}. Reason: {$request->reason}";
+            $responseMessage = Message::JOB_REQUEST_CANCELLED;
+        }
+
+        // Log the activity
         LogHistory::create([
-            "activity" => $activityDescription,
+            "activity" => $logMessage,
             "jo_id" => $id,
-            "action_by" => $user,
+            "jo_po_id" => $poTransaction->id ?? null,
+            "action_by" => $userId,
         ]);
 
-        $pr_collect = new JobOrderResource($pr_transaction);
-
-        return GlobalFunction::responseFunction(
-            Message::CANCELLED,
-            $pr_collect
-        );
+        return GlobalFunction::responseFunction($responseMessage, $transaction);
     }
 
     public function voided_jo(Request $request, $id)
@@ -609,9 +643,8 @@ class PrApproverController extends Controller
     {
         $user = Auth()->user()->id;
 
-        // Get all PR IDs and their corresponding layers for the user
         $userLayers = PrHistory::where("approver_id", $user)
-            ->pluck("layer", "pr_id") // PR ID => Layer assigned to the user
+            ->pluck("layer", "pr_id")
             ->toArray();
 
         $Expense = PrApproverExpense::with("order", "approver_history")
@@ -642,23 +675,6 @@ class PrApproverController extends Controller
                 }
             })
             ->count();
-
-        // $Expense = PrApproverExpense::with("order", "approver_history")
-        //     ->where("module_name", "Expense")
-        //     ->whereIn("id", $pr_id)
-        //     ->whereIn("layer", $layer)
-        //     ->where(function ($query) {
-        //         $query
-        //             ->where("status", "Pending")
-        //             ->orWhere("status", "For Approval");
-        //     })
-        //     ->whereNull("voided_at")
-        //     ->whereNull("cancelled_at")
-        //     ->whereNull("rejected_at")
-        //     ->whereHas("approver_history", function ($query) use ($user) {
-        //         $query->whereNull("approved_at")->where("approver_id", $user);
-        //     })
-        //     ->count();
 
         $invent_userLayers = PrHistory::where("approver_id", $user)
             ->pluck("layer", "pr_id") // PR ID => Layer assigned to the user
@@ -758,7 +774,6 @@ class PrApproverController extends Controller
         $po_ids = $approver_histories->pluck("po_id")->toArray();
         $layers = $approver_histories->pluck("layer")->toArray();
 
-        // Main query
         $po_transaction = ApproverDashboard::whereIn("id", $po_ids)
             ->whereIn("layer", $layers)
             ->where(function ($query) {
@@ -771,6 +786,19 @@ class PrApproverController extends Controller
             ->whereNull("rejected_at")
             ->whereHas("approver_history", function ($query) {
                 $query->whereNull("approved_at");
+            })
+            ->where(function ($query) use ($user) {
+                $query->whereRaw(
+                    "layer = (
+                        SELECT layer 
+                        FROM po_history 
+                        WHERE po_history.po_id = po_transactions.id 
+                        AND po_history.approver_id = ? 
+                        AND po_history.approved_at IS NULL
+                        LIMIT 1
+                    )",
+                    [$user]
+                );
             })
             ->count();
 

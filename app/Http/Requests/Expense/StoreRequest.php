@@ -40,7 +40,7 @@ class StoreRequest extends FormRequest
             "location_id" => "exists:locations,id,deleted_at,NULL",
             "account_title_id" => "exists:account_titles,id,deleted_at,NULL",
             // "supplier_id" => "exists:suppliers,id,deleted_at,NULL",
-
+            // "ship_to" => "required",
             "order.*.uom_id" => "exists:uoms,id,deleted_at,NULL",
             "order.*.item_name" => "required",
             "order.*.category_id" =>

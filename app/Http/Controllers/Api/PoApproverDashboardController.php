@@ -44,6 +44,7 @@ class PoApproverDashboardController extends Controller
         }
 
         $purchase_request = ApproverDashboard::with(
+            "users",
             "order.warehouse",
             "order.category",
             "approver_history",
@@ -58,7 +59,8 @@ class PoApproverDashboardController extends Controller
         if ($purchase_request->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-        new PoResource($purchase_request);
+
+        PoResource::collection($purchase_request);
 
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_DISPLAY,
@@ -474,11 +476,12 @@ class PoApproverDashboardController extends Controller
             ->get()
             ->pluck("layer");
 
-        if (empty($jo_po_id) || empty($layer)) {
+        if ($jo_po_id->isEmpty() || $layer->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
         $purchase_request = ApproverDashboardJOPO::with(
+            "users",
             "jo_po_orders",
             "jo_approver_history",
             "jr_transaction"
@@ -519,6 +522,7 @@ class PoApproverDashboardController extends Controller
         }
 
         $purchase_request = JOPOTransaction::with(
+            "users",
             "jo_po_orders",
             "jo_approver_history"
         )

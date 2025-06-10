@@ -10,7 +10,7 @@ class JrDraftFilters extends QueryFilters
 
     protected array $columnSearch = [
         "jr_draft_id",
-        "jr_description",
+        "jo_description",
         "date_needed",
         "user_id",
         "type_id",

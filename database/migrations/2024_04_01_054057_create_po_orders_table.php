@@ -29,7 +29,7 @@ return new class extends Migration {
 
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
-            $table->string("item_name");
+            $table->longText("item_name");
 
             $table->unsignedInteger("uom_id")->index();
             $table

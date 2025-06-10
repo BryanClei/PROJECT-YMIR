@@ -27,7 +27,7 @@ class RRDisplayV2 extends FormRequest
             "status" => [
                 "required",
                 "string",
-                "in:cancelled,user_receiving,view_all,rr_today",
+                "in:cancelled,user_receiving,view_all,rr_today,buyer_completed",
             ],
         ];
     }

@@ -57,14 +57,36 @@ class ApproverDashboard extends Model
         "approver_id",
     ];
 
-    public function pr_transaction()
-    {
-        return $this->belongsTo(PRTransaction::class, "pr_number", "pr_number");
-    }
+    // public function users()
+    // {
+    //     return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    // }
 
     public function users()
     {
+        // Add module_name check before the relationship is built
+        return $this->module_name === "Asset"
+            ? $this->belongsTo(VladimirUser::class, "user_id", "id")
+            : $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+
+        // return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    // Add a specific relationship for Vladimir users
+    public function vladimir_user()
+    {
+        return $this->belongsTo(VladimirUser::class, "user_id", "id");
+    }
+
+    // Add a specific relationship for regular users
+    public function regular_user()
+    {
         return $this->belongsTo(User::class, "user_id", "id")->withTrashed();
+    }
+
+    public function pr_transaction()
+    {
+        return $this->belongsTo(PRTransaction::class, "pr_number", "pr_number");
     }
 
     public function order()

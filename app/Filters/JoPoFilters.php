@@ -115,6 +115,11 @@ class JoPoFilters extends QueryFilters
                     ->whereNull("voided_at")
                     ->whereHas("jo_approver_history", function ($query) {
                         $query->whereNotNull("approved_at");
+                    })
+                    ->whereHas("jo_po_orders", function ($query) {
+                        $query
+                            ->whereNull("deleted_at")
+                            ->whereColumn("quantity_serve", "<", "quantity");
                     });
             })
             ->when($status === "pending", function ($query) {
@@ -195,6 +200,42 @@ class JoPoFilters extends QueryFilters
             })
             ->when($status === "return_po", function ($query) {
                 $query->where("status", "Return")->whereNull("rejected_at");
+            })
+            ->when($status === "partial_received", function ($query) {
+                $query
+                    ->with([
+                        "jo_po_orders" => function ($query) {
+                            $query->whereNull("deleted_at");
+                        },
+                    ])
+                    ->where("status", "For Receiving")
+                    ->whereHas("jo_po_orders", function ($subQuery) {
+                        $subQuery
+                            ->where("quantity_serve", ">", 0)
+                            ->whereColumn("quantity_serve", "<", "quantity");
+                    })
+                    ->whereNull("rejected_at")
+                    ->whereNull("cancelled_at")
+                    ->whereNotNull("approved_at");
+            })
+            ->when($status === "received", function ($query) {
+                $query
+                    ->where(function ($query) {
+                        $query
+                            ->where("status", "For Receiving")
+                            ->orWhere("status", "Approved");
+                    })
+                    ->whereNull("cancelled_at")
+                    ->whereNull("rejected_at")
+                    ->whereNull("voided_at")
+                    ->whereHas("jo_approver_history", function ($query) {
+                        $query->whereNotNull("approved_at");
+                    })
+                    ->whereHas("jo_po_orders", function ($query) {
+                        $query
+                            ->whereNull("deleted_at")
+                            ->whereColumn("quantity_serve", ">=", "quantity");
+                    });
             });
     }
 }

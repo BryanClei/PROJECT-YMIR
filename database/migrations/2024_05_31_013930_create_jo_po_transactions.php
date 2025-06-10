@@ -87,8 +87,9 @@ return new class extends Migration {
                 ->references("id")
                 ->on("suppliers")
                 ->nullable();
-            $table->string("total_item_price")->nullable();
             $table->string("supplier_name")->nullable();
+            $table->string("total_item_price")->nullable();
+            $table->string("ship_to")->nullable();
             $table->string("module_name");
             $table->string("layer");
             $table->string("status")->nullable();

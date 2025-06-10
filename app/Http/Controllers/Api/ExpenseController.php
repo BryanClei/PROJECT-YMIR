@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Models\PRTransaction;
 use App\Models\ApproverSettings;
 use App\Functions\GlobalFunction;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\PRPOResource;
@@ -26,7 +27,7 @@ class ExpenseController extends Controller
     {
         $user_id = Auth()->user()->id;
         $status = $request->status;
-         $purchase_request = Expense::with([
+        $purchase_request = Expense::with([
             "order",
             "approver_history",
             "log_history" => function ($query) {
@@ -73,24 +74,30 @@ class ExpenseController extends Controller
         }
 
         $orders = $request->order;
-
         $current_year = date("Y");
-        $latest_pr = PRTransaction::where(
-            "pr_year_number_id",
-            "like",
-            $current_year . "-PR-%"
-        )
-            ->orderByRaw(
-                "CAST(SUBSTRING_INDEX(pr_year_number_id, '-', -1) AS UNSIGNED) DESC"
+        $pr_year_number_id = DB::transaction(function () use ($current_year) {
+            $latest_pr = PRTransaction::where(
+                "pr_year_number_id",
+                "like",
+                $current_year . "-PR-%"
             )
-            ->first();
+                ->orderByRaw(
+                    "CAST(SUBSTRING_INDEX(pr_year_number_id, '-', -1) AS UNSIGNED) DESC"
+                )
+                ->lockForUpdate() // Add lock here
+                ->first();
 
-        if ($latest_pr) {
-            $latest_number = explode("-", $latest_pr->pr_year_number_id)[2];
-            $new_number = (int) $latest_number + 1;
-        } else {
-            $new_number = 1;
-        }
+            if ($latest_pr) {
+                $latest_number = explode("-", $latest_pr->pr_year_number_id)[2];
+                $new_number = (int) $latest_number + 1;
+            } else {
+                $new_number = 1;
+            }
+
+            return $current_year .
+                "-PR-" .
+                str_pad($new_number, 3, "0", STR_PAD_LEFT);
+        });
 
         $user_tagged = $request->boolean("user_tagging")
             ? Carbon::now()
@@ -106,9 +113,6 @@ class ExpenseController extends Controller
 
         $latest_pr_number = PRTransaction::withTrashed()->max("id") ?? 0;
         $pr_number = $latest_pr_number + 1;
-
-        $pr_year_number_id =
-            $current_year . "-PR-" . str_pad($new_number, 3, "0", STR_PAD_LEFT);
 
         $purchase_request = new PRTransaction([
             "pr_year_number_id" => $pr_year_number_id,
@@ -147,6 +151,8 @@ class ExpenseController extends Controller
             "for_marketing" => $request->boolean("for_marketing") ?? null,
             "layer" => "1",
             "cap_ex" => $request->cap_ex,
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "supplier_name" => $request->supplier_name,
             "supplier_id" => $request->supplier_id,
         ]);
@@ -197,7 +203,7 @@ class ExpenseController extends Controller
             "approver_settings_id",
             $approver_settings->id
         )->get();
-        
+
         if ($approvers->isEmpty()) {
             return GlobalFunction::save(Message::NO_APPROVERS);
         }
@@ -339,6 +345,8 @@ class ExpenseController extends Controller
             "sub_unit_name" => $request["sub_unit_name"],
             "account_title_id" => $request["account_title_id"],
             "account_title_name" => $request["account_title_name"],
+            "pcf_remarks" => $request["pcf_remarks"],
+            "ship_to" => $request->ship_to,
             "supplier_id" => $request["supplier_id"],
             "supplier_name" => $request["supplier_name"],
             "module_name" => "Expense",
@@ -485,6 +493,8 @@ class ExpenseController extends Controller
             "sub_unit_name" => $request["sub_unit_name"],
             "account_title_id" => $request["account_title_id"],
             "account_title_name" => $request["account_title_name"],
+            "pcf_remarks" => $request->pcf_remarks,
+            "ship_to" => $request->ship_to,
             "supplier_id" => $request["supplier_id"],
             "supplier_name" => $request["supplier_name"],
             "status" => "Pending",

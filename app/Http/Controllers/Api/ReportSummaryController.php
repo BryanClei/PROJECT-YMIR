@@ -17,10 +17,13 @@ use App\Http\Requests\PADisplay;
 use App\Functions\GlobalFunction;
 use App\Models\JoPoOrdersReports;
 use App\Models\PurchaseAssistant;
+use Illuminate\Support\Collection;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PRPOResource;
 use App\Http\Requests\ReportStatusRequest;
 use App\Http\Resources\IntegrationGLResource;
+use Illuminate\Pagination\LengthAwarePaginator;
+use App\Models\POItemsPurchasingAnalysisReports;
 
 class ReportSummaryController extends Controller
 {
@@ -286,7 +289,7 @@ class ReportSummaryController extends Controller
 
     public function purchasing_analysis_summary()
     {
-        $po_items = POItems::with(
+        $po_items = POItemsPurchasingAnalysisReports::with(
             "uom",
             "supplier",
             "rr_orders",
@@ -484,4 +487,200 @@ class ReportSummaryController extends Controller
             $pr_items
         );
     }
+
+    public function pr_purchasing_reports(Request $request)
+    {
+        $status = $request->status;
+        $type = $request->type;
+
+        $user_id = Auth()->user()->id;
+
+        $pr_items = PRItemsReports::with(
+            "uom",
+            "transaction.vladimir_user",
+            "transaction.regular_user",
+            "transaction.approver_history",
+            "transaction.po_transaction.approver_history",
+            "transaction.po_transaction.order",
+            "transaction.po_transaction.order.rr_orders",
+            "transaction.po_transaction.order.rr_orders.rr_transaction"
+            // "po_order.rr_orders.rr_transaction"
+        )
+            ->whereHas("transaction", function ($subQuery) use (
+                $type,
+                $user_id
+            ) {
+                $subQuery
+                    ->where("status", "Approved")
+                    ->when($type === "for_user", function ($q) use ($user_id) {
+                        $q->where("user_id", $user_id);
+                    })
+                    ->when($type === "for_approver", function ($q) use (
+                        $user_id
+                    ) {
+                        $q->whereHas("approver_history", function (
+                            $qsubQuery
+                        ) use ($user_id) {
+                            $qsubQuery
+                                ->where("approver_id", $user_id)
+                                ->whereNotNull("approved_at");
+                        });
+                    });
+            })
+            ->useFilters()
+            ->dynamicPaginate();
+
+        if ($pr_items->isEmpty()) {
+            return GlobalFunction::notFound(Message::NO_DATA_FOUND);
+        }
+
+        $transform = function ($item) {
+            $t = $item->transaction;
+            if (!$t) {
+                return $item;
+            }
+
+            $t->users =
+                $t->module_name === "Asset" && $t->vladimir_user
+                    ? [
+                        "id" => $t->vladimir_user->id,
+                        "employee_id" => $t->vladimir_user->employee_id,
+                        "username" => $t->vladimir_user->username,
+                        "first_name" => $t->vladimir_user->firstname,
+                        "last_name" => $t->vladimir_user->lastname,
+                    ]
+                    : ($t->regular_user
+                        ? [
+                            "prefix_id" => $t->regular_user->prefix_id,
+                            "id_number" => $t->regular_user->id_number,
+                            "first_name" => $t->regular_user->first_name,
+                            "middle_name" => $t->regular_user->middle_name,
+                            "last_name" => $t->regular_user->last_name,
+                            "mobile_no" => $t->regular_user->mobile_no,
+                        ]
+                        : []);
+
+            unset($t->vladimir_user, $t->regular_user);
+            return $item;
+        };
+
+        method_exists($pr_items, "getCollection")
+            ? $pr_items->getCollection()->transform($transform)
+            : $pr_items->transform($transform);
+
+        return GlobalFunction::responseFunction(
+            Message::PURCHASE_REQUEST_DISPLAY,
+            $pr_items
+        );
+    }
+
+    // public function pr_purchasing_reports()
+    // {
+    //     $pr_items = PRItemsReports::with(
+    //         "uom",
+    //         "transaction.vladimir_user",
+    //         "transaction.regular_user",
+    //         "transaction.approver_history",
+    //         "transaction.po_transaction.order",
+    //         "transaction.po_transaction.approver_history",
+    //         "transaction.po_transaction.order.rr_orders",
+    //         "transaction.po_transaction.order.rr_orders.rr_transaction",
+    //     )
+    //         ->orderByDesc("id")
+    //         ->useFilters()
+    //         ->get();
+
+    //     if ($pr_items->isEmpty()) {
+    //         return GlobalFunction::notFound(Message::NO_DATA_FOUND);
+    //     }
+
+    //     // Step 1: Flatten the items by po_order
+    //     $flattenedItems = collect();
+
+    //     foreach ($pr_items as $item) {
+    //         $poTransactions = $item->transaction->po_transaction;
+
+    //         if ($poTransactions->isNotEmpty()) {
+    //             // Create separate item for each PO Transaction and its PO Orders
+    //             foreach ($poTransactions as $poTransaction) {
+    //                 // Convert to array
+    //                 $itemArray = $item->toArray();
+
+    //                 // Get the actual PO order items from the PO transaction
+    //                 $itemArray['po_order'] = $poTransaction->order ? $poTransaction->order->toArray() : null;
+
+    //                 // Keep only the current PO transaction in the transaction->po_transaction array
+    //                 if (isset($itemArray['transaction']['po_transaction'])) {
+    //                     $itemArray['transaction']['po_transaction'] = collect($itemArray['transaction']['po_transaction'])
+    //                         ->where('id', $poTransaction->id)
+    //                         ->values()
+    //                         ->all();
+    //                 }
+
+    //                 // Convert back to object
+    //                 $newItem = json_decode(json_encode($itemArray));
+    //                 $flattenedItems->push($newItem);
+    //             }
+    //         } else {
+    //             // No PO transactions
+    //             $itemArray = $item->toArray();
+    //             $itemArray['po_order'] = null;
+
+    //             if (isset($itemArray['transaction']['po_transaction'])) {
+    //                 $itemArray['transaction']['po_transaction'] = [];
+    //             }
+
+    //             $newItem = json_decode(json_encode($itemArray));
+    //             $flattenedItems->push($newItem);
+    //         }
+    //     }
+
+    //     // Step 2: Transform user data
+    //     $transformed = $flattenedItems->map(function ($item) {
+    //         $t = $item->transaction ?? null;
+
+    //         if ($t) {
+    //             $t->users = $t->module_name === "Asset" && isset($t->vladimir_user)
+    //                 ? [
+    //                     "id" => $t->vladimir_user->id ?? null,
+    //                     "employee_id" => $t->vladimir_user->employee_id ?? null,
+    //                     "username" => $t->vladimir_user->username ?? null,
+    //                     "first_name" => $t->vladimir_user->firstname ?? null,
+    //                     "last_name" => $t->vladimir_user->lastname ?? null,
+    //                 ]
+    //                 : (isset($t->regular_user)
+    //                     ? [
+    //                         "prefix_id" => $t->regular_user->prefix_id ?? null,
+    //                         "id_number" => $t->regular_user->id_number ?? null,
+    //                         "first_name" => $t->regular_user->first_name ?? null,
+    //                         "middle_name" => $t->regular_user->middle_name ?? null,
+    //                         "last_name" => $t->regular_user->last_name ?? null,
+    //                         "mobile_no" => $t->regular_user->mobile_no ?? null,
+    //                     ]
+    //                     : []);
+
+    //             // Remove the user objects to avoid duplication
+    //             unset($t->vladimir_user, $t->regular_user);
+    //         }
+
+    //         return $item;
+    //     });
+
+    //     // Step 3: Manual pagination
+    //     $page = request("page", 1);
+    //     $perPage = request("per_page", 20);
+
+    //     $paginated = new LengthAwarePaginator(
+    //         $transformed->forPage($page, $perPage)->values(),
+    //         $transformed->count(),
+    //         $perPage,
+    //         $page,
+    //         ["path" => request()->url(), "query" => request()->query()]
+    //     );
+
+    //     return GlobalFunction::responseFunction(
+    //         Message::PURCHASE_REQUEST_DISPLAY,
+    //         $paginated
+    //     );
+    // }
 }

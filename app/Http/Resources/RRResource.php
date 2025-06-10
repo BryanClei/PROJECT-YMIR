@@ -37,8 +37,9 @@ class RRResource extends JsonResource
                 : null,
             // "request_type" => $this->po_transaction->module_name,
             // "description" => $this->po_transaction->po_description,
-            "order" => $this->rr_orders,
-            "log_history" => LogHistoryResource::collection($this->log_history),
+            "order" => $this->rr_orders ?? null,
+            "log_history" =>
+                LogHistoryResource::collection($this->log_history) ?? null,
             "deleted_at" => $this->deleted_at,
         ];
     }

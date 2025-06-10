@@ -49,6 +49,8 @@ class POTransaction extends Model
         "description",
         "reason",
         "edit_remarks",
+        "pcf_remarks",
+        "ship_to",
         "approver_remarks",
         "asset",
         "sgp",

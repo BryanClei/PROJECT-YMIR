@@ -32,12 +32,17 @@ use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Http\Resources\PAPOResource;
 use App\Http\Resources\PRPOResource;
+use App\Models\JobOrderPurchaseOrder;
 use App\Models\JobOrderTransactionPA;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Requests\JoPo\UpdateRequest;
 use App\Http\Resources\PRTransactionResource;
+use App\Models\JobOrderPurchaseOrderApprovers;
 use App\Http\Requests\PurchasingAssistant\StoreRequest;
 use App\Http\Requests\JobOrderTransaction\CancelRequest;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PAController extends Controller
 {
@@ -270,8 +275,13 @@ class PAController extends Controller
                 }
 
                 $partial_received = $order->partial_received ?? 0;
-
                 $effective_quantity = $order->quantity - $partial_received;
+
+                // Store the original quantity
+                $order->original_quantity = $order->quantity;
+
+                // Replace the displayed quantity with the effective quantity
+                $order->quantity = $effective_quantity;
 
                 return $effective_quantity > 0;
             })
@@ -290,8 +300,15 @@ class PAController extends Controller
 
         $purchase_request = POTransaction::where("id", $id)
             ->with([
-                "order" => function ($query) {
-                    $query->withTrashed();
+                "order" => function ($query) use ($status) {
+                    $query
+                        ->withTrashed()
+                        ->when(
+                            in_array($status, ["approved", "partial_received"]),
+                            function ($q) {
+                                $q->whereNull("deleted_at"); // exclude soft-deleted orders
+                            }
+                        );
                 },
                 "order.items.small_tools",
                 "order.warehouse",
@@ -304,13 +321,6 @@ class PAController extends Controller
         if (!$purchase_request) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-
-        // new PoResource($purchase_request);
-
-        // return GlobalFunction::responseFunction(
-        //     Message::PURCHASE_ORDER_DISPLAY,
-        //     $purchase_request
-        // );
 
         $purchase_collet = new PoResource($purchase_request);
 
@@ -416,6 +426,7 @@ class PAController extends Controller
             "f2" => $request->f2,
             "layer" => "1",
             "rush" => $request->rush,
+            "ship_to" => $request->ship_to,
             "outside_labor" => $request->outside_labor,
             "cap_ex" => $request->cap_ex,
             "direct_po" => $request->direct_po,
@@ -780,18 +791,39 @@ class PAController extends Controller
     public function update_price(Request $request, $id)
     {
         $user_id = Auth()->user()->id;
-        $job_order = JOPOTransaction::where("id", $id)
-            ->get()
-            ->first();
+        $job_order = JOPOTransaction::find($id);
 
         $oldTotalPrice = $job_order->total_item_price;
-        $not_found = JOPOTransaction::where("id", $id)->exists();
 
+        // Get all the approvers for the current job order
         $po_approvers = $job_order->jo_approver_history()->get();
 
-        if (!$not_found) {
+        // If the job order is not found, return a not found response
+        if (!$job_order) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
+
+        // Get the charging purchase order settings based on the job order company, business unit, and department
+        $charging_purchase_order_setting_id = JobOrderPurchaseOrder::where(
+            "company_id",
+            $job_order->company_id
+        )
+            ->where("business_unit_id", $job_order->business_unit_id)
+            ->where("department_id", $job_order->department_id)
+            ->first();
+
+        // Get the highest price range for the approvers of the purchase order
+        $highestPriceRange = JobOrderPurchaseOrderApprovers::where(
+            "jo_purchase_order_id",
+            $charging_purchase_order_setting_id->id
+        )->get();
+
+        // If no approvers settings are found, return a not found response
+        if (!$highestPriceRange) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
+        }
+
+        // Get the orders from the request
         $orders = $request->order;
         $newOrders = collect($orders)
             ->pluck("id")
@@ -801,6 +833,7 @@ class PAController extends Controller
             ->pluck("id")
             ->toArray();
 
+        // Loop through current orders and delete any orders that no longer exist in the new order list
         foreach ($currentOrders as $order_id) {
             if (!in_array($order_id, $newOrders)) {
                 JoPoOrders::where("id", $order_id)->forceDelete();
@@ -812,6 +845,7 @@ class PAController extends Controller
         $oldSupplier = $job_order->supplier_name;
         $newSupplier = $request["supplier_name"];
 
+        // Loop through the orders and update each order's price
         foreach ($orders as $values) {
             $order_id = $values["id"];
             $poItem = JoPoOrders::where("id", $order_id)->first();
@@ -828,6 +862,7 @@ class PAController extends Controller
                 ]);
                 $totalPriceSum += $newTotalPrice;
 
+                // Log the price update for each item
                 $updatedItems[] = [
                     "id" => $order_id,
                     "name" => $item_name,
@@ -839,6 +874,7 @@ class PAController extends Controller
             }
         }
 
+        // Prepare the activity log description for the price updates
         $activityDescription =
             "Job order purchase order ID: " .
             $job_order->id .
@@ -853,38 +889,60 @@ class PAController extends Controller
         }
         $activityDescription = rtrim($activityDescription, ", ");
 
+        // Log the supplier change if there is one
         if ($oldSupplier !== $newSupplier) {
             $activityDescription .= ". Supplier changed from $oldSupplier to $newSupplier";
         }
 
         $activityDescription .= ".";
 
+        // Create a log entry for the activity
         LogHistory::create([
             "activity" => $activityDescription,
-            "jo_po_id" => $id,
+            "jo_po_id" => $job_order->id,
             "action_by" => $user_id,
         ]);
 
-        $oldTotalPrice = $job_order->total_item_price;
-
-        if ($totalPriceSum > $oldTotalPrice) {
+        if ($totalPriceSum > $oldTotalPrice || $oldSupplier !== $newSupplier) {
             foreach ($po_approvers as $po_approver) {
                 $po_approver->update([
                     "approved_at" => null,
                     "rejected_at" => null,
                 ]);
             }
+
+            $fixed_charging_approvers = $highestPriceRange->take(2);
+            $price_based_charging_approvers = $highestPriceRange
+                ->slice(2)
+                ->filter(function ($approver) use ($totalPriceSum) {
+                    return $approver->base_price <= $totalPriceSum;
+                })
+                ->sortBy("base_price");
+
+            $final_charging_approvers = $fixed_charging_approvers->concat(
+                $price_based_charging_approvers
+            );
+
+            $job_order->jo_approver_history()->delete();
+
+            $layer_count = 1;
+            foreach ($final_charging_approvers as $index) {
+                JoPoHistory::create([
+                    "jo_po_id" => $job_order->id,
+                    "approver_type" => "charging",
+                    "approver_id" => $index["approver_id"],
+                    "approver_name" => $index["approver_name"],
+                    "layer" => $layer_count++,
+                ]);
+            }
+
+            $job_order->update([
+                "status" => "Pending",
+            ]);
         }
-
-        $po_settings = POSettings::where("company_id", $job_order->company_id)
-            ->get()
-            ->first();
-
-        $highestPriceRange = PoApprovers::max("price_range");
 
         $updateData = [
             "total_item_price" => $totalPriceSum,
-            "status" => "Pending",
             "layer" => "1",
             "updated_by" => $user_id,
             "edit_remarks" => $request->edit_remarks,
@@ -895,74 +953,34 @@ class PAController extends Controller
         ];
 
         if ($request->boolean("returned_po")) {
-            $updateData["status"] = "pending";
+            $job_order->update([
+                "status" => "Pending",
+            ]);
         }
 
         $job_order->update($updateData);
-
-        if ($totalPriceSum >= $highestPriceRange) {
-            $approvers = PoApprovers::where(
-                "price_range",
-                ">=",
-                $highestPriceRange
-            )
-                ->where("po_settings_id", $po_settings->company_id)
-                ->get();
-            $po_approver_history = $job_order->jo_approver_history()->first();
-
-            foreach ($approvers as $index) {
-                $existing_approver = JoPoHistory::where(
-                    "jo_po_id",
-                    $po_approver_history->jo_po_id
-                )
-                    ->where("approver_id", $index["approver_id"])
-                    ->first();
-
-                if (!$existing_approver) {
-                    JoPoHistory::create([
-                        "jo_po_id" => $po_approver_history->jo_po_id,
-                        "approver_id" => $index["approver_id"],
-                        "approver_name" => $index["approver_name"],
-                        "layer" => $index["layer"],
-                    ]);
-                }
-            }
-        }
 
         $poTransaction = $job_order->fresh([
             "jo_po_orders",
             "jo_approver_history",
         ]);
 
-        new JoPoResource($poTransaction);
-
         return GlobalFunction::responseFunction(
             Message::PURCHASE_ORDER_UPDATE,
-            $poTransaction
+            new JoPoResource($poTransaction)
         );
     }
 
     public function tagging_badge(Request $request)
     {
-        $user_id = Auth()->user()->id;
-        $status = $request->status;
-        $for_tagging = PurchaseAssistant::query()
-            ->with([
-                "approver_history",
-                "log_history" => function ($query) {
-                    $query->orderBy("created_at", "desc");
-                },
-                "po_transaction.order",
-                "po_transaction.approver_history",
-                "order" => function ($query) {
-                    $query->whereNull("buyer_id");
-                },
-            ])
+        $baseQuery = PurchaseAssistant::query()
             ->where("status", "Approved")
-            ->whereNull("for_po_only")
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
+            ->whereNull("cancelled_at");
+
+        $for_tagging = (clone $baseQuery)
+            ->whereNull("for_po_only")
             ->where(function ($query) {
                 $query
                     ->where("module_name", "!=", "Asset")
@@ -971,148 +989,97 @@ class PAController extends Controller
                             ->where("module_name", "Asset")
                             ->where(function ($query) {
                                 $query
-                                    ->whereHas("approver_history", function (
-                                        $query
-                                    ) {
-                                        $query->whereNotNull("approved_at");
-                                    })
+                                    ->whereHas(
+                                        "approver_history",
+                                        fn($q) => $q->whereNotNull(
+                                            "approved_at"
+                                        )
+                                    )
                                     ->orWhereDoesntHave("approver_history");
                             });
                     });
             })
             ->whereHas("order", function ($query) {
                 $query
-                    ->where(function ($subQuery) {
-                        $subQuery
-                            ->whereNull("buyer_id")
-                            ->orWhereNull("buyer_name");
+                    ->where(function ($q) {
+                        $q->whereNull("buyer_id")->orWhereNull("buyer_name");
                     })
                     ->whereNull("po_at");
             })
             ->count();
 
-        $for_po = PurchaseAssistant::query()
-            ->where("status", "Approved")
-            ->with([
-                "order" => function ($query) {
-                    $query->whereNull("buyer_id")->whereNull("supplier_id");
-                },
-            ])
-            ->whereHas("order", function ($query) {
-                $query->whereNull("buyer_id")->whereNull("supplier_id");
-            })
+        $for_po = (clone $baseQuery)
             ->whereNotNull("for_po_only")
-            ->whereNull("rejected_at")
+            ->whereHas(
+                "order",
+                fn($q) => $q->whereNull("buyer_id")->whereNull("supplier_id")
+            )
+            ->count();
+
+        $tagged_buyer = (clone $baseQuery)
+            ->whereHas(
+                "order",
+                fn($q) => $q->whereNotNull("buyer_id")->whereNull("po_at")
+            )
+            ->count();
+
+        $pending_po_count = PurchaseAssistant::whereNull("rejected_at")
             ->whereNull("voided_at")
             ->whereNull("cancelled_at")
-            ->count();
-
-        $tagged_buyer = PurchaseAssistant::query()
-            ->with("order")
             ->withCount([
-                "order" => function ($query) {
-                    $query->whereNotNull("buyer_id")->whereNull("po_at");
-                },
-            ])
-            ->where(function ($query) {
-                $query->whereHas("order", function ($subQuery) {
-                    $subQuery->whereNotNull("buyer_id")->whereNull("po_at");
-                });
-            })
-            ->where("status", "Approved")
-            ->whereNull("cancelled_at")
-            ->count();
-
-        $pending_po_count = PurchaseAssistant::withCount([
-            "po_transaction" => function ($query) {
-                $query
+                "po_transaction" => fn($q) => $q
                     ->whereIn("status", ["Pending", "For Approval"])
                     ->whereNull("deleted_at")
-                    ->whereNull("cancelled_at");
-            },
-        ])
-            ->get()
-            ->sum("po_transaction_count");
+                    ->whereNull("cancelled_at"),
+            ])
+            ->pluck("po_transaction_count")
+            ->sum();
 
-        $approved = PurchaseAssistant::withCount([
-            "po_transaction" => function ($query) {
-                $query
+        $approved = PurchaseAssistant::whereNull("rejected_at")
+            ->whereNull("voided_at")
+            ->whereNull("cancelled_at")
+            ->withCount([
+                "po_transaction" => fn($q) => $q
+                    ->where("status", "For Receiving")
                     ->whereNull("rejected_at")
                     ->whereNull("voided_at")
                     ->whereNull("cancelled_at")
-                    ->where("status", "For Receiving");
-            },
-        ])
-            ->whereNull("rejected_at")
-            ->whereNull("voided_at")
-            ->whereNull("cancelled_at")
-            ->get()
-            ->sum("po_transaction_count");
-
-        $rejected = PurchaseAssistant::where(function ($query) {
-            $query
-                ->where(function ($subQuery) {
-                    $subQuery
-                        ->whereHas("po_transaction", function ($poQuery) {
-                            $poQuery
-                                ->where("module_name", "!=", "Asset")
-                                ->where("status", "Reject")
-                                ->whereNotNull("rejected_at");
-                        })
-                        ->whereHas("order", function ($orderQuery) {
-                            $orderQuery->whereNotNull("buyer_id");
-                        });
-                })
-                ->orWhere(function ($subQuery) {
-                    $subQuery
-                        ->whereHas("po_transaction", function ($poQuery) {
-                            $poQuery
-                                ->where("module_name", "Asset")
-                                ->where("status", "Reject")
-                                ->whereNotNull("rejected_at");
-                        })
-                        ->whereDoesntHave("order", function ($orderQuery) {
-                            $orderQuery->whereNotNull("buyer_id");
-                        });
-                });
-        })
-            ->withCount([
-                "po_transaction" => function ($query) {
-                    $query
-                        ->where("status", "Reject")
-                        ->whereNotNull("rejected_at");
-                },
+                    ->whereHas(
+                        "order",
+                        fn($oq) => $oq
+                            ->whereNull("deleted_at")
+                            ->whereColumn("quantity_serve", "<", "quantity")
+                    ),
             ])
-            ->get()
-            ->sum("po_transaction_count");
+            ->pluck("po_transaction_count")
+            ->sum();
+
+        $rejected = PurchaseAssistantPO::where("status", "Reject")
+            ->whereNotNull("rejected_at")
+            ->count();
 
         $return_po = PurchaseAssistantPO::where("status", "Return")->count();
 
         $cancel = PurchaseAssistant::withCount([
-            "po_transaction" => function ($query) {
-                $query
-                    ->where("status", "Cancelled")
-                    ->whereNotNull("cancelled_at")
-                    ->withTrashed();
-            },
+            "po_transaction" => fn($q) => $q
+                ->where("status", "Cancelled")
+                ->whereNotNull("cancelled_at")
+                ->withTrashed(),
         ])
-            ->get()
-            ->sum("po_transaction_count");
+            ->pluck("po_transaction_count")
+            ->sum();
 
         $for_job = JobOrderTransactionPA::where("status", "Approved")
-            ->with("order", function ($query) {
-                $query->whereNull("po_at");
-            })
-            ->whereHas("order", function ($query) {
-                $query->whereNull("po_at");
-            })
             ->whereNull("cancelled_at")
             ->whereNull("voided_at")
             ->whereNotNull("approved_at")
+            ->whereHas("order", fn($q) => $q->whereNull("po_at"))
             ->count();
 
-        $for_po_approval = JOPOTransaction::where("status", "Pending")
-            ->orWhere("status", "For Approval")
+        $for_po_approval = JOPOTransaction::whereIn("status", [
+            "Pending",
+            "For Approval",
+        ])
             ->whereNull("cancelled_at")
             ->whereNull("rejected_at")
             ->whereNull("voided_at")
@@ -1122,7 +1089,7 @@ class PAController extends Controller
             ->whereNotNull("rejected_at")
             ->count();
 
-        $result = [
+        return GlobalFunction::responseFunction(Message::DISPLAY_COUNT, [
             "for_tagging" => $for_tagging,
             "for_po_only" => $for_po,
             "tagged_request" => $tagged_buyer,
@@ -1136,15 +1103,10 @@ class PAController extends Controller
                 "for_po_approval" => $for_po_approval,
                 "po_rejected" => $po_rejected,
             ],
-        ];
-
-        return GlobalFunction::responseFunction(
-            Message::DISPLAY_COUNT,
-            $result
-        );
+        ]);
     }
 
-    public function return_pr(PORequest $request, $id)
+    public function return_pr(CancelRequest $request, $id)
     {
         $user_id = Auth()->user()->id;
         $reason = $request->reason;
@@ -1253,9 +1215,9 @@ class PAController extends Controller
             "action_by" => $purchasing_assistant,
         ]);
 
-        $jo_po_transaction->jo_approver_history()->update([
-            "approved_at" => null,
-        ]);
+        // $jo_po_transaction->jo_approver_history()->update([
+        //     "approved_at" => null,
+        // ]);
 
         new JoPoResource($jo_po_transaction);
 
@@ -1318,6 +1280,7 @@ class PAController extends Controller
             "layer" => "1",
             "description" => $request->description,
         ]);
+
         $pr_transaction->save();
 
         $orders = $request->order;
@@ -1358,7 +1321,7 @@ class PAController extends Controller
 
         LogHistory::create([
             "activity" => $activityDescription,
-            "rr_id" => $pr_transaction->id,
+            "pr_id" => $pr_transaction->id,
         ]);
 
         $collect = new PRTransactionResource($pr_transaction);
@@ -1369,59 +1332,59 @@ class PAController extends Controller
         );
     }
 
-    public function update_buyer(Request $request, $id)
-    {
-        $user_id = Auth()->user()->id;
-        $purchase_order = POTransaction::with("order")->find($id);
+    // public function update_buyer(Request $request, $id)
+    // {
+    //     $user_id = Auth()->user()->id;
+    //     $purchase_order = POTransaction::with("order")->find($id);
 
-        if ($purchase_order->cancelled_at) {
-            return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
-        }
+    //     if ($purchase_order->cancelled_at) {
+    //         return GlobalFunction::invalid(Message::PO_CANCELLED_ALREADY);
+    //     }
 
-        $payload = $request->all();
-        $payload_items = $payload["items"] ?? $payload;
+    //     $payload = $request->all();
+    //     $payload_items = $payload["items"] ?? $payload;
 
-        $item_ids = array_column($payload_items, "id");
+    //     $item_ids = array_column($payload_items, "id");
 
-        $po_items = POItems::whereIn("id", $item_ids)
-            ->where("po_id", $id)
-            ->get();
+    //     $po_items = POItems::whereIn("id", $item_ids)
+    //         ->where("po_id", $id)
+    //         ->get();
 
-        if ($po_items->isEmpty()) {
-            return GlobalFunction::notFound(Message::NOT_FOUND);
-        }
+    //     if ($po_items->isEmpty()) {
+    //         return GlobalFunction::notFound(Message::NOT_FOUND);
+    //     }
 
-        $item_details = [];
-        foreach ($po_items as $item) {
-            $payloadItem = collect($payload_items)->firstWhere("id", $item->id);
-            $old_buyer = $item->buyer_name;
-            $old_buyer_id = $item->buyer_id;
+    //     $item_details = [];
+    //     foreach ($po_items as $item) {
+    //         $payloadItem = collect($payload_items)->firstWhere("id", $item->id);
+    //         $old_buyer = $item->buyer_name;
+    //         $old_buyer_id = $item->buyer_id;
 
-            $item->update([
-                "buyer_id" => $payloadItem["buyer_id"],
-                "buyer_name" => $payloadItem["buyer_name"],
-            ]);
+    //         $item->update([
+    //             "buyer_id" => $payloadItem["buyer_id"],
+    //             "buyer_name" => $payloadItem["buyer_name"],
+    //         ]);
 
-            $item_details[] = "Item ID {$item->id}: Buyer reassigned from {$old_buyer} (ID: {$old_buyer_id}) to {$payloadItem["buyer_name"]} (ID: {$payloadItem["buyer_id"]})";
-        }
+    //         $item_details[] = "Item ID {$item->id}: Buyer reassigned from {$old_buyer} (ID: {$old_buyer_id}) to {$payloadItem["buyer_name"]} (ID: {$payloadItem["buyer_id"]})";
+    //     }
 
-        $item_details_string = implode(", ", $item_details);
+    //     $item_details_string = implode(", ", $item_details);
 
-        $activityDescription =
-            "Purchase order ID: $id - has been updated to buyer for " .
-            count($item_details) .
-            " item(s). Details: " .
-            $item_details_string;
+    //     $activityDescription =
+    //         "Purchase order ID: $id - has been updated to buyer for " .
+    //         count($item_details) .
+    //         " item(s). Details: " .
+    //         $item_details_string;
 
-        LogHistory::create([
-            "activity" => $activityDescription,
-            "po_id" => $id,
-            "action_by" => $user_id,
-        ]);
+    //     LogHistory::create([
+    //         "activity" => $activityDescription,
+    //         "po_id" => $id,
+    //         "action_by" => $user_id,
+    //     ]);
 
-        return GlobalFunction::responseFunction(
-            Message::BUYER_UPDATED,
-            $po_items
-        );
-    }
+    //     return GlobalFunction::responseFunction(
+    //         Message::BUYER_UPDATED,
+    //         $po_items
+    //     );
+    // }
 }

@@ -49,6 +49,8 @@ class PrDrafts extends Model
         "f1",
         "f2",
         "rush",
+        "ship_to",
+        "pcf_remarks",
         "place_order",
         "for_po_only",
         "for_po_only_id",

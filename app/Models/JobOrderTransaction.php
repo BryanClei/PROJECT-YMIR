@@ -17,8 +17,8 @@ class JobOrderTransaction extends Model
     protected $table = "jo_transactions";
 
     protected $fillable = [
-        "jo_year_number_id",
         "jo_number",
+        "jo_year_number_id",
         "jo_description",
         "date_needed",
         "user_id",
@@ -55,7 +55,12 @@ class JobOrderTransaction extends Model
         "outside_labor",
         "cap_ex",
         "direct_po",
+        "for_po_only",
+        "for_po_only_id",
+        "ship_to",
         "helpdesk_id",
+        "supplier_id",
+        "supplier_name",
     ];
 
     public function users()
@@ -86,5 +91,10 @@ class JobOrderTransaction extends Model
     public function log_history()
     {
         return $this->hasMany(LogHistory::class, "jo_id", "id");
+    }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Suppliers::class, "supplier_id", "id");
     }
 }

@@ -72,12 +72,15 @@ class PoResource extends JsonResource
             "supplier" => [
                 "supplier_id" => $this->supplier_id,
                 "supplier_name" => $this->supplier_name,
+                "pcf_remarks" => $this->pcf_remarks,
             ],
             "cap_ex" => $this->cap_ex,
+            "ship_to" => $this->ship_to,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,
             "rush" => $this->rush,
+            "for_po_only" => $this->for_po_only,
             "user_tagging" => $this->user_tagging,
             "place_order" => $this->place_order,
             "module_name" => $this->module_name,
@@ -106,7 +109,9 @@ class PoResource extends JsonResource
                 $this->pr_approver_history
             ),
             "log_history" => LogHistoryResource::collection($this->log_history),
-            "rr_transaction" => RRResource::collection($this->rr_transaction),
+            "rr_transaction" => $this->rr_transaction
+                ? RRResource::collection($this->rr_transaction)
+                : [],
         ];
     }
 

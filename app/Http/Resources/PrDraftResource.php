@@ -75,6 +75,7 @@ class PrDraftResource extends JsonResource
                 "asset" => $this->asset,
                 "asset_code" => $this->asset_code ?? null,
             ],
+            "ship_to" => $this->ship_to,
             "cap_ex" => $this->cap_ex,
             "sgp" => $this->sgp,
             "f1" => $this->f1,

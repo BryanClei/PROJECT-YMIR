@@ -22,7 +22,7 @@ return new class extends Migration {
             $table->string("reference_no")->nullable();
             $table->string("item_id")->nullable();
             $table->string("item_code")->nullable();
-            $table->string("item_name")->nullable();
+            $table->longText("item_name")->nullable();
             $table->integer("category_id")->nullable();
             $table->unsignedInteger("uom_id")->index();
             $table

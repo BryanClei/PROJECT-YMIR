@@ -30,11 +30,7 @@ class PrItemDrafts extends Model
 
     public function pr_draft()
     {
-        return $this->belongsTo(
-            PRTransaction::class,
-            "pr_draft_id",
-            "pr_draft_id"
-        );
+        return $this->belongsTo(PrDrafts::class, "pr_draft_id", "pr_draft_id");
     }
 
     public function item()

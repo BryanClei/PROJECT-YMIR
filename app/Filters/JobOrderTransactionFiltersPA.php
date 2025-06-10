@@ -10,6 +10,7 @@ class JobOrderTransactionFiltersPA extends QueryFilters
 
     protected array $columnSearch = [
         "jo_number",
+        "jo_year_number_id",
         "jo_description",
         "date_needed",
         "user_id",
