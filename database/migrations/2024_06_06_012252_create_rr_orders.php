@@ -32,9 +32,10 @@ return new class extends Migration {
             $table->timestamp("rr_date");
             $table->string("late_attachment")->nullable();
             $table->string("attachment")->nullable();
-            $table->integer("sync");
-            $table->integer("f_tagged");
-            $table->integer("etd_sync");
+            $table->integer("sync")->default(0);
+            $table->integer("etd_sync")->default(0);
+            $table->integer("system_sync")->default(0);
+            $table->integer("f_tagged")->default(0);
             $table->timestamps();
             $table->softDeletes();
         });

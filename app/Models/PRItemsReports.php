@@ -52,14 +52,14 @@ class PRItemsReports extends Model
     {
         return $this->belongsTo(
             POTransaction::class,
-            "id",
-            "purchase_order_id"
+            "purchase_order_id",
+            "id"
         );
     }
 
     public function item()
     {
-        return $this->belongsTo(Items::class, "item_id", "id");
+        return $this->belongsTo(Items::class, "item_id", "id")->withTrashed();
     }
 
     public function uom()
@@ -74,7 +74,11 @@ class PRItemsReports extends Model
 
     public function po_order()
     {
-        return $this->hasMany(POItems::class, "pr_item_id", "id");
+        return $this->hasMany(
+            POItems::class,
+            "pr_item_id",
+            "id"
+        )->withTrashed();
     }
 
     public function category()

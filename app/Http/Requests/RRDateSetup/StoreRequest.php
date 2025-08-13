@@ -24,7 +24,7 @@ class StoreRequest extends FormRequest
     public function rules()
     {
         return [
-            "setup_name" => ["required", "integer"],
+            "setup_name" => ["required", "string"],
             "previous_days" => ["required", "string"],
             "forward_days" => ["required", "string"],
             "previous_month" => ["required", "string"],

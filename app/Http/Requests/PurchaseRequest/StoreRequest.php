@@ -32,6 +32,10 @@ class StoreRequest extends FormRequest
                         $this->route()->pr_transaction
                     : "unique:pr_transactions,pr_number",
             ],
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,id,deleted_at,NULL",
+            ],
             "company_id" => "exists:companies,id,deleted_at,NULL",
             "business_unit_id" => "exists:business_units,id,deleted_at,NULL",
             "department_id" => "exists:departments,id,deleted_at,NULL",
@@ -39,7 +43,7 @@ class StoreRequest extends FormRequest
                 "exists:department_units,id,deleted_at,NULL",
             "sub_unit_id" => "exists:sub_units,id,deleted_at,NULL",
             "location_id" => "exists:locations,id,deleted_at,NULL",
-            "ship_to" => "required",
+            "ship_to_id" => "required",
         ];
 
         if ($this->boolean("for_po_only") || $this->filled("supplier_id")) {
@@ -47,6 +51,13 @@ class StoreRequest extends FormRequest
         }
 
         return $rules;
+    }
+
+    public function attributes(): array
+    {
+        return [
+            "ship_to_id" => "ship to",
+        ];
     }
 
     public function withValidator($validator)
@@ -73,19 +84,24 @@ class StoreRequest extends FormRequest
             }
 
             // Approver check (unchanged)
-            $approvers = \App\Models\ApproverSettings::where(
-                "business_unit_id",
-                $this->input("business_unit_id")
-            )
-                ->where("company_id", $this->input("company_id"))
-                ->where("department_id", $this->input("department_id"))
-                ->where(
-                    "department_unit_id",
-                    $this->input("department_unit_id")
-                )
-                ->where("sub_unit_id", $this->input("sub_unit_id"))
-                ->where("location_id", $this->input("location_id"))
-                ->first();
+            // $approvers = \App\Models\ApproverSettings::where(
+            //     "business_unit_id",
+            //     $this->input("business_unit_id")
+            // )
+            //     ->where("company_id", $this->input("company_id"))
+            //     ->where("department_id", $this->input("department_id"))
+            //     ->where(
+            //         "department_unit_id",
+            //         $this->input("department_unit_id")
+            //     )
+            //     ->where("sub_unit_id", $this->input("sub_unit_id"))
+            //     ->where("location_id", $this->input("location_id"))
+            //     ->first();
+
+            $approvers = ApproverSettings::where(
+                "one_charging_sync_id",
+                $this->input("one_charging_sync_id")
+            )->first();
 
             if (!$approvers) {
                 $validator->errors()->add("message", "No approvers yet.");

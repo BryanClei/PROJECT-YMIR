@@ -29,6 +29,7 @@ use App\Http\Requests\PRViewRequest;
 use App\Http\Resources\JoPoResource;
 use App\Helpers\BadgeHelperFunctions;
 use App\Http\Resources\PoItemResource;
+use App\Http\Requests\PO\ReturnRequest;
 use App\Http\Requests\PO\UpdateRequest;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\JoPo\StoreRequest;
@@ -124,25 +125,19 @@ class PoController extends Controller
 
         $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
 
-        $if_exist = PRTransaction::when(
-            $request->module_name === "Asset",
-            function ($query) use ($request) {
-                return $query->where("pr_number", $request->pr_number);
-            },
-            function ($query) use ($request) {
-                return $query->where("id", $request->pr_number);
-            }
-        )->get();
+        $if_exist = PRTransaction::where(
+            "pr_number",
+            $request->pr_number
+        )->first();
 
-        if ($if_exist->isEmpty()) {
+        if (!$if_exist) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        $po_settings = POSettings::where("company_id", $request->company_id)
-            ->where("business_unit_id", $request->business_unit_id)
-            ->where("department_id", $request->department_id)
-            ->get()
-            ->first();
+        $po_settings = POSettings::where(
+            "one_charging_sync_id",
+            $request->one_charging_sync_id
+        )->first();
 
         if (!$po_settings) {
             return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
@@ -157,10 +152,9 @@ class PoController extends Controller
             return GlobalFunction::notFound(Message::NO_APPROVERS);
         }
 
-        $check_price_approvers = PoApprovers::where(
-            "price_range",
-            "<=",
-            $sumOfTotalPrices
+        $check_price_approvers = PoApprovers::whereRaw(
+            "CAST(price_range AS DECIMAL(12,2)) <= ?",
+            [$sumOfTotalPrices]
         )
             ->where("po_settings_id", $po_settings->id)
             ->get();
@@ -196,24 +190,35 @@ class PoController extends Controller
             "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "status" => "Pending",
@@ -227,6 +232,8 @@ class PoController extends Controller
             "cap_ex" => $request->cap_ex,
             "description" => $request->po_description,
             "user_tagging" => $user_tagged,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
         ]);
         $purchase_order->save();
 
@@ -248,7 +255,7 @@ class PoController extends Controller
 
             POItems::create([
                 "po_id" => $purchase_order->id,
-                "pr_id" => $purchase_order->pr_number,
+                "pr_id" => $if_exist->id,
                 "pr_item_id" => $request["order"][$index]["pr_item_id"],
                 "reference_no" => $request["order"][$index]["reference_no"],
                 "item_id" => $request["order"][$index]["item_id"],
@@ -337,9 +344,10 @@ class PoController extends Controller
         $job_request_order = $jr_orders->order;
 
         $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
-            $request->company_id,
-            $request->business_unit_id,
-            $request->department_id
+            // $request->company_id,
+            // $request->business_unit_id,
+            // $request->department_id
+            $request->one_charging_sync_id
         );
 
         $charging_po_approvers = JobOrderPurchaseOrderApprovers::where(
@@ -390,24 +398,35 @@ class PoController extends Controller
             "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
             "module_name" => $request->module_name,
             "total_item_price" => $request->total_item_price,
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "status" => "Pending",
@@ -423,6 +442,8 @@ class PoController extends Controller
             "cip_number" => $request->cip_number,
             "layer" => "1",
             "description" => $request->description,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
         ]);
         $job_order->save();
 
@@ -584,22 +605,33 @@ class PoController extends Controller
             "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "module_name" => $request->module_name,
@@ -613,6 +645,8 @@ class PoController extends Controller
             "cap_ex" => $request->cap_ex,
             "description" => $request->description,
             "user_tagging" => $user_tagged,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
         ]);
 
         $activityDescription =
@@ -777,11 +811,9 @@ class PoController extends Controller
         }
 
         $po_settings = POSettings::where(
-            "company_id",
-            $purchase_order->company_id
-        )
-            ->get()
-            ->first();
+            "one_charging_sync_id",
+            $purchase_order->one_charging_sync_id
+        )->first();
 
         $highestPriceRange = PoApprovers::max("price_range");
 
@@ -877,10 +909,15 @@ class PoController extends Controller
         $sumOfTotalPrices = array_sum(array_column($orders, "total_price"));
 
         $charging_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
-            $request->company_id,
-            $request->business_unit_id,
-            $request->department_id
+            // $request->company_id,
+            // $request->business_unit_id,
+            // $request->department_id
+            $request->one_charging_sync_id
         );
+
+        if (!$charging_setting_id) {
+            return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
+        }
 
         $po_approvers = JobOrderPurchaseOrderApprovers::where(
             "jo_purchase_order_id",
@@ -1179,7 +1216,7 @@ class PoController extends Controller
         );
     }
 
-    public function cancel_jo_po(PORequest $request, $id)
+    public function cancel_jo_po(ReturnRequest $request, $id)
     {
         $no_rr = $request->no_rr;
         $user = Auth()->user()->id;
@@ -1202,7 +1239,7 @@ class PoController extends Controller
 
             $jr_transaction->update([
                 "status" => "Return",
-                "reason" => $reason,
+                "reason" => $request->reason,
             ]);
         }
 

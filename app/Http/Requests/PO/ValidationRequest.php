@@ -25,15 +25,24 @@ class ValidationRequest extends FormRequest
     public function rules()
     {
         return [
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,id,deleted_at,NULL",
+            ],
             "company_id" => ["required", "exists:companies,id,deleted_at,NULL"],
+            "company_code" => ["required"],
             "business_unit_id" => [
                 "required",
                 "exists:business_units,id,deleted_at,NULL",
             ],
+            "business_unit_code" => ["required"],
             "department_id" => [
                 "required",
                 "exists:departments,id,deleted_at,NULL",
             ],
+            "department_unit_code" => ["required"],
+            "location_code" => ["required"],
+            "sub_unit_code" => ["required"],
             "order.*.pr_item_id" => [
                 "required",
                 Rule::exists("pr_items", "id")

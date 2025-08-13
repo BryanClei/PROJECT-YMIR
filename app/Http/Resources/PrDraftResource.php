@@ -38,33 +38,42 @@ class PrDraftResource extends JsonResource
                         : null,
                 ]
                 : null,
-
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "type" => [
                 "id" => $this->type_id,
                 "name" => $this->type_name,
             ],
             "businessUnit" => [
                 "id" => $this->business_unit_id,
+                "code" => $this->business_unit_code,
                 "name" => $this->business_unit_name,
             ],
             "company" => [
                 "id" => $this->company_id,
+                "code" => $this->company_code,
                 "name" => $this->company_name,
             ],
             "department" => [
                 "id" => $this->department_id,
+                "code" => $this->department_code,
                 "name" => $this->department_name,
             ],
             "departmentUnit" => [
                 "id" => $this->department_unit_id,
+                "code" => $this->department_unit_code,
                 "name" => $this->department_unit_name,
             ],
             "location" => [
                 "id" => $this->location_id,
+                "code" => $this->location_code,
                 "name" => $this->location_name,
             ],
             "subUnit" => [
                 "id" => $this->sub_unit_id,
+                "code" => $this->sub_unit_code,
                 "name" => $this->sub_unit_name,
             ],
             "accountTitle" => [
@@ -75,7 +84,8 @@ class PrDraftResource extends JsonResource
                 "asset" => $this->asset,
                 "asset_code" => $this->asset_code ?? null,
             ],
-            "ship_to" => $this->ship_to,
+            "ship_to_id" => $this->ship_to_id,
+            "ship_to_name" => $this->ship_to_name,
             "cap_ex" => $this->cap_ex,
             "sgp" => $this->sgp,
             "f1" => $this->f1,

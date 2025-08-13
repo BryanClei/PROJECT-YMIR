@@ -69,14 +69,6 @@ class JobOrderTransactionController extends Controller
     }
     public function store(StoreRequest $request)
     {
-        // $amount_min_max = JobOrderMinMax::get();
-
-        // if ($amount_min_max->isEmpty()) {
-        //     return GlobalFunction::notFound(Message::NO_MIN_MAX);
-        // }
-
-        // return "stop";
-
         $user_id = Auth()->user()->id;
         $requestor_deptartment_id = Auth()->user()->department_id;
         $requestor_department_unit_id = Auth()->user()->department_unit_id;
@@ -84,6 +76,8 @@ class JobOrderTransactionController extends Controller
         $requestor_business_id = Auth()->user()->business_unit_id;
         $requestor_location_id = Auth()->user()->location_id;
         $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+        $requestor_one_charging_sync_id = Auth()->user()->one_charging_sync_id;
+
         $equal_settings = false;
         $orders = $request->order;
         $dateToday = Carbon::now()
@@ -108,12 +102,7 @@ class JobOrderTransactionController extends Controller
 
         if ($direct_po) {
             $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
-                $requestor_company_id,
-                $requestor_business_id,
-                $requestor_deptartment_id,
-                $requestor_department_unit_id,
-                $requestor_sub_unit_id,
-                $requestor_location_id
+                $requestor_one_charging_sync_id
             );
 
             if (!$requestor_setting_id) {
@@ -123,12 +112,7 @@ class JobOrderTransactionController extends Controller
             }
 
             $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                $request->company_id,
-                $request->business_unit_id,
-                $request->department_id,
-                $request->department_unit_id,
-                $request->sub_unit_id,
-                $request->location_id
+                $request->one_charging_sync_id
             );
 
             if (!$charging_setting_id) {
@@ -141,20 +125,20 @@ class JobOrderTransactionController extends Controller
                 "job_order_id",
                 $requestor_setting_id->id
             )
-                ->latest()
+                ->where("layer", "1")
                 ->get();
 
-            $final_requestor_approvers = $requestor_approvers->take(2);
+            $final_requestor_approvers = $requestor_approvers->take(1);
 
             if ($requestor_setting_id->id !== $charging_setting_id->id) {
                 $charging_approvers = JobOrderApprovers::where(
                     "job_order_id",
                     $charging_setting_id->id
                 )
-                    ->latest()
+                    ->where("layer", "1")
                     ->get();
 
-                $final_charging_approvers = $charging_approvers->take(2);
+                $final_charging_approvers = $charging_approvers->take(1);
             }
 
             $final_charging_approvers;
@@ -180,23 +164,34 @@ class JobOrderTransactionController extends Controller
                 "user_id" => $user_id,
                 "type_id" => $request->type_id,
                 "type_name" => $request->type_name,
+                "one_charging_id" => $request->one_charging_id,
+                "one_charging_sync_id" => $request->one_charging_sync_id,
+                "one_charging_code" => $request->one_charging_code,
+                "one_charging_name" => $request->one_charging_name,
                 "business_unit_id" => $request->business_unit_id,
+                "business_unit_code" => $request->business_unit_code,
                 "business_unit_name" => $request->business_unit_name,
                 "company_id" => $request->company_id,
+                "company_code" => $request->company_code,
                 "company_name" => $request->company_name,
                 "department_id" => $request->department_id,
+                "department_code" => $request->department_code,
                 "department_name" => $request->department_name,
                 "department_unit_id" => $request->department_unit_id,
+                "department_unit_code" => $request->department_unit_code,
                 "department_unit_name" => $request->department_unit_name,
                 "location_id" => $request->location_id,
+                "location_code" => $request->location_code,
                 "location_name" => $request->location_name,
                 "sub_unit_id" => $request->sub_unit_id,
+                "sub_unit_code" => $request->sub_unit_code,
                 "sub_unit_name" => $request->sub_unit_name,
                 "account_title_id" => $request->account_title_id,
                 "account_title_name" => $request->account_title_name,
                 "asset" => $request->asset,
                 "description" => $request->description,
-                "ship_to" => $request->ship_to,
+                "ship_to_id" => $request->ship_to_id,
+                "ship_to_name" => $request->ship_to_name,
             ];
 
             $job_order_request = new JobOrderTransaction(
@@ -408,25 +403,10 @@ class JobOrderTransactionController extends Controller
                 ]
             );
         } else {
-            // $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-            //     $request->company_id,
-            //     $request->business_unit_id,
-            //     $request->department_id,
-            //     $request->department_unit_id,
-            //     $request->sub_unit_id,
-            //     $request->location_id
-            // );
-
             $charging_setting_id = JobOrder::where(
-                "company_id",
-                $request->company_id
-            )
-                ->where("business_unit_id", $request->business_unit_id)
-                ->where("department_id", $request->department_id)
-                ->where("department_unit_id", $request->department_unit_id)
-                ->where("sub_unit_id", $request->sub_unit_id)
-                ->where("location_id", $request->location_id)
-                ->first();
+                "one_charging_sync_id",
+                $request->one_charging_sync_id
+            )->first();
 
             if (!$charging_setting_id) {
                 return GlobalFunction::invalid(
@@ -481,23 +461,34 @@ class JobOrderTransactionController extends Controller
                 "user_id" => $user_id,
                 "type_id" => $request->type_id,
                 "type_name" => $request->type_name,
+                "one_charging_id" => $request->one_charging_id,
+                "one_charging_sync_id" => $request->one_charging_sync_id,
+                "one_charging_code" => $request->one_charging_code,
+                "one_charging_name" => $request->one_charging_name,
                 "business_unit_id" => $request->business_unit_id,
+                "business_unit_code" => $request->business_unit_code,
                 "business_unit_name" => $request->business_unit_name,
                 "company_id" => $request->company_id,
+                "company_code" => $request->company_code,
                 "company_name" => $request->company_name,
                 "department_id" => $request->department_id,
+                "department_code" => $request->department_code,
                 "department_name" => $request->department_name,
                 "department_unit_id" => $request->department_unit_id,
+                "department_unit_code" => $request->department_unit_code,
                 "department_unit_name" => $request->department_unit_name,
                 "location_id" => $request->location_id,
+                "location_code" => $request->location_code,
                 "location_name" => $request->location_name,
                 "sub_unit_id" => $request->sub_unit_id,
+                "sub_unit_code" => $request->sub_unit_code,
                 "sub_unit_name" => $request->sub_unit_name,
                 "account_title_id" => $request->account_title_id,
                 "account_title_name" => $request->account_title_name,
                 "asset" => $request->asset,
                 "description" => $request->description,
-                "ship_to" => $request->ship_to,
+                "ship_to_id" => $request->ship_to_id,
+                "ship_to_name" => $request->ship_to_name,
             ];
 
             $job_order_request = new JobOrderTransaction(
@@ -611,6 +602,8 @@ class JobOrderTransactionController extends Controller
         $requestor_business_id = Auth()->user()->business_unit_id;
         $requestor_location_id = Auth()->user()->location_id;
         $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+        $requestor_one_charging_sync_id = Auth()->user()->one_charging_sync_id;
+
         $dateToday = Carbon::now()
             ->timeZone("Asia/Manila")
             ->format("Y-m-d H:i");
@@ -666,23 +659,34 @@ class JobOrderTransactionController extends Controller
             "user_id" => $user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
             "asset" => $request->asset,
             "description" => $request->description,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
         ];
 
         $current_jr->update(
@@ -696,12 +700,7 @@ class JobOrderTransactionController extends Controller
         if ($was_direct) {
             if (!$will_be_direct) {
                 $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                    $request->company_id,
-                    $request->business_unit_id,
-                    $request->department_id,
-                    $request->department_unit_id,
-                    $request->sub_unit_id,
-                    $request->location_id
+                    $request->one_charging_sync_id
                 );
 
                 if (!$charging_setting_id) {
@@ -790,12 +789,7 @@ class JobOrderTransactionController extends Controller
                         )->forceDelete();
 
                         $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
-                            $requestor_company_id,
-                            $requestor_business_id,
-                            $requestor_department_id,
-                            $requestor_department_unit_id,
-                            $requestor_sub_unit_id,
-                            $requestor_location_id
+                            $requestor_one_charging_sync_id
                         );
 
                         if (!$requestor_setting_id) {
@@ -805,12 +799,7 @@ class JobOrderTransactionController extends Controller
                         }
 
                         $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                            $request->company_id,
-                            $request->business_unit_id,
-                            $request->department_id,
-                            $request->department_unit_id,
-                            $request->sub_unit_id,
-                            $request->location_id
+                            $request->one_charging_sync_id
                         );
 
                         if (!$charging_setting_id) {
@@ -823,11 +812,11 @@ class JobOrderTransactionController extends Controller
                             "job_order_id",
                             $requestor_setting_id->id
                         )
-                            ->latest()
+                            ->where("layer", "1")
                             ->get();
 
                         $final_requestor_approvers = $requestor_approvers->take(
-                            2
+                            1
                         );
 
                         if (
@@ -838,11 +827,11 @@ class JobOrderTransactionController extends Controller
                                 "job_order_id",
                                 $charging_setting_id->id
                             )
-                                ->latest()
+                                ->where("layer", "1")
                                 ->get();
 
                             $final_charging_approvers = $charging_approvers->take(
-                                2
+                                1
                             );
                         }
 
@@ -897,6 +886,26 @@ class JobOrderTransactionController extends Controller
             }
         } else {
             if ($will_be_direct) {
+                $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
+                    $requestor_one_charging_sync_id
+                );
+
+                if (!$requestor_setting_id) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
+
+                $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
+                    $request->one_charging_sync_id
+                );
+
+                if (!$charging_setting_id) {
+                    return GlobalFunction::invalid(
+                        Message::NO_APPROVERS_SETTINGS_YET
+                    );
+                }
+
                 $current_jr->update([
                     "status" => "Approved",
                     "approved_at" => $dateToday,
@@ -957,54 +966,24 @@ class JobOrderTransactionController extends Controller
                     }
                 }
 
-                $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
-                    $requestor_company_id,
-                    $requestor_business_id,
-                    $requestor_department_id,
-                    $requestor_department_unit_id,
-                    $requestor_sub_unit_id,
-                    $requestor_location_id
-                );
-
-                if (!$requestor_setting_id) {
-                    return GlobalFunction::invalid(
-                        Message::NO_APPROVERS_SETTINGS_YET
-                    );
-                }
-
-                $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                    $request->company_id,
-                    $request->business_unit_id,
-                    $request->department_id,
-                    $request->department_unit_id,
-                    $request->sub_unit_id,
-                    $request->location_id
-                );
-
-                if (!$charging_setting_id) {
-                    return GlobalFunction::invalid(
-                        Message::NO_APPROVERS_SETTINGS_YET
-                    );
-                }
-
                 $requestor_approvers = JobOrderApprovers::where(
                     "job_order_id",
                     $requestor_setting_id->id
                 )
-                    ->latest()
+                    ->where("layer", "1")
                     ->get();
 
-                $final_requestor_approvers = $requestor_approvers->take(2);
+                $final_requestor_approvers = $requestor_approvers->take(1);
 
                 if ($requestor_setting_id->id !== $charging_setting_id->id) {
                     $charging_approvers = JobOrderApprovers::where(
                         "job_order_id",
                         $charging_setting_id->id
                     )
-                        ->latest()
+                        ->where("layer", "1")
                         ->get();
 
-                    $final_charging_approvers = $charging_approvers->take(2);
+                    $final_charging_approvers = $charging_approvers->take(1);
                 }
 
                 $final_charging_approvers;
@@ -1053,12 +1032,7 @@ class JobOrderTransactionController extends Controller
                     ]);
 
                     $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                        $request->company_id,
-                        $request->business_unit_id,
-                        $request->department_id,
-                        $request->department_unit_id,
-                        $request->sub_unit_id,
-                        $request->location_id
+                        $request->one_charging_sync_id
                     );
 
                     if (!$charging_setting_id) {
@@ -1107,12 +1081,7 @@ class JobOrderTransactionController extends Controller
                     }
                 } else {
                     $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-                        $request->company_id,
-                        $request->business_unit_id,
-                        $request->department_id,
-                        $request->department_unit_id,
-                        $request->sub_unit_id,
-                        $request->location_id
+                        $request->one_charging_sync_id
                     );
 
                     if (!$charging_setting_id) {
@@ -1605,6 +1574,7 @@ class JobOrderTransactionController extends Controller
         $requestor_business_id = Auth()->user()->business_unit_id;
         $requestor_location_id = Auth()->user()->location_id;
         $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+        $requestor_one_charging_sync_id = Auth()->user()->one_charging_sync_id;
 
         $orders = $request->order;
         $dateToday = Carbon::now()
@@ -1632,12 +1602,7 @@ class JobOrderTransactionController extends Controller
         }
 
         $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
-            $requestor_company_id,
-            $requestor_business_id,
-            $requestor_deptartment_id,
-            $requestor_department_unit_id,
-            $requestor_sub_unit_id,
-            $requestor_location_id
+            $requestor_one_charging_sync_id
         );
 
         if (!$requestor_setting_id) {
@@ -1645,12 +1610,7 @@ class JobOrderTransactionController extends Controller
         }
 
         $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-            $request->company_id,
-            $request->business_unit_id,
-            $request->department_id,
-            $request->department_unit_id,
-            $request->sub_unit_id,
-            $request->location_id
+            $request->one_charging_sync_id
         );
 
         if (!$charging_setting_id) {
@@ -1664,24 +1624,35 @@ class JobOrderTransactionController extends Controller
             "user_id" => $user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
             "asset" => $request->asset,
             "description" => $request->description,
             "direct_po" => $dateToday,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
         ];
 
         $job_order_request->update(
@@ -1885,10 +1856,10 @@ class JobOrderTransactionController extends Controller
             "job_order_id",
             $requestor_setting_id->id
         )
-            ->latest()
+            ->where("layer", "1")
             ->get();
 
-        $final_requestor_approvers = $requestor_approvers->take(2);
+        $final_requestor_approvers = $requestor_approvers->take(1);
 
         $layer_count = 1;
 
@@ -1907,10 +1878,10 @@ class JobOrderTransactionController extends Controller
                 "job_order_id",
                 $charging_setting_id->id
             )
-                ->latest()
+                ->where("layer", "1")
                 ->get();
 
-            $final_charging_approvers = $charging_approvers->take(2);
+            $final_charging_approvers = $charging_approvers->take(1);
 
             foreach ($final_requestor_approvers as $approver) {
                 JoPoHistory::create([

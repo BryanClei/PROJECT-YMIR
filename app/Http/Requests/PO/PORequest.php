@@ -25,7 +25,7 @@ class PORequest extends FormRequest
     {
         return [
             "order_item_ids" => "required|array|min:1",
-            "order_item_ids.*" => "integer|exists:po_items,id,deleted_at,NULL",
+            "order_item_ids.*" => "integer|exists:po_orders,id,deleted_at,NULL",
             "reason" => "required|string",
             "no_rr" => "nullable|boolean",
         ];

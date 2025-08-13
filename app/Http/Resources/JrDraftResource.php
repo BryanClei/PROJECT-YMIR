@@ -29,7 +29,10 @@ class JrDraftResource extends JsonResource
                 "middle_name" => $this->users->middle_name,
                 "last_name" => $this->users->last_name,
             ],
-
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "type" => [
                 "id" => $this->type_id,
                 "name" => $this->type_name,
@@ -76,7 +79,8 @@ class JrDraftResource extends JsonResource
             "outside_labor" => $this->outside_labor,
             "cap_ex" => $this->cap_ex,
             "direct_po" => $this->direct_po,
-            "ship_to" => $this->ship_to,
+            "ship_to_id" => $this->ship_to_id,
+            "ship_to_name" => $this->ship_to_name,
             "for_po_only" => $this->for_po_only,
             "for_po_only_id" => $this->for_po_only_id,
             "order_jo_transaction_id" => $this->id,

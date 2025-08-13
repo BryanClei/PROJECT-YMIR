@@ -62,6 +62,8 @@ class BuyerResource extends JsonResource
                 "id" => $this->account_title_id,
                 "name" => $this->account_title_name,
             ],
+            "ship_to_id" => $this->ship_to_id,
+            "ship_to_name" => $this->ship_to_name,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,

@@ -27,23 +27,23 @@ class IntegrationGLResource extends JsonResource
         $month2 = Carbon::parse($this->delivery_date)->format("Ym");
 
         // Static values for Asset module
-        $company = Company::where("name", "RDF FLFI")
+        $company = Company::where("name", "RDF")
             ->where("code", "01")
             ->first();
         $business_unit = BusinessUnit::where("name", "RDF Corporate Services")
             ->where("code", "10")
             ->first();
         $department = Department::where("name", "Corporate")
-            ->where("code", "100")
+            ->where("code", "0100")
             ->first();
         $department_unit = DepartmentUnit::where("name", "Corporate Common")
-            ->where("code", "101")
+            ->where("code", "0101")
             ->first();
         $location = Location::where("name", "Head Office")
-            ->where("code", "1")
+            ->where("code", "0001")
             ->first();
         $sub_unit = SubUnit::where("name", "Corporate Common")
-            ->where("code", "11")
+            ->where("code", "0011")
             ->first();
 
         $assetCIP =
@@ -51,10 +51,11 @@ class IntegrationGLResource extends JsonResource
                 ? $this->order->remarks
                 : null;
 
-        $boA2 =
-            $this->po_transaction->module_name === "Asset"
-                ? "Fixed Asset"
-                : $this->po_transaction->module_name;
+        $boA2 = match ($this->po_transaction->module_name) {
+            "Asset" => "Fixed Asset",
+            "Inventoriables" => "Inventoriable",
+            default => $this->po_transaction->module_name,
+        };
 
         $userData = $this->getUserData();
 
@@ -74,41 +75,53 @@ class IntegrationGLResource extends JsonResource
                     (int) $this->po_transaction->account_title->code,
                 "accountTitle" => $this->po_transaction->account_title->name,
                 "companyCode" => $isAssetModule
-                    ? (int) $company->code
-                    : (int) $this->po_transaction->company->code,
+                    ? ($company?->code !== null
+                        ? (int) $company->code
+                        : null)
+                    : $this->po_transaction->company_code,
                 "company" => $isAssetModule
-                    ? $company->name
-                    : $this->po_transaction->company->name,
+                    ? $company?->name
+                    : $this->po_transaction->company_name,
                 "divisionCode" => $isAssetModule
-                    ? (int) $business_unit->code
-                    : (int) $this->po_transaction->business_unit->code,
+                    ? ($business_unit?->code !== null
+                        ? (int) $business_unit->code
+                        : null)
+                    : $this->po_transaction->business_unit_code,
                 "division" => $isAssetModule
-                    ? $business_unit->name
+                    ? $business_unit?->name
                     : $this->po_transaction->business_unit_name,
                 "departmentCode" => $isAssetModule
-                    ? (int) $department->code
-                    : (int) $this->po_transaction->department->code,
+                    ? ($department?->code !== null
+                        ? (int) $department->code
+                        : null)
+                    : $this->po_transaction->department_code,
                 "department" => $isAssetModule
-                    ? $department->name
-                    : $this->po_transaction->department->name,
+                    ? $department?->name
+                    : $this->po_transaction->department_name,
                 "unitCode" => $isAssetModule
-                    ? (int) $department_unit->code
-                    : (int) $this->po_transaction->department_unit->code,
+                    ? ($department_unit?->code !== null
+                        ? (int) $department_unit->code
+                        : null)
+                    : $this->po_transaction->department_unit_name,
                 "unit" => $isAssetModule
-                    ? $department_unit->name
-                    : $this->po_transaction->department_unit->name,
+                    ? $department_unit?->name
+                    : $this->po_transaction->department_unit_name,
                 "subUnitCode" => $isAssetModule
-                    ? (int) $sub_unit->code
-                    : (int) $this->po_transaction->sub_unit->code,
+                    ? ($sub_unit?->code !== null
+                        ? (int) $sub_unit->code
+                        : null)
+                    : $this->po_transaction->sub_unit_code,
                 "subUnit" => $isAssetModule
-                    ? $sub_unit->name
-                    : $this->po_transaction->sub_unit->name,
+                    ? $sub_unit?->name
+                    : $this->po_transaction->sub_unit_name,
                 "locationCode" => $isAssetModule
-                    ? (int) $location->code
-                    : (int) $this->po_transaction->location->code,
+                    ? ($location?->code !== null
+                        ? (int) $location->code
+                        : null)
+                    : $this->po_transaction->location_code,
                 "location" => $isAssetModule
-                    ? $location->name
-                    : $this->po_transaction->location->name,
+                    ? $location?->name
+                    : $this->po_transaction->location_name,
                 "poNumber" => $this->po_transaction->po_year_number_id,
                 "rrNumber" => $this->rr_transaction->rr_year_number_id,
                 "referenceNo" => $this->shipment_no,
@@ -197,41 +210,53 @@ class IntegrationGLResource extends JsonResource
                     $this->po_transaction->account_title->credit_name ??
                     $this->po_transaction->account_title->name,
                 "companyCode" => $isAssetModule
-                    ? (int) $company->code
-                    : (int) $this->po_transaction->company->code,
+                    ? ($company?->code !== null
+                        ? (int) $company->code
+                        : null)
+                    : $this->po_transaction->company_code,
                 "company" => $isAssetModule
-                    ? $company->name
-                    : $this->po_transaction->company->name,
+                    ? $company?->name
+                    : $this->po_transaction->company_name,
                 "divisionCode" => $isAssetModule
-                    ? (int) $business_unit->code
-                    : (int) $this->po_transaction->business_unit->code,
+                    ? ($business_unit?->code !== null
+                        ? (int) $business_unit->code
+                        : null)
+                    : $this->po_transaction->business_unit_code,
                 "division" => $isAssetModule
-                    ? $business_unit->name
+                    ? $business_unit?->name
                     : $this->po_transaction->business_unit_name,
                 "departmentCode" => $isAssetModule
-                    ? (int) $department->code
-                    : (int) $this->po_transaction->department->code,
+                    ? ($department?->code !== null
+                        ? (int) $department->code
+                        : null)
+                    : $this->po_transaction->department_code,
                 "department" => $isAssetModule
-                    ? $department->name
-                    : $this->po_transaction->department->name,
+                    ? $department?->name
+                    : $this->po_transaction->department_name,
                 "unitCode" => $isAssetModule
-                    ? (int) $department_unit->code
-                    : (int) $this->po_transaction->department_unit->code,
+                    ? ($department_unit?->code !== null
+                        ? (int) $department_unit->code
+                        : null)
+                    : $this->po_transaction->department_unit_name,
                 "unit" => $isAssetModule
-                    ? $department_unit->name
-                    : $this->po_transaction->department_unit->name,
+                    ? $department_unit?->name
+                    : $this->po_transaction->department_unit_name,
                 "subUnitCode" => $isAssetModule
-                    ? (int) $sub_unit->code
-                    : (int) $this->po_transaction->sub_unit->code,
+                    ? ($sub_unit?->code !== null
+                        ? (int) $sub_unit->code
+                        : null)
+                    : $this->po_transaction->sub_unit_code,
                 "subUnit" => $isAssetModule
-                    ? $sub_unit->name
-                    : $this->po_transaction->sub_unit->name,
+                    ? $sub_unit?->name
+                    : $this->po_transaction->sub_unit_name,
                 "locationCode" => $isAssetModule
-                    ? (int) $location->code
-                    : (int) $this->po_transaction->location->code,
+                    ? ($location?->code !== null
+                        ? (int) $location->code
+                        : null)
+                    : $this->po_transaction->location_code,
                 "location" => $isAssetModule
-                    ? $location->name
-                    : $this->po_transaction->location->name,
+                    ? $location?->name
+                    : $this->po_transaction->location_name,
                 "poNumber" => $this->po_transaction->po_year_number_id,
                 "rrNumber" => $this->rr_transaction->rr_year_number_id,
                 "referenceNo" => $this->shipment_no,

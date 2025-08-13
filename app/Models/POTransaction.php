@@ -25,17 +25,27 @@ class POTransaction extends Model
         "user_id",
         "type_id",
         "type_name",
+        "one_charging_id",
+        "one_charging_sync_id",
+        "one_charging_code",
+        "one_charging_name",
         "business_unit_id",
+        "business_unit_code",
         "business_unit_name",
         "company_id",
+        "company_code",
         "company_name",
         "department_id",
+        "department_code",
         "department_name",
         "department_unit_id",
+        "department_unit_code",
         "department_unit_name",
         "location_id",
+        "location_code",
         "location_name",
         "sub_unit_id",
+        "sub_unit_code",
         "sub_unit_name",
         "account_title_id",
         "account_title_name",
@@ -44,13 +54,15 @@ class POTransaction extends Model
         "module_name",
         "total_item_price",
         "status",
+        "print_status",
         "layer",
         "cap_ex",
         "description",
         "reason",
         "edit_remarks",
         "pcf_remarks",
-        "ship_to",
+        "ship_to_id",
+        "ship_to_name",
         "approver_remarks",
         "asset",
         "sgp",
@@ -59,6 +71,8 @@ class POTransaction extends Model
         "rush",
         "user_tagging",
         "place_order",
+        "for_po_only",
+        "for_po_only_id",
         "approved_at",
         "rejected_at",
         "voided_at",
@@ -177,5 +191,14 @@ class POTransaction extends Model
     public function business_unit()
     {
         return $this->belongsTo(BusinessUnit::class, "business_unit_id", "id");
+    }
+
+    public function one_charging()
+    {
+        return $this->belongsTo(
+            Charging::class,
+            "one_charging_sync_id",
+            "sync_id"
+        );
     }
 }

@@ -17,40 +17,63 @@ class ApproverSettings extends Model
     protected $fillable = [
         "module",
         "company_id",
+        "company_code",
         "business_unit_id",
+        "business_unit_code",
         "department_id",
+        "department_code",
         "department_unit_id",
+        "department_unit_code",
         "sub_unit_id",
+        "sub_unit_code",
         "location_id",
+        "location_code",
+        "one_charging_id",
+        "one_charging_sync_id",
+        "one_charging_code",
+        "one_charging_name",
     ];
 
     public function company()
     {
-        return $this->belongsTo(Company::class, "company_id", "id");
+        return $this->belongsTo(Company::class, "company_code", "code");
     }
     public function business_unit()
     {
-        return $this->belongsTo(BusinessUnit::class, "business_unit_id", "id");
+        return $this->belongsTo(
+            BusinessUnit::class,
+            "business_unit_code",
+            "code"
+        );
     }
     public function department()
     {
-        return $this->belongsTo(Department::class, "department_id", "id");
+        return $this->belongsTo(Department::class, "department_code", "code");
     }
     public function department_unit()
     {
         return $this->belongsTo(
             DepartmentUnit::class,
-            "department_unit_id",
-            "id"
+            "department_unit_code",
+            "code"
         );
     }
     public function sub_unit()
     {
-        return $this->belongsTo(SubUnit::class, "sub_unit_id", "id");
+        return $this->belongsTo(SubUnit::class, "sub_unit_code", "code");
     }
     public function locations()
     {
-        return $this->belongsTo(Location::class, "location_id", "id");
+        return $this->belongsTo(Location::class, "location_code", "code");
+    }
+
+    public function one_charging()
+    {
+        return $this->belongsTo(
+            Charging::class,
+            "one_charging_sync_id",
+            "sync_id"
+        );
     }
 
     public function set_approver()

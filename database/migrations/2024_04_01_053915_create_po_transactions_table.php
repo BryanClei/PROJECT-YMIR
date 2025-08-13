@@ -32,46 +32,37 @@ return new class extends Migration {
                 ->on("types");
             $table->string("type_name");
 
-            $table->unsignedInteger("business_unit_id")->index();
             $table
-                ->foreign("business_unit_id")
+                ->unsignedInteger("one_charging_id")
+                ->nullable()
+                ->index();
+
+            $table
+                ->foreign("one_charging_id")
                 ->references("id")
-                ->on("business_units");
+                ->on("one_charging");
+
+            $table->string("one_charging_sync_id")->nullable();
+            $table->string("one_charging_code")->nullable();
+            $table->string("one_charging_name")->nullable();
+
+            $table->string("business_unit_id");
+            $table->string("business_unit_code");
             $table->string("business_unit_name");
-
-            $table->unsignedInteger("company_id")->index();
-            $table
-                ->foreign("company_id")
-                ->references("id")
-                ->on("companies");
+            $table->string("company_id");
+            $table->string("company_code");
             $table->string("company_name");
-
-            $table->unsignedInteger("department_id")->index();
-            $table
-                ->foreign("department_id")
-                ->references("id")
-                ->on("departments");
+            $table->string("department_id");
+            $table->string("department_code");
             $table->string("department_name");
-
-            $table->unsignedInteger("department_unit_id")->index();
-            $table
-                ->foreign("department_unit_id")
-                ->references("id")
-                ->on("department_units");
+            $table->string("department_unit_id");
+            $table->string("department_unit_code");
             $table->string("department_unit_name");
-
-            $table->unsignedInteger("location_id")->index();
-            $table
-                ->foreign("location_id")
-                ->references("id")
-                ->on("locations");
+            $table->string("location_id");
+            $table->string("location_code");
             $table->string("location_name");
-
-            $table->unsignedInteger("sub_unit_id")->index();
-            $table
-                ->foreign("sub_unit_id")
-                ->references("id")
-                ->on("sub_units");
+            $table->string("sub_unit_id");
+            $table->string("sub_unit_code");
             $table->string("sub_unit_name");
 
             $table->unsignedInteger("account_title_id")->index();
@@ -92,11 +83,13 @@ return new class extends Migration {
             $table->string("layer");
             $table->string("cap_ex")->nullable();
             $table->string("status")->nullable();
+            $table->integer("print_status")->default(0);
             $table->string("description")->nullable();
             $table->string("reason")->nullable();
             $table->string("edit_remarks")->nullable();
             $table->string("pcf_remarks")->nullable();
-            $table->string("ship_to")->nullable();
+            $table->string("ship_to_id")->nullable();
+            $table->string("ship_to_name")->nullable();
             $table->longText("approver_remarks")->nullable();
             $table->string("asset")->nullable();
             $table->string("asset_code")->nullable();
@@ -106,6 +99,8 @@ return new class extends Migration {
             $table->string("rush")->nullable();
             $table->string("user_tagging")->nullable();
             $table->string("place_order")->nullable();
+            $table->string("for_po_only")->nullable();
+            $table->string("for_po_only_id")->nullable();
             $table->timestamp("approved_at")->nullable();
             $table->timestamp("rejected_at")->nullable();
             $table->timestamp("voided_at")->nullable();

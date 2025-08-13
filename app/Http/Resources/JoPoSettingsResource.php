@@ -18,16 +18,24 @@ class JoPoSettingsResource extends JsonResource
         return [
             "id" => $this->id,
             "module" => $this->module,
+            "one_charging" => $this->one_charging,
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "company" => [
                 "company_id" => $this->company_id,
+                "company_code" => $this->company_code,
                 "company_name" => $this->company_name,
             ],
-            "business" => [
+            "business_unit" => [
                 "buisness_unit_id" => $this->business_unit_id,
+                "business_unit_code" => $this->business_unit_code,
                 "buisness_unit_name" => $this->business_unit_name,
             ],
             "department" => [
                 "department_id" => $this->department_id,
+                "department_code" => $this->department_code,
                 "department_name" => $this->department_name,
             ],
             "created_at" => $this->created_at,

@@ -9,10 +9,13 @@ use App\Models\JobItems;
 use App\Models\RROrders;
 use App\Response\Message;
 use App\Models\JoPoOrders;
+use App\Models\LogHistory;
 use Illuminate\Http\Request;
+use App\Models\POTransaction;
 use App\Models\POItemsReports;
 use App\Models\PRItemsReports;
 use App\Models\JobItemsReports;
+use App\Models\JOPOTransaction;
 use App\Http\Requests\PADisplay;
 use App\Functions\GlobalFunction;
 use App\Models\JoPoOrdersReports;
@@ -574,113 +577,63 @@ class ReportSummaryController extends Controller
         );
     }
 
-    // public function pr_purchasing_reports()
-    // {
-    //     $pr_items = PRItemsReports::with(
-    //         "uom",
-    //         "transaction.vladimir_user",
-    //         "transaction.regular_user",
-    //         "transaction.approver_history",
-    //         "transaction.po_transaction.order",
-    //         "transaction.po_transaction.approver_history",
-    //         "transaction.po_transaction.order.rr_orders",
-    //         "transaction.po_transaction.order.rr_orders.rr_transaction",
-    //     )
-    //         ->orderByDesc("id")
-    //         ->useFilters()
-    //         ->get();
+    public function print_status_update(Request $request, $id)
+    {
+        $status_update = $request->boolean("print_status_restore") ? 0 : 1;
 
-    //     if ($pr_items->isEmpty()) {
-    //         return GlobalFunction::notFound(Message::NO_DATA_FOUND);
-    //     }
+        $po_transaction = POTransaction::where("id", $id)->first();
 
-    //     // Step 1: Flatten the items by po_order
-    //     $flattenedItems = collect();
+        if (!$po_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
 
-    //     foreach ($pr_items as $item) {
-    //         $poTransactions = $item->transaction->po_transaction;
+        $po_transaction->update(["print_status" => $status_update]);
+        $user_id = auth()->id();
 
-    //         if ($poTransactions->isNotEmpty()) {
-    //             // Create separate item for each PO Transaction and its PO Orders
-    //             foreach ($poTransactions as $poTransaction) {
-    //                 // Convert to array
-    //                 $itemArray = $item->toArray();
+        if ($status_update == 0) {
+            $activityDescription = "Purchase Order Transaction ID: {$id} print status was reset by UID: {$user_id}";
+        } else {
+            $activityDescription = "Purchase Order Transaction ID: {$id} has been printed by UID: {$user_id}";
+        }
 
-    //                 // Get the actual PO order items from the PO transaction
-    //                 $itemArray['po_order'] = $poTransaction->order ? $poTransaction->order->toArray() : null;
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "po_id" => $id,
+            "action_by" => $user_id,
+        ]);
 
-    //                 // Keep only the current PO transaction in the transaction->po_transaction array
-    //                 if (isset($itemArray['transaction']['po_transaction'])) {
-    //                     $itemArray['transaction']['po_transaction'] = collect($itemArray['transaction']['po_transaction'])
-    //                         ->where('id', $poTransaction->id)
-    //                         ->values()
-    //                         ->all();
-    //                 }
+        return response()->json([
+            "message" => "Print status updated {$status_update} successfully.",
+        ]);
+    }
 
-    //                 // Convert back to object
-    //                 $newItem = json_decode(json_encode($itemArray));
-    //                 $flattenedItems->push($newItem);
-    //             }
-    //         } else {
-    //             // No PO transactions
-    //             $itemArray = $item->toArray();
-    //             $itemArray['po_order'] = null;
+    public function print_status_update_jo(Request $request, $id)
+    {
+        $status_update = $request->boolean("print_status_restore") ? 0 : 1;
 
-    //             if (isset($itemArray['transaction']['po_transaction'])) {
-    //                 $itemArray['transaction']['po_transaction'] = [];
-    //             }
+        $po_transaction = JOPOTransaction::where("id", $id)->first();
 
-    //             $newItem = json_decode(json_encode($itemArray));
-    //             $flattenedItems->push($newItem);
-    //         }
-    //     }
+        if (!$po_transaction) {
+            return GlobalFunction::notFound(Message::NOT_FOUND);
+        }
 
-    //     // Step 2: Transform user data
-    //     $transformed = $flattenedItems->map(function ($item) {
-    //         $t = $item->transaction ?? null;
+        $po_transaction->update(["print_status" => $status_update]);
+        $user_id = auth()->id();
 
-    //         if ($t) {
-    //             $t->users = $t->module_name === "Asset" && isset($t->vladimir_user)
-    //                 ? [
-    //                     "id" => $t->vladimir_user->id ?? null,
-    //                     "employee_id" => $t->vladimir_user->employee_id ?? null,
-    //                     "username" => $t->vladimir_user->username ?? null,
-    //                     "first_name" => $t->vladimir_user->firstname ?? null,
-    //                     "last_name" => $t->vladimir_user->lastname ?? null,
-    //                 ]
-    //                 : (isset($t->regular_user)
-    //                     ? [
-    //                         "prefix_id" => $t->regular_user->prefix_id ?? null,
-    //                         "id_number" => $t->regular_user->id_number ?? null,
-    //                         "first_name" => $t->regular_user->first_name ?? null,
-    //                         "middle_name" => $t->regular_user->middle_name ?? null,
-    //                         "last_name" => $t->regular_user->last_name ?? null,
-    //                         "mobile_no" => $t->regular_user->mobile_no ?? null,
-    //                     ]
-    //                     : []);
+        if ($status_update == 0) {
+            $activityDescription = "Purchase Order Transaction ID: {$id} print status was reset by UID: {$user_id}";
+        } else {
+            $activityDescription = "Purchase Order Transaction ID: {$id} has been printed by UID: {$user_id}";
+        }
 
-    //             // Remove the user objects to avoid duplication
-    //             unset($t->vladimir_user, $t->regular_user);
-    //         }
+        LogHistory::create([
+            "activity" => $activityDescription,
+            "jo_po_id" => $id,
+            "action_by" => $user_id,
+        ]);
 
-    //         return $item;
-    //     });
-
-    //     // Step 3: Manual pagination
-    //     $page = request("page", 1);
-    //     $perPage = request("per_page", 20);
-
-    //     $paginated = new LengthAwarePaginator(
-    //         $transformed->forPage($page, $perPage)->values(),
-    //         $transformed->count(),
-    //         $perPage,
-    //         $page,
-    //         ["path" => request()->url(), "query" => request()->query()]
-    //     );
-
-    //     return GlobalFunction::responseFunction(
-    //         Message::PURCHASE_REQUEST_DISPLAY,
-    //         $paginated
-    //     );
-    // }
+        return response()->json([
+            "message" => "Print status updated to {$status_update} successfully.",
+        ]);
+    }
 }

@@ -8,7 +8,7 @@ class ApproverFilters extends QueryFilters
 {
     protected array $allowedFilters = [];
 
-    protected array $columnSearch = [];
+    protected array $columnSearch = ["name"];
 
     public function search_approver($search_approver)
     {

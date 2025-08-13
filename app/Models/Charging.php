@@ -2,13 +2,17 @@
 
 namespace App\Models;
 
+use App\Filters\OneChargingFilters;
+use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Charging extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, Filterable;
+
+    protected string $default_filters = OneChargingFilters::class;
 
     protected $connection = "mysql";
 
@@ -40,35 +44,39 @@ class Charging extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class, "company_id", "id");
+        return $this->belongsTo(Company::class, "company_code", "code");
     }
 
     public function business_unit()
     {
-        return $this->belongsTo(BusinessUnit::class, "business_unit_id", "id");
+        return $this->belongsTo(
+            BusinessUnit::class,
+            "business_unit_code",
+            "code"
+        );
     }
 
     public function department()
     {
-        return $this->belongsTo(Department::class, "department_id", "id");
+        return $this->belongsTo(Department::class, "department_code", "code");
     }
 
     public function department_unit()
     {
         return $this->belongsTo(
             DepartmentUnit::class,
-            "department_unit_id",
-            "id"
+            "department_unit_code",
+            "code"
         );
     }
 
     public function sub_unit()
     {
-        return $this->belongsTo(SubUnit::class, "sub_unit_id", "id");
+        return $this->belongsTo(SubUnit::class, "sub_unit_code", "code");
     }
 
     public function location()
     {
-        return $this->belongsTo(Location::class, "location_id", "id");
+        return $this->belongsTo(Location::class, "location_code", "code");
     }
 }

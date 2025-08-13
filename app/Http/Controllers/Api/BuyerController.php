@@ -227,11 +227,7 @@ class BuyerController extends Controller
             "users",
             "order" => function ($query) {
                 $query
-                    ->where(function ($query) {
-                        $query
-                            ->whereNull("remaining_qty")
-                            ->orWhere("remaining_qty", "!=", 0);
-                    })
+                    ->where("quantity", ">", "partial_received")
                     ->with("category");
             },
             "approver_history",
@@ -378,7 +374,8 @@ class BuyerController extends Controller
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "buyer_id" => $request->buyer_id,
             "buyer_name" => $request->buyer_name,
             "edit_remarks" => $request->edit_remarks,
@@ -398,8 +395,8 @@ class BuyerController extends Controller
             ]);
 
             $po_settings = POSettings::where(
-                "company_id",
-                $purchase_order->company_id
+                "one_charging_sync_id",
+                $purchase_order->one_charging_sync_id
             )
                 ->get()
                 ->first();
@@ -800,7 +797,7 @@ class BuyerController extends Controller
         );
     }
 
-    public function place_order($id)
+    public function place_order(Request $request, $id)
     {
         $purchase_order = POTransaction::where("id", $id)
             ->get()
@@ -831,7 +828,7 @@ class BuyerController extends Controller
         $place_order = new PoResource($purchase_order);
 
         return GlobalFunction::responseFunction(
-            Message::PURCHASE_ORER_PLACE_ORDER,
+            Message::PURCHASE_ORDER_PLACE_ORDER,
             $place_order
         );
     }

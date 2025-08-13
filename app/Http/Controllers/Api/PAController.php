@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use Log;
 use Carbon\Carbon;
 use App\Models\Type;
 use App\Models\POItems;
@@ -23,6 +24,7 @@ use App\Http\Requests\PADisplay;
 use App\Functions\GlobalFunction;
 use App\Models\PurchaseAssistant;
 use App\Http\Resources\PoResource;
+use Illuminate\Support\Facades\DB;
 use App\Http\Requests\PO\PORequest;
 use App\Http\Resources\PAResources;
 use App\Models\JobOrderTransaction;
@@ -38,11 +40,9 @@ use App\Http\Resources\JobOrderResource;
 use App\Http\Requests\JoPo\UpdateRequest;
 use App\Http\Resources\PRTransactionResource;
 use App\Models\JobOrderPurchaseOrderApprovers;
+
 use App\Http\Requests\PurchasingAssistant\StoreRequest;
 use App\Http\Requests\JobOrderTransaction\CancelRequest;
-
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class PAController extends Controller
 {
@@ -86,6 +86,8 @@ class PAController extends Controller
 
     public function index_purchase_order(PADisplay $request)
     {
+        // DB::enableQueryLog();
+
         $purchase_request = PurchaseAssistantPO::with([
             "pr_transaction",
             "po_items",
@@ -98,6 +100,27 @@ class PAController extends Controller
             ->withTrashed()
             ->useFilters()
             ->dynamicPaginate();
+
+        // Get the queries and output them
+        // $queries = DB::getQueryLog();
+
+        // Option 1: Log to Laravel log file
+        // \Log::info("Query Count: " . count($queries));
+        // foreach ($queries as $query) {
+        //     \Log::info("Query Time: " . $query["time"] . "ms");
+        //     \Log::info("SQL: " . $query["query"]);
+        //     \Log::info("Bindings: " . json_encode($query["bindings"]));
+        //     \Log::info("-------------------");
+        // }
+
+        // Option 2: Return in API response (for testing only)
+        if ($request->has("debug")) {
+            return response()->json([
+                "query_count" => count($queries),
+                "queries" => $queries,
+                "data" => $purchase_request,
+            ]);
+        }
 
         $is_empty = $purchase_request->isEmpty();
 
@@ -248,12 +271,6 @@ class PAController extends Controller
                             $query
                                 ->whereNotNull("buyer_id")
                                 ->whereNull("supplier_id");
-                        })
-                        ->with("category")
-                        ->where(function ($query) {
-                            $query
-                                ->whereNull("remaining_qty")
-                                ->orWhere("remaining_qty", "!=", 0);
                         });
                 },
                 "order.warehouse",
@@ -401,17 +418,27 @@ class PAController extends Controller
             "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
@@ -426,13 +453,16 @@ class PAController extends Controller
             "f2" => $request->f2,
             "layer" => "1",
             "rush" => $request->rush,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "outside_labor" => $request->outside_labor,
             "cap_ex" => $request->cap_ex,
             "direct_po" => $request->direct_po,
             "helpdesk_id" => $request->helpdesk_id,
             "cip_number" => $request->cip_number,
             "description" => $request->description,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
         ]);
 
         $newOrders = collect($orders)
@@ -514,9 +544,10 @@ class PAController extends Controller
             }
 
             $charging_purchase_order_setting_id = GlobalFunction::job_request_purchase_order_charger_setting_id(
-                $request->company_id,
-                $request->business_unit_id,
-                $request->department_id
+                // $request->company_id,
+                // $request->business_unit_id,
+                // $request->department_id
+                $request->one_charging_sync_id
             );
 
             $charging_po_approvers = JobOrderPurchaseOrderApprovers::where(
@@ -570,6 +601,7 @@ class PAController extends Controller
         $requestor_business_id = Auth()->user()->business_unit_id;
         $requestor_location_id = Auth()->user()->location_id;
         $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+        $requestor_one_charging_sync_id = Auth()->user()->one_charging_sync_id;
 
         $dateToday = Carbon::now()
             ->timeZone("Asia/Manila")
@@ -579,21 +611,23 @@ class PAController extends Controller
         $newTotalPrice = array_sum(array_column($orders, "total_price"));
 
         $requestor_setting_id = GlobalFunction::job_request_requestor_setting_id(
-            $requestor_company_id,
-            $requestor_business_id,
-            $requestor_deptartment_id,
-            $requestor_department_unit_id,
-            $requestor_sub_unit_id,
-            $requestor_location_id
+            // $requestor_company_id,
+            // $requestor_business_id,
+            // $requestor_deptartment_id,
+            // $requestor_department_unit_id,
+            // $requestor_sub_unit_id,
+            // $requestor_location_id
+            $requestor_one_charging_sync_id
         );
 
         $charging_setting_id = GlobalFunction::job_request_charger_setting_id(
-            $request->company_id,
-            $request->business_unit_id,
-            $request->department_id,
-            $request->department_unit_id,
-            $request->sub_unit_id,
-            $request->location_id
+            // $request->company_id,
+            // $request->business_unit_id,
+            // $request->department_id,
+            // $request->department_unit_id,
+            // $request->sub_unit_id,
+            // $request->location_id
+            $request->one_charging_sync_id
         );
 
         $requestor_approvers = JobOrderApprovers::where(
@@ -659,17 +693,27 @@ class PAController extends Controller
             "user_id" => $request->user_id,
             "type_id" => $request->type_id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
@@ -690,6 +734,10 @@ class PAController extends Controller
             "helpdesk_id" => $request->helpdesk_id,
             "cip_number" => $request->cip_number,
             "description" => $request->description,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
         ]);
 
         // Handle order updates
@@ -794,36 +842,28 @@ class PAController extends Controller
         $job_order = JOPOTransaction::find($id);
 
         $oldTotalPrice = $job_order->total_item_price;
+        $currentStatus = $job_order->status;
 
-        // Get all the approvers for the current job order
         $po_approvers = $job_order->jo_approver_history()->get();
 
-        // If the job order is not found, return a not found response
         if (!$job_order) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
 
-        // Get the charging purchase order settings based on the job order company, business unit, and department
         $charging_purchase_order_setting_id = JobOrderPurchaseOrder::where(
-            "company_id",
-            $job_order->company_id
-        )
-            ->where("business_unit_id", $job_order->business_unit_id)
-            ->where("department_id", $job_order->department_id)
-            ->first();
+            "one_charging_sync_id",
+            $job_order->one_charging_sync_id
+        )->first();
 
-        // Get the highest price range for the approvers of the purchase order
         $highestPriceRange = JobOrderPurchaseOrderApprovers::where(
             "jo_purchase_order_id",
             $charging_purchase_order_setting_id->id
         )->get();
 
-        // If no approvers settings are found, return a not found response
         if (!$highestPriceRange) {
             return GlobalFunction::notFound(Message::NO_APPROVERS_SETTINGS_YET);
         }
 
-        // Get the orders from the request
         $orders = $request->order;
         $newOrders = collect($orders)
             ->pluck("id")
@@ -833,7 +873,6 @@ class PAController extends Controller
             ->pluck("id")
             ->toArray();
 
-        // Loop through current orders and delete any orders that no longer exist in the new order list
         foreach ($currentOrders as $order_id) {
             if (!in_array($order_id, $newOrders)) {
                 JoPoOrders::where("id", $order_id)->forceDelete();
@@ -845,7 +884,6 @@ class PAController extends Controller
         $oldSupplier = $job_order->supplier_name;
         $newSupplier = $request["supplier_name"];
 
-        // Loop through the orders and update each order's price
         foreach ($orders as $values) {
             $order_id = $values["id"];
             $poItem = JoPoOrders::where("id", $order_id)->first();
@@ -862,7 +900,6 @@ class PAController extends Controller
                 ]);
                 $totalPriceSum += $newTotalPrice;
 
-                // Log the price update for each item
                 $updatedItems[] = [
                     "id" => $order_id,
                     "name" => $item_name,
@@ -874,7 +911,7 @@ class PAController extends Controller
             }
         }
 
-        // Prepare the activity log description for the price updates
+        // Create activity log
         $activityDescription =
             "Job order purchase order ID: " .
             $job_order->id .
@@ -889,21 +926,113 @@ class PAController extends Controller
         }
         $activityDescription = rtrim($activityDescription, ", ");
 
-        // Log the supplier change if there is one
         if ($oldSupplier !== $newSupplier) {
             $activityDescription .= ". Supplier changed from $oldSupplier to $newSupplier";
         }
 
         $activityDescription .= ".";
 
-        // Create a log entry for the activity
         LogHistory::create([
             "activity" => $activityDescription,
             "jo_po_id" => $job_order->id,
             "action_by" => $user_id,
         ]);
 
-        if ($totalPriceSum > $oldTotalPrice || $oldSupplier !== $newSupplier) {
+        // Determine price and supplier changes
+        $priceIncreased = $totalPriceSum > $oldTotalPrice;
+        $priceDecreased = $totalPriceSum < $oldTotalPrice;
+        $supplierChanged = $oldSupplier !== $newSupplier;
+
+        // Initialize status update variables
+        $shouldResetApprovers = false;
+        $newStatus = $currentStatus;
+        $newLayer = $job_order->layer;
+
+        // Logic based on current status
+        switch (strtolower($currentStatus)) {
+            case "pending":
+            case "for approval":
+                // Original logic for pending and for approval statuses
+                if ($priceIncreased || $supplierChanged) {
+                    $shouldResetApprovers = true;
+                    $newStatus = "Pending";
+                    $newLayer = "1";
+                }
+                break;
+
+            case "rejected":
+            case "reject":
+                if ($priceIncreased || $supplierChanged) {
+                    // Price increased or supplier changed - reset approvers and set to pending
+                    $shouldResetApprovers = true;
+                    $newStatus = "Pending";
+                    $newLayer = "1";
+                } else {
+                    // Price decreased or no change - clear rejected_at from rejector
+                    foreach ($po_approvers as $po_approver) {
+                        if ($po_approver->rejected_at) {
+                            $po_approver->update([
+                                "rejected_at" => null,
+                            ]);
+                            break; // Only clear the first (most recent) rejector
+                        }
+                    }
+
+                    // If layer is not 1, set status to "For Approval", otherwise keep "Pending"
+                    if ($job_order->layer != "1") {
+                        $newStatus = "For Approval";
+                    } else {
+                        $newStatus = "Pending";
+                    }
+                }
+                break;
+
+            case "returned":
+            case "return":
+                if (
+                    $priceDecreased ||
+                    (!$priceIncreased && !$supplierChanged)
+                ) {
+                    // Price decreased or no significant changes
+                    // Check if any approver has approved_at
+                    $hasApprovedApprovers =
+                        $po_approvers->whereNotNull("approved_at")->count() > 0;
+
+                    if ($hasApprovedApprovers) {
+                        $newStatus = "For Receiving";
+                    } else {
+                        // No approved approvers, determine based on layer
+                        if ($job_order->layer != "1") {
+                            $newStatus = "For Approval";
+                        } else {
+                            $newStatus = "Pending";
+                        }
+                    }
+                } else {
+                    // Price increased or supplier changed - reset approvers approved_at
+                    foreach ($po_approvers as $po_approver) {
+                        $po_approver->update([
+                            "approved_at" => null,
+                        ]);
+                    }
+                    $shouldResetApprovers = true;
+                    $newStatus = "Pending";
+                    $newLayer = "1";
+                }
+                break;
+
+            default:
+                // For any other status, use original logic
+                if ($priceIncreased || $supplierChanged) {
+                    $shouldResetApprovers = true;
+                    $newStatus = "Pending";
+                    $newLayer = "1";
+                }
+                break;
+        }
+
+        // Reset approvers and create new approval flow if needed
+        if ($shouldResetApprovers) {
             foreach ($po_approvers as $po_approver) {
                 $po_approver->update([
                     "approved_at" => null,
@@ -911,6 +1040,7 @@ class PAController extends Controller
                 ]);
             }
 
+            // Create new approval flow
             $fixed_charging_approvers = $highestPriceRange->take(2);
             $price_based_charging_approvers = $highestPriceRange
                 ->slice(2)
@@ -935,28 +1065,20 @@ class PAController extends Controller
                     "layer" => $layer_count++,
                 ]);
             }
-
-            $job_order->update([
-                "status" => "Pending",
-            ]);
         }
 
+        // Prepare update data
         $updateData = [
             "total_item_price" => $totalPriceSum,
-            "layer" => "1",
             "updated_by" => $user_id,
             "edit_remarks" => $request->edit_remarks,
             "supplier_id" => $request->supplier_id,
             "supplier_name" => $request->supplier_name,
             "cap_ex" => $request->cap_ex,
             "outside_labor" => $request->outside_labor,
+            "status" => $newStatus,
+            "layer" => $newLayer,
         ];
-
-        if ($request->boolean("returned_po")) {
-            $job_order->update([
-                "status" => "Pending",
-            ]);
-        }
 
         $job_order->update($updateData);
 
@@ -1255,17 +1377,27 @@ class PAController extends Controller
             "date_needed" => $request["date_needed"],
             "type_id" => $type_id->id,
             "type_name" => $request->type_name,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "business_unit_name" => $request->business_unit_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "company_name" => $request->company_name,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_name" => $request->department_name,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "department_unit_name" => $request->department_unit_name,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "location_name" => $request->location_name,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "sub_unit_name" => $request->sub_unit_name,
             "account_title_id" => $request->account_title_id,
             "account_title_name" => $request->account_title_name,
@@ -1279,6 +1411,8 @@ class PAController extends Controller
             "approved_at" => $date_today,
             "layer" => "1",
             "description" => $request->description,
+            "for_po_only" => $request->for_po_only,
+            "for_pr_only_id" => $request->for_po_only_id,
         ]);
 
         $pr_transaction->save();

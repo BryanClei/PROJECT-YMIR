@@ -27,12 +27,25 @@ class StoreRequest extends FormRequest
         $company_id = $this->input("company_id");
         $business_unit_id = $this->input("business_unit_id");
         $department_id = $this->input("department_id");
+        $one_charging_sync_id = $this->input("one_charging_sync_id");
+
         return [
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,sync_id,deleted_at,NULL",
+                Rule::unique("job_order_purchase_order", "one_charging_sync_id")
+                    ->ignore($this->route("job_order_purchase_order"))
+                    ->where("one_charging_sync_id", $one_charging_sync_i)
+                    ->where("company_id", $company_id)
+                    ->where("business_unit_id", $business_unit_id)
+                    ->where("department_id", $department_id),
+            ],
             "company_id" => [
                 "required",
                 "exists:companies,id,deleted_at,NULL",
                 Rule::unique("job_order_purchase_order", "company_id")
                     ->ignore($this->route("job_order_purchase_order"))
+                    ->where("one_charging_sync_id", $one_charging_sync_i)
                     ->where("business_unit_id", $business_unit_id)
                     ->where("department_id", $department_id),
             ],
@@ -41,6 +54,7 @@ class StoreRequest extends FormRequest
                 "exists:business_units,id,deleted_at,NULL",
                 Rule::unique("job_order_purchase_order", "business_unit_id")
                     ->ignore($this->route("job_order_purchase_order"))
+                    ->where("one_charging_sync_id", $one_charging_sync_i)
                     ->where("company_id", $company_id)
                     ->where("department_id", $department_id),
             ],
@@ -49,6 +63,7 @@ class StoreRequest extends FormRequest
                 "exists:departments,id,deleted_at,NULL",
                 Rule::unique("job_order_purchase_order", "department_id")
                     ->ignore($this->route("job_order_purchase_order"))
+                    ->where("one_charging_sync_id", $one_charging_sync_i)
                     ->where("company_id", $company_id)
                     ->where("business_unit_id", $business_unit_id),
             ],

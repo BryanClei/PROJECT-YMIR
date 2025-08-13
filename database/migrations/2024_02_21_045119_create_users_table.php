@@ -22,36 +22,30 @@ return new class extends Migration {
             $table->string("suffix")->nullable();
             $table->string("position_name");
             $table->string("mobile_no")->nullable();
-            $table->unsignedInteger("company_id")->index();
             $table
-                ->foreign("company_id")
-                ->references("id")
-                ->on("companies");
-            $table->unsignedInteger("business_unit_id")->index();
+                ->unsignedInteger("one_charging_id")
+                ->nullable()
+                ->index();
+
             $table
-                ->foreign("business_unit_id")
+                ->foreign("one_charging_id")
                 ->references("id")
-                ->on("business_units");
-            $table->unsignedInteger("department_id")->index();
-            $table
-                ->foreign("department_id")
-                ->references("id")
-                ->on("departments");
-            $table->unsignedInteger("department_unit_id")->index();
-            $table
-                ->foreign("department_unit_id")
-                ->references("id")
-                ->on("department_units");
-            $table->unsignedInteger("sub_unit_id")->index();
-            $table
-                ->foreign("sub_unit_id")
-                ->references("id")
-                ->on("sub_units");
-            $table->unsignedInteger("location_id")->index();
-            $table
-                ->foreign("location_id")
-                ->references("id")
-                ->on("locations");
+                ->on("one_charging");
+            $table->string("one_charging_sync_id")->nullable();
+            $table->string("one_charging_code")->nullable();
+            $table->string("one_charging_name")->nullable();
+            $table->string("company_id")->nullable();
+            $table->string("company_code")->nullable();
+            $table->string("business_unit_id")->nullable();
+            $table->string("business_unit_code")->nullable();
+            $table->string("department_id")->nullable();
+            $table->string("department_code")->nullable();
+            $table->string("department_unit_id")->nullable();
+            $table->string("department_unit_code")->nullable();
+            $table->string("sub_unit_id")->nullable();
+            $table->string("sub_unit_code")->nullable();
+            $table->string("location_id")->nullable();
+            $table->string("location_code")->nullable();
             $table->unsignedInteger("warehouse_id")->index();
             $table
                 ->foreign("warehouse_id")

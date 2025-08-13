@@ -25,6 +25,10 @@ class LoginResource extends JsonResource
                 "suffix" => $this->suffix,
             ],
             "position" => $this->position_name,
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "company" => [
                 "id" => $this->company->id,
                 "name" => $this->company->name,

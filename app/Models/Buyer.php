@@ -56,6 +56,8 @@ class Buyer extends Model
         "voided_at",
         "cancelled_at",
         "approver_id",
+        "ship_to_id",
+        "ship_to_name",
     ];
 
     public function users()

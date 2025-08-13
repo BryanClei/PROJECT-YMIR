@@ -36,7 +36,7 @@ class PRItemsResource extends JsonResource
                 "name" => $this->item_name,
                 "code" => $this->item_code,
             ],
-            "uom" => $this->uom_id,
+            "uom" => $this->uom,
             "po_at" => $this->po_at,
             "purchase_order_id" => $this->purchase_order_id,
             "buyer_id" => $this->buyer_id,

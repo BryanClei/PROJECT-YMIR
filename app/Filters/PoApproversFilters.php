@@ -23,6 +23,7 @@ class PoApproversFilters extends QueryFilters
                         "%" . $search_approver . "%"
                     );
                 })
+                ->orWhere("module", "LIKE", "%" . $search_approver . "%")
                 ->orWhere("company_name", "LIKE", "%" . $search_approver . "%")
                 ->orWhere(
                     "business_unit_id",

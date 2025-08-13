@@ -25,6 +25,7 @@ use App\Http\Requests\JORRTodayDisplay;
 use App\Http\Resources\JobOrderResource;
 use App\Http\Resources\JORROrderResource;
 use App\Http\Requests\JoRROrder\StoreRequest;
+use App\Http\Requests\ReceivedReceipt\CancelRequest;
 use App\Http\Requests\ReceivedReceipt\MultipleRequest;
 
 class JORRTransactionController extends Controller
@@ -432,7 +433,7 @@ class JORRTransactionController extends Controller
         );
     }
 
-    public function cancel_jo_rr(PORequest $request, $id)
+    public function cancel_jo_rr(CancelRequest $request, $id)
     {
         $user = Auth()->user()->id;
         $reason = $request->reason;
@@ -503,7 +504,8 @@ class JORRTransactionController extends Controller
     {
         $user_id = Auth()->user()->id;
         $type = $request->type;
-
+        $from_po_date = $request->from;
+        $to_po_date = $request->to;
         $display = JORROrders::with([
             "order",
             "order.uom",
@@ -537,6 +539,26 @@ class JORRTransactionController extends Controller
                 $user_id
             ) {
                 $q->where("user_id", $user_id);
+            });
+        }
+        if ($from_po_date && $to_po_date) {
+            $display->whereHas("jo_po_transaction", function ($q) use (
+                $from_po_date,
+                $to_po_date
+            ) {
+                $q->whereBetween("created_at", [$from_po_date, $to_po_date]);
+            });
+        } elseif ($from_po_date) {
+            $display->whereHas("jo_po_transaction", function ($q) use (
+                $from_po_date
+            ) {
+                $q->whereDate("created_at", ">=", $from_po_date);
+            });
+        } elseif ($to_po_date) {
+            $display->whereHas("jo_po_transaction", function ($q) use (
+                $to_po_date
+            ) {
+                $q->whereDate("created_at", "<=", $to_po_date);
             });
         }
 

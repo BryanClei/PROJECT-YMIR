@@ -99,6 +99,10 @@ class ExpenseController extends Controller
                 str_pad($new_number, 3, "0", STR_PAD_LEFT);
         });
 
+        $one_charging = GlobalFunction::one_charging(
+            $request->one_charging_sync_id
+        );
+
         $user_tagged = $request->boolean("user_tagging")
             ? Carbon::now()
                 ->timeZone("Asia/Manila")
@@ -122,18 +126,28 @@ class ExpenseController extends Controller
             "user_id" => $user_id,
             "type_id" => $request["type_id"],
             "type_name" => $request["type_name"],
-            "business_unit_id" => $request["business_unit_id"],
-            "business_unit_name" => $request["business_unit_name"],
-            "company_id" => $request["company_id"],
-            "company_name" => $request["company_name"],
-            "department_id" => $request["department_id"],
-            "department_name" => $request["department_name"],
-            "department_unit_id" => $request["department_unit_id"],
-            "department_unit_name" => $request["department_unit_name"],
-            "location_id" => $request["location_id"],
-            "location_name" => $request["location_name"],
-            "sub_unit_id" => $request["sub_unit_id"],
-            "sub_unit_name" => $request["sub_unit_name"],
+            "one_charging_id" => $one_charging->id,
+            "one_charging_sync_id" => $one_charging->sync_id,
+            "one_charging_code" => $one_charging->code,
+            "one_charging_name" => $one_charging->name,
+            "business_unit_id" => $one_charging->business_unit_id,
+            "business_unit_code" => $one_charging->business_unit_code,
+            "business_unit_name" => $one_charging->business_unit_name,
+            "company_id" => $one_charging->company_id,
+            "company_code" => $one_charging->company_code,
+            "company_name" => $one_charging->company_name,
+            "department_id" => $one_charging->department_id,
+            "department_code" => $one_charging->department_code,
+            "department_name" => $one_charging->department_name,
+            "department_unit_id" => $one_charging->department_unit_id,
+            "department_unit_code" => $one_charging->department_unit_code,
+            "department_unit_name" => $one_charging->department_unit_name,
+            "location_id" => $one_charging->location_id,
+            "location_code" => $one_charging->location_code,
+            "location_name" => $one_charging->location_name,
+            "sub_unit_id" => $one_charging->sub_unit_id,
+            "sub_unit_code" => $one_charging->sub_unit_code,
+            "sub_unit_name" => $one_charging->sub_unit_name,
             "account_title_id" => $request["account_title_id"],
             "account_title_name" => $request["account_title_name"],
             "module_name" => "Expense",
@@ -152,7 +166,8 @@ class ExpenseController extends Controller
             "layer" => "1",
             "cap_ex" => $request->cap_ex,
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_name" => $request->supplier_name,
             "supplier_id" => $request->supplier_id,
         ]);
@@ -178,6 +193,7 @@ class ExpenseController extends Controller
                 "uom_id" => $request["order"][$index]["uom_id"],
                 // "item_stock" => $request["order"][$index]["item_stock"],
                 "quantity" => $request["order"][$index]["quantity"],
+                "remaining_qty" => $request["order"][$index]["quantity"],
                 "unit_price" => $request["order"][$index]["unit_price"],
                 "total_price" => $request["order"][$index]["total_price"],
                 "remarks" => $request["order"][$index]["remarks"],
@@ -187,17 +203,9 @@ class ExpenseController extends Controller
             ]);
         }
         $approver_settings = ApproverSettings::where(
-            "company_id",
-            $purchase_request->company_id
-        )
-            ->where("business_unit_id", $purchase_request->business_unit_id)
-            ->where("department_id", $purchase_request->department_id)
-            ->where("department_unit_id", $purchase_request->department_unit_id)
-            ->where("sub_unit_id", $purchase_request->sub_unit_id)
-            ->where("location_id", $purchase_request->location_id)
-            ->whereHas("set_approver")
-            ->get()
-            ->first();
+            "one_charging_sync_id",
+            $purchase_request->one_charging_sync_id
+        )->first();
 
         $approvers = SetApprover::where(
             "approver_settings_id",
@@ -262,6 +270,10 @@ class ExpenseController extends Controller
         $orders = $request->order;
         $newTotalQuantity = array_sum(array_column($orders, "quantity"));
         $oldTotalQuantity = $purchase_request->order->sum("quantity");
+        $one_charging = GlobalFunction::one_charging(
+            $request->one_charging_sync_id
+        );
+        $oldCharging = $purchase_request->one_charging_sync_id;
 
         if ($request->boolean("for_po_only")) {
             $for_po_id = $user_id;
@@ -286,17 +298,9 @@ class ExpenseController extends Controller
             : null;
 
         $approver_settings = ApproverSettings::where(
-            "company_id",
-            $purchase_request->company_id
-        )
-            ->where("business_unit_id", $purchase_request->business_unit_id)
-            ->where("department_id", $purchase_request->department_id)
-            ->where("department_unit_id", $purchase_request->department_unit_id)
-            ->where("sub_unit_id", $purchase_request->sub_unit_id)
-            ->where("location_id", $purchase_request->location_id)
-            ->whereHas("set_approver")
-            ->get()
-            ->first();
+            "one_charging_sync_id",
+            $request->one_charging_sync_id
+        )->first();
 
         $approvers = SetApprover::where(
             "approver_settings_id",
@@ -306,7 +310,11 @@ class ExpenseController extends Controller
             return GlobalFunction::save(Message::NO_APPROVERS);
         }
 
-        if ($newTotalQuantity !== $oldTotalQuantity) {
+        if (
+            $newTotalQuantity !== $oldTotalQuantity ||
+            $oldCharging !== $request->one_charging_sync_id
+        ) {
+            // Remove old approver history
             $purchase_request->approver_history()->delete();
 
             foreach ($approvers as $index) {
@@ -331,22 +339,33 @@ class ExpenseController extends Controller
             "user_id" => $user_id,
             "type_id" => $request["type_id"],
             "type_name" => $request["type_name"],
-            "business_unit_id" => $request["business_unit_id"],
-            "business_unit_name" => $request["business_unit_name"],
-            "company_id" => $request["company_id"],
-            "company_name" => $request["company_name"],
-            "department_id" => $request["department_id"],
-            "department_name" => $request["department_name"],
-            "department_unit_id" => $request["department_unit_id"],
-            "department_unit_name" => $request["department_unit_name"],
-            "location_id" => $request["location_id"],
-            "location_name" => $request["location_name"],
-            "sub_unit_id" => $request["sub_unit_id"],
-            "sub_unit_name" => $request["sub_unit_name"],
+            "one_charging_id" => $one_charging->id,
+            "one_charging_sync_id" => $one_charging->sync_id,
+            "one_charging_code" => $one_charging->code,
+            "one_charging_name" => $one_charging->name,
+            "business_unit_id" => $one_charging->business_unit_id,
+            "business_unit_code" => $one_charging->business_unit_code,
+            "business_unit_name" => $one_charging->business_unit_name,
+            "company_id" => $one_charging->company_id,
+            "company_code" => $one_charging->company_code,
+            "company_name" => $one_charging->company_name,
+            "department_id" => $one_charging->department_id,
+            "department_code" => $one_charging->department_code,
+            "department_name" => $one_charging->department_name,
+            "department_unit_id" => $one_charging->department_unit_id,
+            "department_unit_code" => $one_charging->department_unit_code,
+            "department_unit_name" => $one_charging->department_unit_name,
+            "location_id" => $one_charging->location_id,
+            "location_code" => $one_charging->location_code,
+            "location_name" => $one_charging->location_name,
+            "sub_unit_id" => $one_charging->sub_unit_id,
+            "sub_unit_code" => $one_charging->sub_unit_code,
+            "sub_unit_name" => $one_charging->sub_unit_name,
             "account_title_id" => $request["account_title_id"],
             "account_title_name" => $request["account_title_name"],
             "pcf_remarks" => $request["pcf_remarks"],
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_id" => $request["supplier_id"],
             "supplier_name" => $request["supplier_name"],
             "module_name" => "Expense",
@@ -403,6 +422,7 @@ class ExpenseController extends Controller
                     "uom_id" => $values["uom_id"],
                     // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "remaining_qty" => $values["quantity"],
                     "unit_price" => $values["unit_price"],
                     "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],
@@ -451,14 +471,53 @@ class ExpenseController extends Controller
             return GlobalFunction::not_found(Message::NOT_FOUND);
         }
 
-        foreach ($pr_history as $pr) {
-            $pr->update([
-                "approved_at" => null,
-                "rejected_at" => null,
-            ]);
+        $one_charging = GlobalFunction::one_charging(
+            $request->one_charging_sync_id
+        );
+        $oldCharging = $purchase_request->one_charging_sync_id;
+        $orders = $request->order;
+
+        $approver_settings = ApproverSettings::where(
+            "one_charging_sync_id",
+            $request->one_charging_sync_id
+        )->first();
+
+        $approvers = SetApprover::where(
+            "approver_settings_id",
+            $approver_settings->id
+        )->get();
+
+        if ($approvers->isEmpty()) {
+            return GlobalFunction::save(Message::NO_APPROVERS);
         }
 
-        $orders = $request->order;
+        if ($oldCharging !== $request->one_charging_sync_id) {
+            // Remove old approver history
+            $purchase_request->approver_history()->delete();
+
+            foreach ($approvers as $index) {
+                PrHistory::create([
+                    "pr_id" => $purchase_request->id,
+                    "approver_id" => $index["approver_id"],
+                    "approver_name" => $index["approver_name"],
+                    "layer" => $index["layer"],
+                ]);
+            }
+
+            $purchase_request->update([
+                "layer" => 1,
+                "status" => "Pending",
+            ]);
+        } else {
+            $pr_history = PrHistory::where("pr_id", $id)->get();
+
+            foreach ($pr_history as $pr) {
+                $pr->update([
+                    "approved_at" => null,
+                    "rejected_at" => null,
+                ]);
+            }
+        }
 
         $user_tagged = $request->boolean("user_tagging")
             ? Carbon::now()
@@ -479,22 +538,33 @@ class ExpenseController extends Controller
             "user_id" => $user_id,
             "type_id" => $request["type_id"],
             "type_name" => $request["type_name"],
-            "business_unit_id" => $request["business_unit_id"],
-            "business_unit_name" => $request["business_unit_name"],
-            "company_id" => $request["company_id"],
-            "company_name" => $request["company_name"],
-            "department_id" => $request["department_id"],
-            "department_name" => $request["department_name"],
-            "department_unit_id" => $request["department_unit_id"],
-            "department_unit_name" => $request["department_unit_name"],
-            "location_id" => $request["location_id"],
-            "location_name" => $request["location_name"],
-            "sub_unit_id" => $request["sub_unit_id"],
-            "sub_unit_name" => $request["sub_unit_name"],
+            "one_charging_id" => $one_charging->id,
+            "one_charging_sync_id" => $one_charging->sync_id,
+            "one_charging_code" => $one_charging->code,
+            "one_charging_name" => $one_charging->name,
+            "business_unit_id" => $one_charging->business_unit_id,
+            "business_unit_code" => $one_charging->business_unit_code,
+            "business_unit_name" => $one_charging->business_unit_name,
+            "company_id" => $one_charging->company_id,
+            "company_code" => $one_charging->company_code,
+            "company_name" => $one_charging->company_name,
+            "department_id" => $one_charging->department_id,
+            "department_code" => $one_charging->department_code,
+            "department_name" => $one_charging->department_name,
+            "department_unit_id" => $one_charging->department_unit_id,
+            "department_unit_code" => $one_charging->department_unit_code,
+            "department_unit_name" => $one_charging->department_unit_name,
+            "location_id" => $one_charging->location_id,
+            "location_code" => $one_charging->location_code,
+            "location_name" => $one_charging->location_name,
+            "sub_unit_id" => $one_charging->sub_unit_id,
+            "sub_unit_code" => $one_charging->sub_unit_code,
+            "sub_unit_name" => $one_charging->sub_unit_name,
             "account_title_id" => $request["account_title_id"],
             "account_title_name" => $request["account_title_name"],
             "pcf_remarks" => $request->pcf_remarks,
-            "ship_to" => $request->ship_to,
+            "ship_to_id" => $request->ship_to_id,
+            "ship_to_name" => $request->ship_to_name,
             "supplier_id" => $request["supplier_id"],
             "supplier_name" => $request["supplier_name"],
             "status" => "Pending",
@@ -512,6 +582,7 @@ class ExpenseController extends Controller
             "rush" => $rush,
             "layer" => "1",
             "user_tagging" => $user_tagged,
+            "cap_ex" => $request->cap_ex,
         ]);
 
         $newOrders = collect($orders)
@@ -553,6 +624,7 @@ class ExpenseController extends Controller
                     "uom_id" => $values["uom_id"],
                     // "item_stock" => $values["item_stock"],
                     "quantity" => $values["quantity"],
+                    "remaining_qty" => $values["quantity"],
                     "unit_price" => $values["unit_price"],
                     "total_price" => $values["total_price"],
                     "remarks" => $values["remarks"],

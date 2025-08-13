@@ -2,12 +2,16 @@
 
 namespace App\Functions;
 
+use App\Models\Charging;
 use App\Models\JobOrder;
 use App\Response\Message;
 use App\Models\JOPOTransaction;
 use App\Models\JobOrderTransaction;
 use Illuminate\Support\Facades\Log;
+use App\Models\MasterListLogHistory;
+use Illuminate\Support\Facades\Auth;
 use App\Models\JobOrderPurchaseOrder;
+use Illuminate\Support\Facades\Request;
 
 class GlobalFunction
 {
@@ -113,60 +117,86 @@ class GlobalFunction
     }
 
     public static function job_request_requestor_setting_id(
-        $requestor_company_id,
-        $requestor_business_id,
-        $requestor_deptartment_id,
-        $requestor_department_unit_id,
-        $requestor_sub_unit_id,
-        $requestor_location_id
+        // $requestor_company_id,
+        // $requestor_business_id,
+        // $requestor_deptartment_id,
+        // $requestor_department_unit_id,
+        // $requestor_sub_unit_id,
+        // $requestor_location_id,
+        $requestor_one_charging_sync_id
     ) {
-        return JobOrder::where("company_id", $requestor_company_id)
-            ->where("business_unit_id", $requestor_business_id)
-            ->where("department_id", $requestor_deptartment_id)
-            ->where("department_unit_id", $requestor_department_unit_id)
-            ->where("sub_unit_id", $requestor_sub_unit_id)
-            ->where("location_id", $requestor_location_id)
-            ->first();
+        // return JobOrder::where("company_id", $requestor_company_id)
+        //     ->where("business_unit_id", $requestor_business_id)
+        //     ->where("department_id", $requestor_deptartment_id)
+        //     ->where("department_unit_id", $requestor_department_unit_id)
+        //     ->where("sub_unit_id", $requestor_sub_unit_id)
+        //     ->where("location_id", $requestor_location_id)
+        //     ->first();
+
+        return JobOrder::where(
+            "one_charging_sync_id",
+            $requestor_one_charging_sync_id
+        )->first();
     }
 
     public static function job_request_charger_setting_id(
-        $company_id,
-        $business_unit_id,
-        $department_id,
-        $department_unit_id,
-        $sub_unit_id,
-        $location_id
+        // $company_id,
+        // $business_unit_id,
+        // $department_id,
+        // $department_unit_id,
+        // $sub_unit_id,
+        // $location_id,
+        $one_charging_sync_id
     ) {
-        return JobOrder::where("company_id", $company_id)
-            ->where("business_unit_id", $business_unit_id)
-            ->where("department_id", $department_id)
-            ->where("department_unit_id", $department_unit_id)
-            ->where("sub_unit_id", $sub_unit_id)
-            ->where("location_id", $location_id)
-            ->first();
+        // return JobOrder::where("company_id", $company_id)
+        //     ->where("business_unit_id", $business_unit_id)
+        //     ->where("department_id", $department_id)
+        //     ->where("department_unit_id", $department_unit_id)
+        //     ->where("sub_unit_id", $sub_unit_id)
+        //     ->where("location_id", $location_id)
+        //     ->first();
+
+        return JobOrder::where(
+            "one_charging_sync_id",
+            $one_charging_sync_id
+        )->first();
     }
 
     public static function job_request_purchase_order_requestor_setting_id(
-        $requestor_company_id,
-        $requestor_business_id,
-        $requestor_deptartment_id
+        // $requestor_company_id,
+        // $requestor_business_id,
+        // $requestor_deptartment_id
+        $requestor_one_charging_sync_id
     ) {
-        return JobOrderPurchaseOrder::where("company_id", $requestor_company_id)
-            ->where("business_unit_id", $requestor_business_id)
-            ->where("department_id", $requestor_deptartment_id)
-            ->first();
+        // return JobOrderPurchaseOrder::where("company_id", $requestor_company_id)
+        //     ->where("business_unit_id", $requestor_business_id)
+        //     ->where("department_id", $requestor_deptartment_id)
+        //     ->first();
+        return JobOrderPurchaseOrder::where(
+            "requestor_one_charging_sync_id",
+            $request_one_charging_sync_id
+        )->first();
     }
 
     public static function job_request_purchase_order_charger_setting_id(
-        $company_id,
-        $business_unit_id,
-        $department_id
+        // $company_id,
+        // $business_unit_id,
+        // $department_id
+        $one_charging_sync_id
     ) {
-        return JobOrderPurchaseOrder::where("company_id", $company_id)
-            ->where("business_unit_id", $business_unit_id)
-            ->where("department_id", $department_id)
+        // return JobOrderPurchaseOrder::where("company_id", $company_id)
+        //     ->where("business_unit_id", $business_unit_id)
+        //     ->where("department_id", $department_id)
+        //     ->first();
+        return JobOrderPurchaseOrder::where(
+            "one_charging_sync_id",
+            $one_charging_sync_id
+        )->first();
+    }
 
-            ->first();
+    public static function one_charging($one_charging_sync_id)
+    {
+        return Charging::where("sync_id", $one_charging_sync_id)->first();
     }
 
     public static function latest_jr($current_year)
@@ -311,5 +341,36 @@ class GlobalFunction
         }
 
         return $baseMessage;
+    }
+
+    public static function master_logs(
+        string $module_type,
+        string $module_name,
+        string $action,
+        string $log_info,
+        array $previous_data = [],
+        array $new_data = []
+    ) {
+        $user = Auth::user();
+
+        $user_fullname = trim(
+            $user->first_name .
+                ($user->middle_name ? " " . $user->middle_name : "") .
+                " " .
+                $user->last_name
+        );
+
+        MasterListLogHistory::create([
+            "module_type" => $module_type,
+            "module_name" => $module_name,
+            "action" => $action,
+            "action_by" => $user->id,
+            "action_by_name" => $user_fullname,
+            "log_info" => $log_info,
+            "previous_data" => $previous_data,
+            "new_data" => $new_data,
+            "ip_address" => Request::ip(),
+            "user_agent" => Request::userAgent(),
+        ]);
     }
 }

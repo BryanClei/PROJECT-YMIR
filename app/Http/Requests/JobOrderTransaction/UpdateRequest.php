@@ -55,6 +55,7 @@ class UpdateRequest extends FormRequest
         $requestor_business_id = Auth()->user()->business_unit_id;
         $requestor_location_id = Auth()->user()->location_id;
         $requestor_sub_unit_id = Auth()->user()->sub_unit_id;
+        $requestor_one_charging_sync_id = Auth()->user()->one_charging_sync_id;
 
         $validator->after(function ($validator) use (
             $requestor_company_id,
@@ -62,7 +63,8 @@ class UpdateRequest extends FormRequest
             $requestor_deptartment_id,
             $requestor_department_unit_id,
             $requestor_location_id,
-            $requestor_sub_unit_id
+            $requestor_sub_unit_id,
+            $requestor_one_charging_sync_id
         ) {
             $total_amount = collect($this->input("order"))->sum("total_price");
             $amount_min_max = JobOrderMinMax::first();
@@ -75,17 +77,17 @@ class UpdateRequest extends FormRequest
 
             // Check for charging department approvers
             $charging_approvers = JobOrder::where(
-                "company_id",
-                $this->input("company_id")
+                "one_charging_sync_id",
+                $this->input("one_charging_sync_id")
             )
-                ->where("business_unit_id", $this->input("business_unit_id"))
-                ->where("department_id", $this->input("department_id"))
-                ->where(
-                    "department_unit_id",
-                    $this->input("department_unit_id")
-                )
-                ->where("sub_unit_id", $this->input("sub_unit_id"))
-                ->where("location_id", $this->input("location_id"))
+                // ->where("business_unit_id", $this->input("business_unit_id"))
+                // ->where("department_id", $this->input("department_id"))
+                // ->where(
+                //     "department_unit_id",
+                //     $this->input("department_unit_id")
+                // )
+                // ->where("sub_unit_id", $this->input("sub_unit_id"))
+                // ->where("location_id", $this->input("location_id"))
                 ->first();
 
             if ($total_amount >= $amount_min_max->amount_min) {
@@ -98,14 +100,14 @@ class UpdateRequest extends FormRequest
             } else {
                 // For amounts less than min_max (direct), check both charging and requestor approvers
                 $requestor_approvers = JobOrder::where(
-                    "company_id",
-                    $requestor_company_id
+                    "one_charging_sync_id",
+                    $requestor_one_charging_sync_id
                 )
-                    ->where("business_unit_id", $requestor_business_id)
-                    ->where("department_id", $requestor_deptartment_id)
-                    ->where("department_unit_id", $requestor_department_unit_id)
-                    ->where("sub_unit_id", $requestor_sub_unit_id)
-                    ->where("location_id", $requestor_location_id)
+                    // ->where("business_unit_id", $requestor_business_id)
+                    // ->where("department_id", $requestor_deptartment_id)
+                    // ->where("department_unit_id", $requestor_department_unit_id)
+                    // ->where("sub_unit_id", $requestor_sub_unit_id)
+                    // ->where("location_id", $requestor_location_id)
                     ->first();
 
                 if (!$charging_approvers) {

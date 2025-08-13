@@ -14,21 +14,13 @@ class PurchaseAssistantFilters extends QueryFilters
         "pr_description",
         "date_needed",
         "user_id",
-        "type_id",
         "type_name",
-        "business_unit_id",
         "business_unit_name",
-        "company_id",
         "company_name",
-        "department_id",
         "department_name",
-        "department_unit_id",
         "department_unit_name",
-        "location_id",
         "location_name",
-        "sub_unit_id",
         "sub_unit_name",
-        "account_title_id",
         "account_title_name",
         "supplier_id",
         "supplier_name",
@@ -39,40 +31,40 @@ class PurchaseAssistantFilters extends QueryFilters
         "users" => ["user_id", "first_name", "middle_name", "last_name"],
     ];
 
-    protected function processSearch($search)
-    {
-        // Join the required relationships first
-        foreach ($this->relationSearch as $relation => $columns) {
-            $this->builder->leftJoin(
-                $relation,
-                "pr_transactions.user_id",
-                "=",
-                $relation . ".id"
-            );
-        }
+    // protected function processSearch($search)
+    // {
+    //     // Join the required relationships first
+    //     foreach ($this->relationSearch as $relation => $columns) {
+    //         $this->builder->leftJoin(
+    //             $relation,
+    //             "pr_transactions.user_id",
+    //             "=",
+    //             $relation . ".id"
+    //         );
+    //     }
 
-        $this->builder->where(function ($query) use ($search) {
-            // Search in main table columns
-            foreach ($this->columnSearch as $column) {
-                $query->orWhere(
-                    "pr_transactions." . $column,
-                    "like",
-                    "%{$search}%"
-                );
-            }
+    //     $this->builder->where(function ($query) use ($search) {
+    //         // Search in main table columns
+    //         foreach ($this->columnSearch as $column) {
+    //             $query->orWhere(
+    //                 "pr_transactions." . $column,
+    //                 "like",
+    //                 "%{$search}%"
+    //             );
+    //         }
 
-            // Search in relationship columns
-            foreach ($this->relationSearch as $table => $columns) {
-                foreach ($columns as $column) {
-                    $query->orWhere(
-                        $table . "." . $column,
-                        "like",
-                        "%{$search}%"
-                    );
-                }
-            }
-        });
-    }
+    //         // Search in relationship columns
+    //         foreach ($this->relationSearch as $table => $columns) {
+    //             foreach ($columns as $column) {
+    //                 $query->orWhere(
+    //                     $table . "." . $column,
+    //                     "like",
+    //                     "%{$search}%"
+    //                 );
+    //             }
+    //         }
+    //     });
+    // }
 
     public function search_business_unit($search_business_unit, $status = null)
     {
@@ -109,12 +101,12 @@ class PurchaseAssistantFilters extends QueryFilters
                             ->where(function ($query) {
                                 $query
                                     ->whereNull("buyer_id")
-                                    ->whereNull("po_at");
-                            })
-                            ->where(function ($query) {
-                                $query
-                                    ->whereNull("remaining_qty")
-                                    ->orWhere("remaining_qty", "!=", 0);
+                                    ->whereNull("po_at")
+                                    ->where(
+                                        "quantity",
+                                        ">",
+                                        "partial_received"
+                                    );
                             })
                             ->whereNull("po_at");
                     })

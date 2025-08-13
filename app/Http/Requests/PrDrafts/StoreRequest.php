@@ -29,6 +29,9 @@ class StoreRequest extends FormRequest
                     ? "unique:pr_drafts,pr_draft_id," . $this->route()->pr_draft
                     : "unique:pr_drafts,pr_draft_id",
             ],
+            "one_charging_sync_id" => [
+                "exists:one_charging,id,deleted_at,NULL",
+            ],
             "company_id" => "exists:companies,id,deleted_at,NULL",
             "business_unit_id" => "exists:business_units,id,deleted_at,NULL",
             "department_id" => "exists:departments,id,deleted_at,NULL",

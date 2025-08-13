@@ -44,7 +44,10 @@ class PRTransactionResource extends JsonResource
             //             : null,
             //     ]
             //     : null,
-
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "type" => [
                 "id" => $this->type_id,
                 "name" => $this->type_name,

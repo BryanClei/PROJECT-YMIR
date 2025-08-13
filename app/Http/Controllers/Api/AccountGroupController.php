@@ -7,6 +7,7 @@ use App\Models\AccountGroup;
 use Illuminate\Http\Request;
 use App\Functions\GlobalFunction;
 use App\Http\Controllers\Controller;
+use App\Models\MasterListLogHistory;
 use App\Http\Requests\DisplayRequest;
 use App\Http\Resources\AccountGroupResource;
 use App\Http\Requests\AccountGroup\StoreRequest;
@@ -46,6 +47,15 @@ class AccountGroupController extends Controller
             "name" => $request->name,
         ]);
 
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Groups",
+            "Created",
+            "Created new account group: {$request->name}.",
+            [],
+            $account_group->toArray()
+        );
+
         $account_group_collect = new AccountGroupResource($account_group);
 
         return GlobalFunction::save(
@@ -63,9 +73,21 @@ class AccountGroupController extends Controller
             return GlobalFunction::invalid(Message::INVALID_ACTION);
         }
 
+        $previous_data = $account_group->getOriginal();
+
         $account_group->update([
             "name" => $request->name,
         ]);
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Groups",
+            "Updated",
+            "Updated account group: {$account_group->name}.",
+            $previous_data,
+            $account_group->toArray()
+        );
+
         return GlobalFunction::responseFunction(
             Message::ACCOUNT_GROUP_UPDATE,
             $account_group
@@ -77,6 +99,8 @@ class AccountGroupController extends Controller
         $account_group = AccountGroup::where("id", $id)
             ->withTrashed()
             ->get();
+
+        $previous_data = $account_group->toArray();
 
         if ($account_group->isEmpty()) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
@@ -91,10 +115,22 @@ class AccountGroupController extends Controller
         } elseif (!$is_active->deleted_at) {
             $account_group->delete();
             $message = Message::ARCHIVE_STATUS;
+            $action = "Archived";
         } else {
             $account_group->restore();
             $message = Message::RESTORE_STATUS;
+            $action = "Restored";
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Groups",
+            $action,
+            "{$action} account group: {$previous_data["name"]}.",
+            $previous_data,
+            []
+        );
+
         return GlobalFunction::responseFunction($message, $account_group);
     }
 
@@ -106,7 +142,17 @@ class AccountGroupController extends Controller
             $group = AccountGroup::create([
                 "name" => $index["name"],
             ]);
+            $new_records[] = $group->toArray();
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Groups",
+            "Imported",
+            "Imported " . count($new_records) . " account groups.",
+            [],
+            $new_records
+        );
 
         return GlobalFunction::save(Message::ACCOUNT_GROUP_SAVE, $import);
     }

@@ -131,6 +131,7 @@ class PoFilters extends QueryFilters
                             );
                         },
                     ])
+                    ->whereNot("type_name", "Asset")
                     ->where("user_id", $user_id)
                     ->where("status", "For Receiving")
                     ->whereNull("cancelled_at")

@@ -3,6 +3,7 @@
 namespace App\Http;
 
 use App\Http\Middleware\APIKeyMiddleware;
+use App\Http\Middleware\OneChargingKeyMiddleware;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
@@ -57,6 +58,7 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         "auth" => \App\Http\Middleware\Authenticate::class,
         "auth_key" => APIKeyMiddleware::class,
+        "one_charging_auth_key" => OneChargingKeyMiddleware::class,
         "auth.basic" =>
             \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         "cache.headers" => \Illuminate\Http\Middleware\SetCacheHeaders::class,

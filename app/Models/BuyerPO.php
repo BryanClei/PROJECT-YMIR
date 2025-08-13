@@ -27,17 +27,27 @@ class BuyerPO extends Model
         "user_id",
         "type_id",
         "type_name",
+        "one_charging_id",
+        "one_charging_sync_id",
+        "one_charging_code",
+        "one_charging_name",
         "business_unit_id",
+        "business_unit_code",
         "business_unit_name",
         "company_id",
+        "company_code",
         "company_name",
         "department_id",
+        "department_code",
         "department_name",
         "department_unit_id",
+        "department_unit_code",
         "department_unit_name",
         "location_id",
+        "location_code",
         "location_name",
         "sub_unit_id",
+        "sub_unit_code",
         "sub_unit_name",
         "account_title_id",
         "account_title_name",
@@ -56,12 +66,16 @@ class BuyerPO extends Model
         "f2",
         "rush",
         "place_order",
+        "for_po_only",
+        "for_po_only_id",
         "approved_at",
         "rejected_at",
         "voided_at",
         "cancelled_at",
         "updated_by",
         "approver_id",
+        "ship_to_id",
+        "ship_to_name",
     ];
 
     // public function users()
@@ -133,35 +147,35 @@ class BuyerPO extends Model
 
     public function company()
     {
-        return $this->belongsTo(Company::class, "company_id", "id");
+        return $this->belongsTo(Company::class, "company_code", "code");
     }
 
     public function department()
     {
-        return $this->belongsTo(Department::class, "department_id", "id");
+        return $this->belongsTo(Department::class, "department_code", "code");
     }
 
     public function department_unit()
     {
         return $this->belongsTo(
             DepartmentUnit::class,
-            "department_unit_id",
-            "id"
+            "department_unit_code",
+            "code"
         );
     }
 
     public function sub_unit()
     {
-        return $this->belongsTo(SubUnit::class, "sub_unit_id", "id");
+        return $this->belongsTo(SubUnit::class, "sub_unit_code", "code");
     }
 
     public function location()
     {
-        return $this->belongsTo(Location::class, "location_id", "id");
+        return $this->belongsTo(Location::class, "location_code", "code");
     }
 
     public function unit()
     {
-        return $this->belongsTo(Units::class, "unit_id", "id");
+        return $this->belongsTo(Units::class, "unit_id", "code");
     }
 }

@@ -30,7 +30,21 @@ class StoreRequest extends FormRequest
         $department_unit_id = $this->input("department_unit_id");
         $sub_unit_id = $this->input("sub_unit_id");
         $location_id = $this->input("location_id");
+        $one_charging_sync_id = $this->input("one_charging_sync_id");
+
         return [
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,sync_id,deleted_at,NULL",
+                Rule::unique("job_order", "one_charging_sync_id")
+                    ->ignore($this->route("job_order"))
+                    ->where("company_id", $company_id)
+                    ->where("location_id", $location_id)
+                    ->where("business_unit_id", $business_unit_id)
+                    ->where("department_id", $department_id)
+                    ->where("department_unit_id", $department_unit_id)
+                    ->where("sub_unit_id", $sub_unit_id),
+            ],
             "company_id" => [
                 "required",
                 "exists:companies,id,deleted_at,NULL",

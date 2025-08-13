@@ -24,6 +24,11 @@ class StoreRequest extends FormRequest
      */
     public function rules()
     {
+        $company_id = $this->input("company_id");
+        $business_unit_id = $this->input("business_unit_id");
+        $department_id = $this->input("department_id");
+        $one_charging_sync_id = $this->input("one_charging_sync_id");
+
         return [
             // "supplier_id" => "required|exists:suppliers,id",
             // "company_id" => [
@@ -33,11 +38,24 @@ class StoreRequest extends FormRequest
             //             $this->route()->po_approver
             //         : "unique:po_settings,company_id",
             // ],
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,sync_id,deleted_at,NULL",
+                Rule::unique("po_settings", "one_charging_sync_id")
+                    ->ignore($this->route("po_approver"))
+                    ->where("company_id", $company_id)
+                    ->where("business_unit_id", $business_unit_id)
+                    ->where("department_id", $department_id),
+            ],
             "company_id" => [
                 "required",
                 Rule::unique("po_settings")
                     ->where(function ($query) {
                         return $query
+                            ->where(
+                                "one_charging_sync_id",
+                                $one_charging_sync_id
+                            )
                             ->where(
                                 "business_unit_id",
                                 $this->input("business_unit_id")

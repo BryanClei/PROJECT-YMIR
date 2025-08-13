@@ -2,8 +2,10 @@
 
 namespace App\Exceptions;
 
-use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
+use Illuminate\Database\QueryException;
+use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 
 class Handler extends ExceptionHandler
 {
@@ -22,9 +24,9 @@ class Handler extends ExceptionHandler
      * @var array<int, string>
      */
     protected $dontFlash = [
-        'current_password',
-        'password',
-        'password_confirmation',
+        "current_password",
+        "password",
+        "password_confirmation",
     ];
 
     /**
@@ -37,5 +39,22 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+    }
+
+    public function render($request, Throwable $exception)
+    {
+        if ($exception instanceof QueryException) {
+            if (str_contains($exception->getMessage(), "[2002]")) {
+                return response()->json(
+                    [
+                        "message" =>
+                            "Database connection failed. Please make sure server is running.",
+                    ],
+                    Response::HTTP_SERVICE_UNAVAILABLE
+                );
+            }
+        }
+
+        return parent::render($request, $exception);
     }
 }

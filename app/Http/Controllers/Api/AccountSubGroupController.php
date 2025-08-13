@@ -46,6 +46,15 @@ class AccountSubGroupController extends Controller
             "name" => $request->name,
         ]);
 
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Sub Groups",
+            "Created",
+            "Created new sub account group: {$request->name}.",
+            [],
+            $account_sub_group->toArray()
+        );
+
         $account_group_collect = new AccountSubGroupResource(
             $account_sub_group
         );
@@ -65,9 +74,21 @@ class AccountSubGroupController extends Controller
             return GlobalFunction::invalid(Message::INVALID_ACTION);
         }
 
+        $previous_data = $account_sub_group->getOriginal();
+
         $account_sub_group->update([
             "name" => $request->name,
         ]);
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Sub Groups",
+            "Updated",
+            "Updated sub account group: {$account_sub_group->name}.",
+            $previous_data,
+            $account_sub_group->toArray()
+        );
+
         return GlobalFunction::responseFunction(
             Message::ACCOUNT_SUB_GROUP_UPDATE,
             $account_sub_group
@@ -93,10 +114,22 @@ class AccountSubGroupController extends Controller
         } elseif (!$is_active->deleted_at) {
             $account_sub_group->delete();
             $message = Message::ARCHIVE_STATUS;
+            $action = "Archived";
         } else {
             $account_sub_group->restore();
             $message = Message::RESTORE_STATUS;
+            $action = "Restored";
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Groups",
+            $action,
+            "{$action} account group: {$previous_data["name"]}.",
+            $previous_data,
+            []
+        );
+
         return GlobalFunction::responseFunction($message, $account_sub_group);
     }
 

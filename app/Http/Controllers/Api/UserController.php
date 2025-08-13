@@ -51,12 +51,22 @@ class UserController extends Controller
             "suffix" => $request->suffix,
             "position_name" => $request->position_name,
             "mobile_no" => $request->mobile_no,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "warehouse_id" => $request->warehouse_id,
             "username" => $request->username,
             "password" => Hash::make($request->username),
@@ -85,12 +95,22 @@ class UserController extends Controller
             "suffix" => $request->suffix,
             "position_name" => $request->position_name,
             "mobile_no" => $request->mobile_no,
+            "one_charging_id" => $request->one_charging_id,
+            "one_charging_sync_id" => $request->one_charging_sync_id,
+            "one_charging_code" => $request->one_charging_code,
+            "one_charging_name" => $request->one_charging_name,
             "company_id" => $request->company_id,
+            "company_code" => $request->company_code,
             "business_unit_id" => $request->business_unit_id,
+            "business_unit_code" => $request->business_unit_code,
             "department_id" => $request->department_id,
+            "department_code" => $request->department_code,
             "department_unit_id" => $request->department_unit_id,
+            "department_unit_code" => $request->department_unit_code,
             "sub_unit_id" => $request->sub_unit_id,
+            "sub_unit_code" => $request->sub_unit_code,
             "location_id" => $request->location_id,
+            "location_code" => $request->location_code,
             "warehouse_id" => $request->warehouse_id,
             "username" => $request->username,
             "role_id" => $request->role_id,
@@ -140,21 +160,17 @@ class UserController extends Controller
             ->where("username", $request->username)
             ->first();
 
-        $masterpassword = Hash::make(env("RDFSECRET"));
+        $masterPassword = config("services.rdf_secret");
 
         if (
             !$user ||
-            (!Hash::check($request->password, $masterpassword) &&
+            ($request->password !== $masterPassword &&
                 !Hash::check($request->password, $user->password))
         ) {
             throw ValidationException::withMessages([
                 "username" => ["The provided credentials are incorrect."],
                 "password" => ["The provided credentials are incorrect."],
             ]);
-
-            if ($user || Hash::check($request->password, $user->username)) {
-                return GlobalFunction::invalid(Message::INVALID_ACTION);
-            }
         }
 
         $token = $user->createToken("PersonalAccessToken")->plainTextToken;
@@ -177,6 +193,7 @@ class UserController extends Controller
             ->delete();
         return GlobalFunction::responseFunction(Message::LOGOUT_USER);
     }
+
     public function resetPassword($id)
     {
         $user = User::find($id);
@@ -190,6 +207,7 @@ class UserController extends Controller
         ]);
         return GlobalFunction::responseFunction(Message::CHANGE_PASSWORD);
     }
+
     public function changePassword(ChangePasswordRequest $request)
     {
         $id = Auth::id();

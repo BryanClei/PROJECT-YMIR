@@ -30,74 +30,83 @@ class StoreRequest extends FormRequest
         $department_unit_id = $this->input("department_unit_id");
         $sub_unit_id = $this->input("sub_unit_id");
         $location_id = $this->input("location_id");
-        return [
-            "company_id" => [
-                "required",
-                "exists:companies,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "company_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("location_id", $location_id)
-                    ->where("business_unit_id", $business_unit_id)
-                    ->where("department_id", $department_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("sub_unit_id", $sub_unit_id),
-            ],
-            "business_unit_id" => [
-                "required",
-                "exists:business_units,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "business_unit_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("company_id", $company_id)
-                    ->where("location_id", $location_id)
-                    ->where("department_id", $department_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("sub_unit_id", $sub_unit_id),
-            ],
-            "department_id" => [
-                "required",
-                "exists:departments,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "department_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("company_id", $company_id)
-                    ->where("business_unit_id", $business_unit_id)
-                    ->where("location_id", $location_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("sub_unit_id", $sub_unit_id),
-            ],
-            "department_unit_id" => [
-                "required",
-                "exists:department_units,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "department_unit_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("company_id", $company_id)
-                    ->where("location_id", $location_id)
-                    ->where("department_id", $department_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("sub_unit_id", $sub_unit_id),
-            ],
+        $one_charging_sync_id = $this->input("one_charging_sync_id");
 
-            "sub_unit_id" => [
+        return [
+            "one_charging_sync_id" => [
                 "required",
-                "exists:sub_units,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "sub_unit_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("company_id", $company_id)
-                    ->where("business_unit_id", $business_unit_id)
-                    ->where("department_id", $department_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("location_id", $location_id),
+                "exists:one_charging,sync_id,deleted_at,NULL",
+                Rule::unique(
+                    "approver_settings",
+                    "one_charging_sync_id"
+                )->ignore($this->route("approvers_setting")),
             ],
-            "location_id" => [
-                "required",
-                "exists:locations,id,deleted_at,NULL",
-                Rule::unique("approver_settings", "location_id")
-                    ->ignore($this->route("approvers_setting"))
-                    ->where("company_id", $company_id)
-                    ->where("business_unit_id", $business_unit_id)
-                    ->where("department_id", $department_id)
-                    ->where("department_unit_id", $department_unit_id)
-                    ->where("sub_unit_id", $sub_unit_id),
-            ],
+            // "company_id" => [
+            //     "required",
+            //     "exists:companies,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "company_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("location_id", $location_id)
+            //         ->where("business_unit_id", $business_unit_id)
+            //         ->where("department_id", $department_id)
+            //         ->where("department_unit_id", $department_unit_id)
+            //         ->where("sub_unit_id", $sub_unit_id),
+            // ],
+            // "business_unit_id" => [
+            //     "required",
+            //     "exists:business_units,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "business_unit_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("company_id", $company_id)
+            //         ->where("location_id", $location_id)
+            //         ->where("department_id", $department_id)
+            //         ->where("department_unit_id", $department_unit_id)
+            //         ->where("sub_unit_id", $sub_unit_id),
+            // ],
+            // "department_id" => [
+            //     "required",
+            //     "exists:departments,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "department_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("company_id", $company_id)
+            //         ->where("business_unit_id", $business_unit_id)
+            //         ->where("location_id", $location_id)
+            //         ->where("department_unit_id", $department_unit_id)
+            //         ->where("sub_unit_id", $sub_unit_id),
+            // ],
+            // "department_unit_id" => [
+            //     "required",
+            //     "exists:department_units,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "department_unit_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("company_id", $company_id)
+            //         ->where("location_id", $location_id)
+            //         ->where("department_id", $department_id)
+            //         ->where("sub_unit_id", $sub_unit_id),
+            // ],
+
+            // "sub_unit_id" => [
+            //     "required",
+            //     "exists:sub_units,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "sub_unit_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("company_id", $company_id)
+            //         ->where("business_unit_id", $business_unit_id)
+            //         ->where("department_id", $department_id)
+            //         ->where("department_unit_id", $department_unit_id)
+            //         ->where("location_id", $location_id),
+            // ],
+            // "location_id" => [
+            //     "required",
+            //     "exists:locations,id,deleted_at,NULL",
+            //     Rule::unique("approver_settings", "location_id")
+            //         ->ignore($this->route("approvers_setting"))
+            //         ->where("company_id", $company_id)
+            //         ->where("business_unit_id", $business_unit_id)
+            //         ->where("department_id", $department_id)
+            //         ->where("department_unit_id", $department_unit_id)
+            //         ->where("sub_unit_id", $sub_unit_id),
+            // ],
 
             "settings_approver.*.approver_id" => [
                 "required",
@@ -110,6 +119,7 @@ class StoreRequest extends FormRequest
     public function attributes()
     {
         return [
+            "one_charging_sync_id" => "one charging",
             "company_id" => "company",
             "business_unit_id" => "business unit",
             "department_id" => "department",
@@ -131,12 +141,14 @@ class StoreRequest extends FormRequest
 
     public function withValidator($validator)
     {
-        $validator->after(function ($validator) {
+        $validator->after(function ($validator) { 
+            // Testing request and inputs.
             // $validator
             //     ->errors()
             //     ->add("custom", $this->route("approvers_setting"));
             // $validator->errors()->add("custom", $this->user()->id);
             // $validator->errors()->add("custom", $this->input("order.*.id"));
+            // return $validator;
         });
     }
 }

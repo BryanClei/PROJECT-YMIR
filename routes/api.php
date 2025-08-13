@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AssetsController;
 use App\Http\Controllers\Api\CanvasController;
 use App\Http\Controllers\Api\CreditController;
 use App\Http\Controllers\Api\ETDApiController;
+use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\ExpenseController;
 use App\Http\Controllers\Api\JrDraftController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Api\JrReportController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\PrReportController;
 use App\Http\Controllers\Api\SearchPoController;
+use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\AllowableController;
 use App\Http\Controllers\Api\FedoraApiController;
@@ -71,6 +73,18 @@ use App\Http\Controllers\Api\JobOrderPurchaseOrderController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
  */
+Route::group(["middleware" => ["one_charging_auth_key"]], function () {
+    Route::post("external/rdf_one_charging/sync", [
+        ChargingController::class,
+        "sync",
+    ]);
+
+    Route::apiResource(
+        "external/rdf_one_charging",
+        ChargingController::class
+    )->names("external.rdf_one_charging");
+});
+
 Route::group(["middleware" => ["auth_key"]], function () {
     Route::get("general_ledger_integration", [
         GeneralLedgerController::class,
@@ -87,7 +101,9 @@ Route::group(["middleware" => ["auth_key"]], function () {
         "general_ledger_index_multiple_jo",
     ]);
 
-    Route::post("rdf_one_charging", [ChargingController::class, "store"]);
+    Route::post("rdf_one_charging/sync", [ChargingController::class, "sync"]);
+
+    Route::apiResource("rdf_one_charging", ChargingController::class);
 });
 
 Route::group(["middleware" => ["auth:sanctum"]], function () {
@@ -722,6 +738,16 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
         "purchasing_analysis_summary_jo",
     ]);
 
+    Route::patch("update_print_status/{id}", [
+        ReportSummaryController::class,
+        "print_status_update",
+    ]);
+
+    Route::patch("update_print_status_jo/{id}", [
+        ReportSummaryController::class,
+        "print_status_update_jo",
+    ]);
+
     Route::apiResource("pr_drafts", PrDraftController::class);
 
     Route::apiResource("jr_drafts", JrDraftController::class);
@@ -734,6 +760,18 @@ Route::group(["middleware" => ["auth:sanctum"]], function () {
 
     Route::apiResource("rr_date_setup", RRDateSetupController::class);
 
-    Route::apiResource("rdf_one_charging", ChargingController::class);
+    Route::get("export_logs", [ExportController::class, "export_logs"]);
+
+    Route::get("export_pr_summary", [
+        ExportController::class,
+        "export_pr_summary",
+    ]);
+
+    Route::patch("ship_to/archived/{id}", [
+        ShippingController::class,
+        "archived",
+    ]);
+
+    Route::apiResource("ship_to", ShippingController::class);
 });
 Route::post("login", [UserController::class, "login"]);

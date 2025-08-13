@@ -30,6 +30,10 @@ class UpdateRequest extends FormRequest
                         $this->route()->po_transaction
                     : "unique:po_transaction,id",
             ],
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,id,deleted_at,NULL",
+            ],
             "company_id" => ["required", "exists:companies,id,deleted_at,NULL"],
             "business_unit_id" => [
                 "required",

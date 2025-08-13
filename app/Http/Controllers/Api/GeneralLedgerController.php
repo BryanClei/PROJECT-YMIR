@@ -56,6 +56,7 @@ class GeneralLedgerController extends Controller
         $date = Carbon::parse($adjustment_month);
         $from_date = $request->from;
         $to_date = $request->to;
+        $type = $request->type;
 
         $month = $date->month;
         $year = $date->year;
@@ -79,6 +80,7 @@ class GeneralLedgerController extends Controller
                 "rr_transaction.po_transaction" => function ($query) {
                     $query->whereNot("module_name", "Expense")->withTrashed();
                 },
+                "po_transaction.one_charging",
             ])
             ->when($adjustment_month, function ($query) use ($month, $year) {
                 return $query
@@ -90,6 +92,22 @@ class GeneralLedgerController extends Controller
             })
             ->when($to_date, function ($query) use ($to_date) {
                 $query->where("delivery_date", "<=", $to_date);
+            })
+            ->when($type == "fixed_asset", function ($query) {
+                $query->whereHas("rr_transaction.po_transaction", function (
+                    $query
+                ) {
+                    $query->where("module_name", "Asset")->withTrashed();
+                });
+            })
+            ->when($type == "inventoriable", function ($query) {
+                $query->whereHas("rr_transaction.po_transaction", function (
+                    $query
+                ) {
+                    $query
+                        ->where("module_name", "Inventoriables")
+                        ->withTrashed();
+                });
             })
             ->whereNull("deleted_at")
             ->get();

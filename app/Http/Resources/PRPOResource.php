@@ -25,7 +25,10 @@ class PRPOResource extends JsonResource
             "helpdesk_id" => $this->helpdesk_id,
             "date_needed" => $this->date_needed,
             "user" => $this->getUserData(),
-
+            "one_charging_id" => $this->one_charging_id,
+            "one_charging_sync_id" => $this->one_charging_sync_id,
+            "one_charging_code" => $this->one_charging_code,
+            "one_charging_name" => $this->one_charging_name,
             "type" => [
                 "id" => $this->type_id,
                 "name" => $this->type_name,
@@ -68,7 +71,8 @@ class PRPOResource extends JsonResource
                 "pcf_remarks" => $this->pcf_remarks,
             ],
             "cap_ex" => $this->cap_ex,
-            "ship_to" => $this->ship_to,
+            "ship_to_id" => $this->ship_to_id,
+            "ship_to_name" => $this->ship_to_name,
             "sgp" => $this->sgp,
             "f1" => $this->f1,
             "f2" => $this->f2,

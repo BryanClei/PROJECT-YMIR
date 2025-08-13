@@ -31,6 +31,7 @@ class StoreRequest extends FormRequest
                         $this->route()->expense
                     : "unique:pr_transactions,pr_number",
             ],
+            "one_charging_sync_id" => "exists:one_charging,id,deleted_at,NULL",
             "company_id" => "exists:companies,id,deleted_at,NULL",
             "business_unit_id" => "exists:business_units,id,deleted_at,NULL",
             "department_id" => "exists:departments,id,deleted_at,NULL",
@@ -40,13 +41,21 @@ class StoreRequest extends FormRequest
             "location_id" => "exists:locations,id,deleted_at,NULL",
             "account_title_id" => "exists:account_titles,id,deleted_at,NULL",
             // "supplier_id" => "exists:suppliers,id,deleted_at,NULL",
-            // "ship_to" => "required",
+            "ship_to_id" => "required",
             "order.*.uom_id" => "exists:uoms,id,deleted_at,NULL",
             "order.*.item_name" => "required",
             "order.*.category_id" =>
                 "nullable|exists:categories,id,deleted_at,NULL",
         ];
     }
+
+    public function attributes(): array
+    {
+        return [
+            "ship_to_id" => "ship to",
+        ];
+    }
+
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
@@ -55,18 +64,18 @@ class StoreRequest extends FormRequest
             // $validator->errors()->add("custom", "STOP!");
 
             $approvers = ApproverSettings::where(
-                "business_unit_id",
-                $this->input("business_unit_id")
+                "one_charging_sync_id",
+                $this->input("one_charging_sync_id")
             )
-                ->where("company_id", $this->input("company_id"))
-                ->where("department_id", $this->input("department_id"))
-                ->where(
-                    "department_unit_id",
-                    $this->input("department_unit_id")
-                )
-                ->where("sub_unit_id", $this->input("sub_unit_id"))
-                ->where("location_id", $this->input("location_id"))
-                ->get()
+                // ->where("company_id", $this->input("company_id"))
+                // ->where("department_id", $this->input("department_id"))
+                // ->where(
+                //     "department_unit_id",
+                //     $this->input("department_unit_id")
+                // )
+                // ->where("sub_unit_id", $this->input("sub_unit_id"))
+                // ->where("location_id", $this->input("location_id"))
+                // ->get()
                 ->first();
             if (!$approvers) {
                 $validator->errors()->add("message", "No approvers yet.");

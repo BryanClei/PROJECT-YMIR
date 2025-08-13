@@ -19,7 +19,6 @@ class PurchaseAssistantPOFilters extends QueryFilters
         "department_name",
         "department_unit_name",
         "location_name",
-        "sub_unit_id",
         "sub_unit_name",
         "account_title_name",
         "supplier_name",
@@ -29,40 +28,6 @@ class PurchaseAssistantPOFilters extends QueryFilters
     protected array $relationSearch = [
         "pr_transaction" => ["pr_year_number_id"],
     ];
-
-    // protected function processSearch($search)
-    // {
-    //     foreach ($this->relationSearch as $relation => $columns) {
-    //         $this->builder->leftJoin(
-    //             $relation,
-    //             "po_transactions.pr_number",
-    //             "=",
-    //             $relation . ".pr_number"
-    //         );
-    //     }
-
-    //     $this->builder->where(function ($query) use ($search) {
-    //         // Search in main table columns
-    //         foreach ($this->columnSearch as $column) {
-    //             $query->orWhere(
-    //                 "po_transactions." . $column,
-    //                 "like",
-    //                 "%{$search}%"
-    //             );
-    //         }
-
-    //         // Search in relationship columns
-    //         foreach ($this->relationSearch as $table => $columns) {
-    //             foreach ($columns as $column) {
-    //                 $query->orWhere(
-    //                     $table . "." . $column,
-    //                     "like",
-    //                     "%{$search}%"
-    //                 );
-    //             }
-    //         }
-    //     });
-    // }
 
     public function search_business_unit($search_business_unit, $status = null)
     {
@@ -135,9 +100,16 @@ class PurchaseAssistantPOFilters extends QueryFilters
                     ])
                     ->where("status", "For Receiving")
                     ->whereHas("po_items", function ($subQuery) {
-                        $subQuery
-                            ->where("quantity_serve", ">", 0)
-                            ->whereColumn("quantity_serve", "<", "quantity");
+                        // At least one item has been received (fully or partially)
+                        $subQuery->where("quantity_serve", ">", 0);
+                    })
+                    ->whereHas("po_items", function ($subQuery) {
+                        // At least one item is not fully received
+                        $subQuery->whereColumn(
+                            "quantity_serve",
+                            "<",
+                            "quantity"
+                        );
                     })
                     ->whereNull("rejected_at")
                     ->whereNull("cancelled_at")

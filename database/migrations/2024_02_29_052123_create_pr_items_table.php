@@ -33,6 +33,8 @@ return new class extends Migration {
             $table->double("unit_price")->nullable();
             $table->double("total_price")->nullable();
             $table->double("quantity");
+            $table->double("partial_received")->default(0);
+            $table->double("remaining_qty");
             $table->string("remarks")->nullable();
             $table->string("attachment")->nullable();
             $table->string("buyer_id")->nullable();

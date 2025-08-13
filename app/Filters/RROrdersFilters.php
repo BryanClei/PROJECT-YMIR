@@ -2,6 +2,7 @@
 
 namespace App\Filters;
 
+use Carbon\Carbon;
 use App\Models\VladimirUser;
 use Essa\APIToolKit\Filters\QueryFilters;
 
@@ -26,43 +27,19 @@ class RROrdersFilters extends QueryFilters
         "pr_transaction" => ["pr_year_number_id"],
     ];
 
-    // protected function processSearch($search)
+    // public function from_po_date($f)
     // {
-    //     // Join the required relationships only once with correct conditions
-    //     $this->builder
-    //         ->leftJoin(
-    //             "rr_transaction",
-    //             "rr_orders.rr_id",
-    //             "=",
-    //             "rr_transaction.id"
-    //         )
-    //         ->leftJoin(
-    //             "po_transaction",
-    //             "rr_orders.po_id",
-    //             "=",
-    //             "po_transaction.id"
-    //         )
-    //         ->leftJoin(
-    //             "pr_transaction",
-    //             "rr_orders.pr_id",
-    //             "=",
-    //             "pr_transaction.id"
-    //         );
+    //     $this->builder->whereHas("po_transaction", function ($query) use ($f) {
+    //         $query->whereDate("created_at", ">", $f);
+    //     });
+    // }
 
-    //     $this->builder->where(function ($query) use ($search) {
-    //         foreach ($this->columnSearch as $column) {
-    //             $query->orWhere("rr_orders." . $column, "like", "%{$search}%");
-    //         }
-
-    //         foreach ($this->relationSearch as $table => $columns) {
-    //             foreach ($columns as $column) {
-    //                 $query->orWhere(
-    //                     $table . "." . $column,
-    //                     "like",
-    //                     "%{$search}%"
-    //                 );
-    //             }
-    //         }
+    // public function to_po_date($value)
+    // {
+    //     $this->builder->whereHas("po_transaction", function ($query) use (
+    //         $value
+    //     ) {
+    //         $query->whereDate("created_at", "<=", $value);
     //     });
     // }
 
@@ -70,6 +47,7 @@ class RROrdersFilters extends QueryFilters
     {
         $this->builder->whereDate("delivery_date", ">=", $from);
     }
+
     public function to($to)
     {
         $this->builder->whereDate("delivery_date", "<=", $to);

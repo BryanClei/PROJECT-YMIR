@@ -93,6 +93,15 @@ class RRTransactionController extends Controller
         $user_id = Auth()->user()->id;
         $po_transaction = POTransaction::findOrFail($request->po_no);
 
+        $assetType = $po_transaction->type_name;
+
+        if ($assetType == "Asset") {
+            return GlobalFunction::invalid([
+                "message" =>
+                    "Undermaintenance. Integration is currently disabled.",
+            ]);
+        }
+
         $pr_id_exists = RRHelperFunctions::checkPRExists(
             $po_transaction,
             $request->pr_no
@@ -197,12 +206,12 @@ class RRTransactionController extends Controller
     public function index_po_approved(PRViewRequest $request)
     {
         $status = $request->status;
-        $po_approve = POTransaction::with(
+        $po_approve = POTransaction::with([
             "order",
+            "pr_transaction" => fn($q) => $q->withTrashed(),
             "approver_history",
-            "rr_transaction",
-            "rr_transaction.rr_orders"
-        )
+            "rr_transaction.rr_orders",
+        ])
             ->orderByDesc("created_at")
             ->useFilters()
             ->dynamicPaginate();
@@ -379,6 +388,10 @@ class RRTransactionController extends Controller
     {
         $user_id = Auth()->user()->id;
         $type = $request->type;
+        $from_po_date = $request->from_po_date;
+        $to_po_date = $request->to_po_date;
+        $fa_summary = $request->boolean("fa_summary");
+        $per_user = $request->boolean("per_user");
 
         $query = RROrders::with([
             "order.supplier",
@@ -390,7 +403,9 @@ class RRTransactionController extends Controller
             "po_transaction.pr_transaction" => function ($query) {
                 $query->withTrashed();
             },
-            "po_transaction.pr_transaction.users",
+            "po_transaction.pr_transaction.vladimir_user",
+            "po_transaction.pr_transaction.regular_user",
+            // "po_transaction.pr_transaction.users",
             "po_transaction.pr_transaction.approver_history",
             "po_transaction.company",
             "po_transaction.department",
@@ -403,21 +418,49 @@ class RRTransactionController extends Controller
             "po_transaction.account_title.account_sub_group",
             "po_transaction.account_title.financial_statement",
             "po_transaction.approver_history",
-        ])->whereNull("deleted_at");
-
+        ])
+            ->when($fa_summary == true, function ($query) {
+                $query->whereHas("po_transaction", function ($subQuery) {
+                    $subQuery->where("module_name", "Asset");
+                });
+            })
+            ->when($per_user == true, function ($query) use ($user_id) {
+                $query->whereHas("rr_transaction", function ($subQuery) use (
+                    $user_id
+                ) {
+                    $subQuery->where("received_by", $user_id);
+                });
+            })
+            ->whereNull("deleted_at");
         if ($type === "for_user") {
             $query->whereHas("po_transaction", function ($q) use ($user_id) {
                 $q->where("user_id", $user_id);
             });
         }
 
+        if ($from_po_date && $to_po_date) {
+            $query->whereHas("po_transaction", function ($q) use (
+                $from_po_date,
+                $to_po_date
+            ) {
+                $q->whereBetween("created_at", [$from_po_date, $to_po_date]);
+            });
+        } elseif ($from_po_date) {
+            $query->whereHas("po_transaction", function ($q) use (
+                $from_po_date
+            ) {
+                $q->whereDate("created_at", ">=", $from_po_date);
+            });
+        } elseif ($to_po_date) {
+            $query->whereHas("po_transaction", function ($q) use ($to_po_date) {
+                $q->whereDate("created_at", "<=", $to_po_date);
+            });
+        }
         $rr_orders = $query->useFilters()->dynamicPaginate();
-
         $is_empty = $rr_orders->isEmpty();
         if ($is_empty) {
             return GlobalFunction::notFound(Message::NOT_FOUND);
         }
-
         if ($rr_orders instanceof AbstractPaginator) {
             $rr_orders->getCollection()->transform(function ($rr_order) {
                 if (
@@ -426,11 +469,59 @@ class RRTransactionController extends Controller
                 ) {
                     $quantity = $rr_order->order->quantity ?? 0;
                     $quantity_served = $rr_order->order->quantity_serve ?? 0;
-
                     $rr_order->po_status = $rr_order->po_transaction->status;
-
                     if ($quantity_served >= $quantity) {
                         $rr_order->po_transaction->status = "Received";
+                    }
+
+                    // Transform user based on module type
+                    if (isset($rr_order->po_transaction->pr_transaction)) {
+                        $pr_transaction =
+                            $rr_order->po_transaction->pr_transaction;
+                        $pr_transaction->users =
+                            $rr_order->po_transaction->module_name ===
+                                "Asset" && $pr_transaction->vladimir_user
+                                ? [
+                                    "id" => $pr_transaction->vladimir_user->id,
+                                    "employee_id" =>
+                                        $pr_transaction->vladimir_user
+                                            ->employee_id,
+                                    "username" =>
+                                        $pr_transaction->vladimir_user
+                                            ->username,
+                                    "first_name" =>
+                                        $pr_transaction->vladimir_user
+                                            ->firstname,
+                                    "last_name" =>
+                                        $pr_transaction->vladimir_user
+                                            ->lastname,
+                                ]
+                                : ($pr_transaction->regular_user
+                                    ? [
+                                        "prefix_id" =>
+                                            $pr_transaction->regular_user
+                                                ->prefix_id,
+                                        "id_number" =>
+                                            $pr_transaction->regular_user
+                                                ->id_number,
+                                        "first_name" =>
+                                            $pr_transaction->regular_user
+                                                ->first_name,
+                                        "middle_name" =>
+                                            $pr_transaction->regular_user
+                                                ->middle_name,
+                                        "last_name" =>
+                                            $pr_transaction->regular_user
+                                                ->last_name,
+                                        "mobile_no" =>
+                                            $pr_transaction->regular_user
+                                                ->mobile_no,
+                                    ]
+                                    : []);
+
+                        // Unset the original user relationships to avoid duplication
+                        unset($pr_transaction->vladimir_user);
+                        unset($pr_transaction->regular_user);
                     }
                 }
                 return $rr_order;
@@ -443,23 +534,69 @@ class RRTransactionController extends Controller
                 ) {
                     $quantity = $rr_order->order->quantity ?? 0;
                     $quantity_served = $rr_order->order->quantity_serve ?? 0;
-
                     $rr_order->po_status = $rr_order->po_transaction->status;
-
                     if ($quantity_served >= $quantity) {
                         $rr_order->po_transaction->status = "Received";
+                    }
+
+                    // Transform user based on module type
+                    if (isset($rr_order->po_transaction->pr_transaction)) {
+                        $pr_transaction =
+                            $rr_order->po_transaction->pr_transaction;
+                        $pr_transaction->users =
+                            $rr_order->po_transaction->module_name ===
+                                "Asset" && $pr_transaction->vladimir_user
+                                ? [
+                                    "id" => $pr_transaction->vladimir_user->id,
+                                    "employee_id" =>
+                                        $pr_transaction->vladimir_user
+                                            ->employee_id,
+                                    "username" =>
+                                        $pr_transaction->vladimir_user
+                                            ->username,
+                                    "first_name" =>
+                                        $pr_transaction->vladimir_user
+                                            ->firstname,
+                                    "last_name" =>
+                                        $pr_transaction->vladimir_user
+                                            ->lastname,
+                                ]
+                                : ($pr_transaction->regular_user
+                                    ? [
+                                        "prefix_id" =>
+                                            $pr_transaction->regular_user
+                                                ->prefix_id,
+                                        "id_number" =>
+                                            $pr_transaction->regular_user
+                                                ->id_number,
+                                        "first_name" =>
+                                            $pr_transaction->regular_user
+                                                ->first_name,
+                                        "middle_name" =>
+                                            $pr_transaction->regular_user
+                                                ->middle_name,
+                                        "last_name" =>
+                                            $pr_transaction->regular_user
+                                                ->last_name,
+                                        "mobile_no" =>
+                                            $pr_transaction->regular_user
+                                                ->mobile_no,
+                                    ]
+                                    : []);
+
+                        // Unset the original user relationships to avoid duplication
+                        unset($pr_transaction->vladimir_user);
+                        unset($pr_transaction->regular_user);
                     }
                 }
                 return $rr_order;
             });
         }
-
         return GlobalFunction::responseFunction(
             Message::PURCHASE_REQUEST_DISPLAY,
             $rr_orders
         );
     }
-
     public function cancel_rr(CancelRequest $request, $id)
     {
         $reason = $request->reason;

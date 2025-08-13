@@ -16,6 +16,10 @@ class RRTransactionV2Filters extends QueryFilters
         "tagging_id",
     ];
 
+    protected array $relationSearch = [
+        "po_transaction" => ["po_year_number_id"],
+    ];
+
     public function status($status)
     {
         $user_id = Auth()->user()->id;

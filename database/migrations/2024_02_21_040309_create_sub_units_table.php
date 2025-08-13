@@ -16,7 +16,10 @@ return new class extends Migration {
             $table->increments("id");
             $table->string("name");
             $table->string("code");
-            $table->unsignedInteger("department_unit_id")->index();
+            $table
+                ->unsignedInteger("department_unit_id")
+                ->nullable()
+                ->index();
             $table
                 ->foreign("department_unit_id")
                 ->references("id")

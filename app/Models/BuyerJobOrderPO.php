@@ -58,12 +58,16 @@ class BuyerJobOrderPO extends Model
         "cap_ex",
         "helpdesk_id",
         "cip_number",
+        "for_po_only",
+        "for_po_only_id",
         "approved_at",
         "rejected_at",
         "voided_at",
         "cancelled_at",
         "updated_by",
         "approver_id",
+        "ship_to_id",
+        "ship_to_name",
     ];
 
     public function users()

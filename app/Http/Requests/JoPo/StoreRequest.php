@@ -29,6 +29,10 @@ class StoreRequest extends FormRequest
                 "required",
                 "exists:jo_transactions,jo_number,deleted_at,NULL",
             ],
+            "one_charging_sync_id" => [
+                "required",
+                "exists:one_charging,sync_id,deleted_at,NULL",
+            ],
             "company_id" => "exists:companies,id,deleted_at,NULL",
             "business_unit_id" => "exists:business_units,id,deleted_at,NULL",
             "department_id" => "exists:departments,id,deleted_at,NULL",
@@ -66,13 +70,18 @@ class StoreRequest extends FormRequest
             //     }
             // }
 
+            // $charging_po_approvers = JobOrderPurchaseOrder::where(
+            //     "company_id",
+            //     $this->input("company_id")
+            // )
+            //     ->where("business_unit_id", $this->input("business_unit_id"))
+            //     ->where("department_id", $this->input("department_id"))
+            //     ->first();
+
             $charging_po_approvers = JobOrderPurchaseOrder::where(
-                "company_id",
-                $this->input("company_id")
-            )
-                ->where("business_unit_id", $this->input("business_unit_id"))
-                ->where("department_id", $this->input("department_id"))
-                ->first();
+                "one_charging_sync_id",
+                $this->input("one_charging_sync_id")
+            )->first();
 
             if (!$charging_po_approvers) {
                 $validator->errors()->add("message", "No po approvers yet.");

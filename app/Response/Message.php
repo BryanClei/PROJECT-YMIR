@@ -48,7 +48,8 @@ class Message
     const CREDIT_SAVE = "Credit successfully created.";
     const PURCHASE_REQUEST_DRAFT_SAVE = "Draft successfully save.";
     const CALENDAR_SETUP_SAVE = "Calendar setup successfully save.";
-    const CHRAGING_SAVE = "One Charging successfully save.";
+    const CHARGING_SAVE = "One Charging successfully save.";
+    const SHIP_TO_SAVE = "Ship to successfully save.";
 
     // DISPLAY DATA
     const USER_DISPLAY = "User display successfully.";
@@ -91,6 +92,7 @@ class Message
     const PURCHASE_REQUEST_DRAFT_DISPLAY = "Draft display successfully.";
     const CALENDAR_SETUP = "Calendar setup display successfully.";
     const CHARGING_DISPLAY = "One Charging display successfully.";
+    const SHIP_TO_DISPLAY = "Ship display successfully.";
 
     //UPDATE
     const USER_UPDATE = "User successfully updated.";
@@ -138,6 +140,7 @@ class Message
     const CREDIT_UPDATE = "Credit updated successfully.";
     const PURCHASE_REQUEST_DRAFT_UPDATE = "Purchase request draft update successfully.";
     const CALENDAR_SETUP_UPDATED = "Calendar setup updated successfully.";
+    const SHIP_TO_UPDATED = "Ship updated successfully.";
 
     const RR_TAGGED_FISTO = "RR orders tagged successfully.";
     const RR_ETD_ITEMS = "RR orders sync successfully.";
