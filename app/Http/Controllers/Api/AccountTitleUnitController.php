@@ -46,6 +46,15 @@ class AccountTitleUnitController extends Controller
             "name" => $request->name,
         ]);
 
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title Unit",
+            "Created",
+            "Created new account title: {$request->name}.",
+            [],
+            $account_title_units->toArray()
+        );
+
         $account_unit_collect = new AccountTitleUnitResource(
             $account_title_units
         );
@@ -65,9 +74,21 @@ class AccountTitleUnitController extends Controller
             return GlobalFunction::invalid(Message::INVALID_ACTION);
         }
 
+        $previous_data = $account_title_units->getOriginal();
+
         $account_title_units->update([
             "name" => $request->name,
         ]);
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            "Updated",
+            "Updated account title: {$account_title->name}.",
+            $previous_data,
+            $account_title_units->toArray()
+        );
+
         return GlobalFunction::responseFunction(
             Message::ACCOUNT_TITLE_UNIT_UPDATE,
             $account_title_units
@@ -93,10 +114,22 @@ class AccountTitleUnitController extends Controller
         } elseif (!$is_active->deleted_at) {
             $account_title_units->delete();
             $message = Message::ARCHIVE_STATUS;
+            $action = "Archived";
         } else {
             $account_title_units->restore();
             $message = Message::RESTORE_STATUS;
+            $action = "Restored";
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            $action,
+            "{$action} account title: {$account_title["name"]}.",
+            [],
+            []
+        );
+
         return GlobalFunction::responseFunction($message, $account_title_units);
     }
 

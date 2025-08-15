@@ -74,6 +74,15 @@ class AccountTitleController extends Controller
             "request_type" => $request->request_type,
         ]);
 
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            "Created",
+            "Created new account title: {$request->name}.",
+            [],
+            $account_title->toArray()
+        );
+
         $account_title_collect = new AccountTitleResource($account_title);
 
         return GlobalFunction::save(
@@ -91,6 +100,8 @@ class AccountTitleController extends Controller
             return GlobalFunction::invalid(Message::INVALID_ACTION);
         }
 
+        $previous_data = $account_title->getOriginal();
+
         $account_title->update([
             "name" => $request->name,
             "code" => $request->code,
@@ -106,6 +117,15 @@ class AccountTitleController extends Controller
             "request_id" => $request->request_id,
             "request_type" => $request->request_type,
         ]);
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            "Updated",
+            "Updated account title: {$account_title->name}.",
+            $previous_data,
+            $account_title->toArray()
+        );
 
         $account_title_collect = new AccountTitleResource($account_title);
 
@@ -134,10 +154,22 @@ class AccountTitleController extends Controller
         } elseif (!$is_active->deleted_at) {
             $account_title->delete();
             $message = Message::ARCHIVE_STATUS;
+            $action = "Archived";
         } else {
             $account_title->restore();
             $message = Message::RESTORE_STATUS;
+            $action = "Restored";
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            $action,
+            "{$action} account title: {$account_title["name"]}.",
+            [],
+            []
+        );
+
         return GlobalFunction::responseFunction($message, $account_title);
     }
 
@@ -197,7 +229,18 @@ class AccountTitleController extends Controller
                 "request_id" => $request_type_id->id,
                 "request_type" => $request_type_id->name,
             ]);
+
+            $new_records[] = $account_title->toArray();
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Title",
+            "Imported",
+            "Imported " . count($new_records) . " account groups.",
+            [],
+            $new_records
+        );
 
         return GlobalFunction::save(Message::ACCOUNT_TITLE_SAVE, $import);
     }

@@ -126,8 +126,8 @@ class AccountGroupController extends Controller
             "Account Title Settings",
             "Account Groups",
             $action,
-            "{$action} account group: {$previous_data["name"]}.",
-            $previous_data,
+            "{$action} account group: {$account_group["name"]}.",
+            [],
             []
         );
 

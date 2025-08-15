@@ -396,7 +396,9 @@ class RRTransactionController extends Controller
         $query = RROrders::with([
             "order.supplier",
             "order.uom",
-            "rr_transaction",
+            "rr_transaction" => function ($query) {
+                $query->withTrashed();
+            },
             "po_transaction" => function ($query) {
                 $query->withTrashed();
             },

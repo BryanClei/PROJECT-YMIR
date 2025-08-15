@@ -125,8 +125,8 @@ class AccountSubGroupController extends Controller
             "Account Title Settings",
             "Account Groups",
             $action,
-            "{$action} account group: {$previous_data["name"]}.",
-            $previous_data,
+            "{$action} account sub group: {$account_sub_group["name"]}.",
+            [],
             []
         );
 
@@ -141,7 +141,18 @@ class AccountSubGroupController extends Controller
             $subgroup = AccountSubGroup::create([
                 "name" => $index["name"],
             ]);
+
+            $new_records[] = $subgroup->toArray();
         }
+
+        GlobalFunction::master_logs(
+            "Account Title Settings",
+            "Account Sub Groups",
+            "Imported",
+            "Imported " . count($new_records) . " account sub groups.",
+            [],
+            $new_records
+        );
 
         return GlobalFunction::save(Message::ACCOUNT_SUB_GROUP_SAVE, $import);
     }
